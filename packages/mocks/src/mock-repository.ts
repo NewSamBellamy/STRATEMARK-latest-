@@ -1,0 +1,330 @@
+/**
+ * In-memory MarketIntelRepository. This is the whole "back end" during the
+ * front-end phase. It is deliberately faithful to the interface contract so the
+ * IpcRepository (Electron) can replace it with zero UI changes.
+ */
+import {
+  type Card,
+  type CardFilter,
+  type CardWithCompany,
+  type Company,
+  type CompanyMetric,
+  type CreateMarketInput,
+  type DashboardTab,
+  type DashboardTabResult,
+  type DeepDiveInput,
+  type DeepDiveResult,
+  type FactCheckInput,
+  type FactCheckResult,
+  type Report,
+  type ReportRequest,
+  type Deck,
+  type DeckRefreshEvent,
+  type DeckRefreshListener,
+  type DeckResearchBrief,
+  type Market,
+  type MarketIntelRepository,
+  type RefreshCadence,
+  type ResearchHandlers,
+  type Unsubscribe,
+  type ViceClaim,
+} from '@mi/contracts';
+import { buildDataset, type DashboardRecord, type Dataset } from './build-dataset';
+
+export interface MockRepositoryOptions {
+  /** Artificial latency (ms) so loading states are visible in dev. Default 0. */
+  latencyMs?: number;
+  /** Provide a prebuilt dataset (tests); defaults to the sample market. */
+  dataset?: Dataset;
+}
+
+let counter = 0;
+const uid = (prefix: string): string => {
+  counter += 1;
+  return `${prefix}_${Date.now().toString(36)}${counter}`;
+};
+
+export class MockRepository implements MarketIntelRepository {
+  private readonly latency: number;
+  private markets: Market[];
+  private decks: Deck[];
+  private companies: Company[];
+  private metrics: CompanyMetric[];
+  private cards: Card[];
+  private viceClaims: ViceClaim[];
+  private dashboards: Record<string, DashboardRecord>;
+  private listeners = new Set<DeckRefreshListener>();
+
+  constructor(options: MockRepositoryOptions = {}) {
+    this.latency = options.latencyMs ?? 0;
+    const data = options.dataset ?? buildDataset();
+    this.markets = [data.market];
+    this.decks = [data.deck];
+    this.companies = [...data.companies];
+    this.metrics = [...data.metrics];
+    this.cards = [...data.cards];
+    this.viceClaims = [...data.viceClaims];
+    this.dashboards = { ...data.dashboards };
+  }
+
+  private async delay<T>(value: T): Promise<T> {
+    if (this.latency > 0) await new Promise((r) => setTimeout(r, this.latency));
+    return value;
+  }
+
+  // Markets -----------------------------------------------------------------
+  listMarkets(): Promise<Market[]> {
+    return this.delay([...this.markets]);
+  }
+
+  getMarket(id: string): Promise<Market | null> {
+    return this.delay(this.markets.find((m) => m.id === id) ?? null);
+  }
+
+  createMarket(input: CreateMarketInput): Promise<Market> {
+    const market: Market = {
+      id: uid('mkt'),
+      name: input.name,
+      scopeDefinition: input.scopeDefinition,
+      refreshCadence: input.refreshCadence,
+      createdAt: new Date().toISOString(),
+    };
+    const deck: Deck = {
+      id: uid('dck'),
+      marketId: market.id,
+      createdAt: market.createdAt,
+      lastRefreshedAt: null, // no research run yet
+    };
+    this.markets = [market, ...this.markets];
+    this.decks = [...this.decks, deck];
+    return this.delay(market);
+  }
+
+  updateMarketCadence(id: string, cadence: RefreshCadence): Promise<Market> {
+    const market = this.markets.find((m) => m.id === id);
+    if (!market) return Promise.reject(new Error(`Market not found: ${id}`));
+    market.refreshCadence = cadence;
+    return this.delay(market);
+  }
+
+  // Decks -------------------------------------------------------------------
+  getDeckByMarket(marketId: string): Promise<Deck | null> {
+    return this.delay(this.decks.find((d) => d.marketId === marketId) ?? null);
+  }
+
+  /**
+   * Demo implementation (no API key): fabricates a deck from the sample research
+   * output so the flow is explorable without Gemini. The real grounded pipeline
+   * lives in @mi/research's GeminiRepository, which the app uses once a key is set.
+   */
+  async createResearchedDeck(
+    brief: DeckResearchBrief,
+    handlers?: ResearchHandlers,
+  ): Promise<{ market: Market; deck: Deck }> {
+    handlers?.onProgress?.({ message: 'Interpreting the market…', progress: 0.15 });
+    const market = await this.createMarket({
+      name: brief.prompt.slice(0, 70),
+      scopeDefinition: {
+        vertical: brief.prompt,
+        geography: brief.region,
+        notes: 'Demo deck — sample data. Add a Google AI Studio key for live research.',
+      },
+      refreshCadence: 'weekly',
+    });
+    handlers?.onProgress?.({ message: 'Researching companies (sample)…', progress: 0.6 });
+    await this.refreshDeck(market.id);
+    handlers?.onProgress?.({ message: 'Assembling deck…', progress: 1 });
+    const deck = (await this.getDeckByMarket(market.id))!;
+    return { market, deck };
+  }
+
+  refreshDeck(marketId: string): Promise<Deck> {
+    const deck = this.decks.find((d) => d.marketId === marketId);
+    if (!deck) return Promise.reject(new Error(`Deck not found for market: ${marketId}`));
+    const now = new Date().toISOString();
+    const existing = this.cards.filter((c) => c.deckId === deck.id);
+
+    let event: DeckRefreshEvent;
+    if (existing.length === 0) {
+      // Simulate a first research pass: populate this deck from the sample set.
+      const added = this.populateDeckFromSample(deck.id);
+      event = {
+        marketId,
+        deckId: deck.id,
+        refreshedAt: now,
+        addedCardIds: added,
+        updatedCardIds: [],
+        prunedCardIds: [],
+      };
+    } else {
+      // Simulate an incremental refresh: touch timestamps, no structural change.
+      event = {
+        marketId,
+        deckId: deck.id,
+        refreshedAt: now,
+        addedCardIds: [],
+        updatedCardIds: existing.slice(0, 1).map((c) => c.id),
+        prunedCardIds: [],
+      };
+    }
+    deck.lastRefreshedAt = now;
+    this.emit(event);
+    return this.delay(deck);
+  }
+
+  /** Clone the sample market's research output into a freshly-created deck. */
+  private populateDeckFromSample(deckId: string): string[] {
+    const sample = buildDataset();
+    const companyIdMap = new Map<string, string>();
+    for (const company of sample.companies) {
+      const newId = `${company.id}__${deckId}`;
+      companyIdMap.set(company.id, newId);
+      this.companies.push({ ...company, id: newId });
+      this.dashboards[newId] = sample.dashboards[company.id]!;
+    }
+    for (const metric of sample.metrics) {
+      const newCompanyId = companyIdMap.get(metric.companyId);
+      if (!newCompanyId) continue;
+      this.metrics.push({ ...metric, id: `${metric.id}__${deckId}`, companyId: newCompanyId });
+    }
+    const addedCardIds: string[] = [];
+    for (const card of sample.cards) {
+      const newCardId = `${card.id}__${deckId}`;
+      addedCardIds.push(newCardId);
+      this.cards.push({
+        ...card,
+        id: newCardId,
+        deckId,
+        companyId: card.companyId ? (companyIdMap.get(card.companyId) ?? null) : null,
+      });
+      for (const vc of sample.viceClaims.filter((x) => x.cardId === card.id)) {
+        this.viceClaims.push({ ...vc, id: `${vc.id}__${deckId}`, cardId: newCardId });
+      }
+    }
+    return addedCardIds;
+  }
+
+  // Cards -------------------------------------------------------------------
+  listCards(deckId: string, filter?: CardFilter): Promise<CardWithCompany[]> {
+    const result = this.cards
+      .filter((c) => c.deckId === deckId)
+      .filter((c) => (filter?.cardType ? c.cardType === filter.cardType : true))
+      .filter((c) => (filter?.tier ? c.tier === filter.tier : true))
+      .map((card) => this.hydrate(card));
+    return this.delay(result);
+  }
+
+  getCard(cardId: string): Promise<CardWithCompany | null> {
+    const card = this.cards.find((c) => c.id === cardId);
+    return this.delay(card ? this.hydrate(card) : null);
+  }
+
+  private hydrate(card: Card): CardWithCompany {
+    const company = card.companyId
+      ? (this.companies.find((c) => c.id === card.companyId) ?? null)
+      : null;
+    const metrics = card.companyId
+      ? this.metrics.filter((m) => m.companyId === card.companyId)
+      : [];
+    const viceClaims =
+      card.cardType === 'vice' ? this.viceClaims.filter((v) => v.cardId === card.id) : [];
+    return { card, company, metrics, viceClaims };
+  }
+
+  // Company detail ----------------------------------------------------------
+  getCompany(companyId: string): Promise<Company | null> {
+    return this.delay(this.companies.find((c) => c.id === companyId) ?? null);
+  }
+
+  getCompanyMetrics(companyId: string): Promise<CompanyMetric[]> {
+    return this.delay(this.metrics.filter((m) => m.companyId === companyId));
+  }
+
+  getViceClaims(cardId: string): Promise<ViceClaim[]> {
+    return this.delay(this.viceClaims.filter((v) => v.cardId === cardId));
+  }
+
+  // Dashboard ---------------------------------------------------------------
+  getDashboardTab<T extends DashboardTab>(
+    companyId: string,
+    tab: T,
+  ): Promise<DashboardTabResult<T> | null> {
+    const record = this.dashboards[companyId];
+    if (!record) return this.delay(null);
+    const result: DashboardTabResult<T> = {
+      companyId,
+      tab,
+      content: record.content[tab],
+      lastRefreshedAt: record.lastRefreshedAt,
+    };
+    return this.delay(result);
+  }
+
+  private reports: Report[] = [];
+
+  factCheck(input: FactCheckInput): Promise<FactCheckResult> {
+    return this.delay({
+      verdict: 'unverified' as const,
+      rationale: `Demo mode — live fact-checks run a grounded Google Search pass. Connect a free Google AI Studio key in Settings to verify "${input.claim.slice(0, 60)}…" against real sources.`,
+      citations: [],
+    });
+  }
+
+  async generateReport(request: ReportRequest): Promise<Report> {
+    const subjectName =
+      request.kind === 'company'
+        ? (this.companies.find((c) => c.id === request.subjectId)?.name ?? 'Company')
+        : (this.markets.find((m) => this.decks.find((d) => d.id === request.subjectId)?.marketId === m.id)?.name ?? 'Market');
+    const report: Report = {
+      id: uid('rpt'),
+      kind: request.kind,
+      subjectId: request.subjectId,
+      title: `${subjectName} — ${request.kind === 'deck' ? 'Market' : 'Company'} Report (demo)`,
+      markdown: [
+        `## Executive summary`,
+        `This is a demo report for **${subjectName}** built from sample data. With a Google AI Studio key connected, reports are composed from your deck's researched, sourced evidence plus a fresh grounded search pass — with citations.`,
+        `## What a live report includes`,
+        `- Landscape and tier structure drawn from your researched cards`,
+        `- Key players with their verified/estimated figures (never invented)`,
+        `- Risks, barriers to entry, and an outlook grounded in current search`,
+      ].join('\n\n'),
+      citations: [],
+      createdAt: new Date().toISOString(),
+    };
+    this.reports = [report, ...this.reports];
+    return this.delay(report);
+  }
+
+  listReports(): Promise<Report[]> {
+    return this.delay([...this.reports]);
+  }
+  getReport(id: string): Promise<Report | null> {
+    return this.delay(this.reports.find((r) => r.id === id) ?? null);
+  }
+
+  deepDive(input: DeepDiveInput): Promise<DeepDiveResult> {
+    return this.delay({
+      markdown: [
+        `## ${input.topic}`,
+        ``,
+        `Live, sourced deep-dives run with a Google AI Studio key. This is a demo placeholder for **${input.companyName}**.`,
+        ``,
+        `- Connect a key in **Settings** to get grounded, cited detail on ${input.topic.toLowerCase()}.`,
+        `- Every live deep-dive returns concrete figures with source links.`,
+      ].join('\n'),
+      citations: [],
+    });
+  }
+
+  // Live refresh stream -----------------------------------------------------
+  subscribeDeckRefresh(listener: DeckRefreshListener): Unsubscribe {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  private emit(event: DeckRefreshEvent): void {
+    for (const listener of this.listeners) listener(event);
+  }
+}

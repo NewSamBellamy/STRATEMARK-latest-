@@ -1,0 +1,7 @@
+node_modules
+dist
+dist-electron
+coverage
+playwright-report
+storybook-static
+pnpm-lock.yaml

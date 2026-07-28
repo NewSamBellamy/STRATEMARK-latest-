@@ -1,0 +1,39 @@
+{
+  "name": "market-intel",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Market Intelligence Deck Builder — desktop research tool (front-end phase)",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @mi/web dev",
+    "build": "pnpm -r --filter=./packages/* build && pnpm --filter @mi/web build",
+    "build:contracts": "pnpm --filter @mi/contracts build",
+    "build:mocks": "pnpm --filter @mi/mocks build",
+    "preview": "pnpm --filter @mi/web preview",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --write \"**/*.{ts,tsx,css,md,json}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,css,md,json}\"",
+    "test": "pnpm --filter @mi/contracts test && pnpm --filter @mi/web test",
+    "test:unit": "pnpm --filter @mi/contracts test:run && pnpm --filter @mi/web test:run",
+    "test:e2e": "pnpm --filter @mi/web test:e2e",
+    "storybook": "pnpm --filter @mi/web storybook",
+    "desktop:dev": "pnpm --filter @mi/desktop dev",
+    "check": "pnpm typecheck && pnpm lint && pnpm test:unit"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "eslint": "^9.17.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "msw"]
+  },
+  "packageManager": "pnpm@10.34.3"
+}

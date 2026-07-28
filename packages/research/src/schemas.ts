@@ -1,0 +1,92 @@
+/**
+ * Zod schemas for the model's structured outputs. Every structuring call is
+ * validated against these before anything is assembled into a card — so a
+ * malformed / hallucinated response is caught, not rendered. Defaults are
+ * permissive (missing → Unknown/null) to honor the missing-data protocol.
+ */
+import { z } from 'zod';
+import { cardTypeSchema, confidenceSchema } from '@mi/contracts';
+
+export const metricOutSchema = z.object({
+  value: z.number().nullable().default(null),
+  confidence: confidenceSchema.default('unknown'),
+  /** Index into the grounded citations array; null if not attributable. */
+  sourceIndex: z.number().int().nullable().default(null),
+  /** One-line "how we got this" note for estimated figures. */
+  method: z.string().nullable().default(null),
+});
+export type MetricOut = z.infer<typeof metricOutSchema>;
+
+export const marketPlanOutSchema = z.object({
+  marketName: z.string().min(1),
+  vertical: z.string().min(1),
+  geography: z.string().nullable().default(null),
+  notes: z.string().nullable().default(null),
+  searchThemes: z.array(z.string()).default([]),
+});
+
+// Tolerant of the model returning either { companies: [...] } or a bare [...].
+export const discoveryOutSchema = z.preprocess(
+  (v) => (Array.isArray(v) ? { companies: v } : v),
+  z.object({
+    companies: z
+      .array(
+        z.object({
+          name: z.string().min(1),
+          domain: z.string().nullable().default(null),
+          descriptor: z.string().default(''),
+          cardTypes: z.array(cardTypeSchema).default(['company']),
+        }),
+      )
+      .default([]),
+  }),
+);
+
+export const enrichmentOutSchema = z.object({
+  oneLiner: z.string().default(''),
+  hqLocation: z.string().nullable().default(null),
+  website: z.string().nullable().default(null),
+  /** Brand colors scraped/inferred from the company's site, hex. */
+  brand: z
+    .object({
+      primary: z.string().nullable().default(null),
+      secondary: z.string().nullable().default(null),
+      accent: z.string().nullable().default(null),
+    })
+    .nullable()
+    .default(null),
+  // nullish (not just optional): the model often emits explicit null for
+  // metrics it couldn't find — accept that and treat it as "absent".
+  metrics: z
+    .object({
+      market_share: metricOutSchema.nullish(),
+      valuation: metricOutSchema.nullish(),
+      market_cap: metricOutSchema.nullish(),
+      arr: metricOutSchema.nullish(),
+      users: metricOutSchema.nullish(),
+      employees: metricOutSchema.nullish(),
+    })
+    .default({}),
+  viceClaims: z
+    .array(z.object({ text: z.string(), sourceIndex: z.number().int().nullable().default(null) }))
+    .default([]),
+  cultureNote: z.string().nullable().default(null),
+});
+export type EnrichmentOut = z.infer<typeof enrichmentOutSchema>;
+
+export const tierReviewOutSchema = z.object({
+  nudge: z.union([z.literal(-1), z.literal(0), z.literal(1)]).default(0),
+  reason: z.string().nullable().default(null),
+});
+
+export const factCheckOutSchema = z.object({
+  verdict: z.enum(['supported', 'contradicted', 'unverified']).default('unverified'),
+  rationale: z.string().default(''),
+});
+
+export const barrierOutSchema = z.preprocess(
+  (v) => (Array.isArray(v) ? { barriers: v } : v),
+  z.object({
+    barriers: z.array(z.object({ title: z.string(), summary: z.string() })).default([]),
+  }),
+);

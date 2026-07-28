@@ -1,0 +1,379 @@
+/**
+ * GeminiRepository — a full MarketIntelRepository backed by the live research
+ * pipeline. Deck creation runs grounded research; dashboard tabs are researched
+ * lazily on first open and cached. State persists through a pluggable store
+ * (localStorage in the web app; SQLite/electron-store later). Because it
+ * satisfies the same interface as MockRepository, the app swaps to it simply by
+ * having an API key present — no UI changes.
+ */
+import {
+  type Card,
+  type CardFilter,
+  type CardWithCompany,
+  type Company,
+  type CompanyMetric,
+  type CreateMarketInput,
+  type DashboardTab,
+  type DashboardTabResult,
+  type DeepDiveInput,
+  type DeepDiveResult,
+  type FactCheckInput,
+  type FactCheckResult,
+  type Report,
+  type ReportRequest,
+  type Deck,
+  type DeckRefreshEvent,
+  type DeckRefreshListener,
+  type DeckResearchBrief,
+  type Market,
+  type MarketIntelRepository,
+  type RefreshCadence,
+  type ResearchHandlers,
+  type Unsubscribe,
+  type ViceClaim,
+} from '@mi/contracts';
+import { createGeminiClient, type GeminiClientConfig } from './gemini';
+import { researchDashboardTab } from './dashboard';
+import { runDeckResearch, type ResearchResult } from './pipeline';
+import { GROUNDED_SYSTEM, STRUCTURE_SYSTEM } from './prompts';
+import { factCheckOutSchema } from './schemas';
+import type { LlmClient } from './types';
+
+interface CachedTab {
+  content: unknown;
+  lastRefreshedAt: string;
+}
+
+export interface RepoSnapshot {
+  markets: Market[];
+  decks: Deck[];
+  companies: Company[];
+  metrics: CompanyMetric[];
+  cards: Card[];
+  viceClaims: ViceClaim[];
+  dashboards: Record<string, Partial<Record<DashboardTab, CachedTab>>>;
+  companyMarket: Record<string, string>;
+  reports: Report[];
+}
+
+export interface ResearchStore {
+  read(): RepoSnapshot | null;
+  write(snapshot: RepoSnapshot): void;
+}
+
+const empty = (): RepoSnapshot => ({
+  markets: [],
+  decks: [],
+  companies: [],
+  metrics: [],
+  cards: [],
+  viceClaims: [],
+  dashboards: {},
+  companyMarket: {},
+  reports: [],
+});
+
+/** Migration-safe read: older persisted snapshots may lack newer fields. */
+function normalize(raw: RepoSnapshot | null): RepoSnapshot {
+  if (!raw) return empty();
+  return { ...empty(), ...raw, reports: raw.reports ?? [] };
+}
+
+export interface GeminiRepositoryOptions extends GeminiClientConfig {
+  store?: ResearchStore;
+  /** Inject a client for tests (bypasses network). */
+  client?: LlmClient;
+  targetCompanies?: number;
+  concurrency?: number;
+}
+
+export class GeminiRepository implements MarketIntelRepository {
+  private snap: RepoSnapshot;
+  private readonly client: LlmClient;
+  private readonly store?: ResearchStore;
+  private readonly targetCompanies?: number;
+  private readonly concurrency?: number;
+  private listeners = new Set<DeckRefreshListener>();
+
+  constructor(options: GeminiRepositoryOptions) {
+    this.client = options.client ?? createGeminiClient(options);
+    this.store = options.store;
+    this.targetCompanies = options.targetCompanies;
+    this.concurrency = options.concurrency;
+    this.snap = normalize(this.store?.read() ?? null);
+  }
+
+  private persist(): void {
+    this.store?.write(this.snap);
+  }
+
+  /** Flatten a pipeline result into the normalized store. */
+  private ingest(result: ResearchResult): void {
+    this.snap.markets = [result.market, ...this.snap.markets.filter((m) => m.id !== result.market.id)];
+    this.snap.decks = [result.deck, ...this.snap.decks.filter((d) => d.id !== result.deck.id)];
+    const companyById = new Map<string, Company>();
+    const metrics: CompanyMetric[] = [];
+    for (const cwc of result.cards) {
+      this.snap.cards.push(cwc.card);
+      if (cwc.company && !companyById.has(cwc.company.id)) {
+        companyById.set(cwc.company.id, cwc.company);
+        metrics.push(...cwc.metrics);
+        this.snap.companyMarket[cwc.company.id] = result.market.name;
+      }
+      this.snap.viceClaims.push(...cwc.viceClaims);
+    }
+    this.snap.companies.push(...companyById.values());
+    this.snap.metrics.push(...metrics);
+    this.persist();
+  }
+
+  // Markets -----------------------------------------------------------------
+  listMarkets(): Promise<Market[]> {
+    return Promise.resolve([...this.snap.markets]);
+  }
+  getMarket(id: string): Promise<Market | null> {
+    return Promise.resolve(this.snap.markets.find((m) => m.id === id) ?? null);
+  }
+  createMarket(input: CreateMarketInput): Promise<Market> {
+    const market: Market = {
+      id: `mkt_${Date.now().toString(36)}`,
+      name: input.name,
+      scopeDefinition: input.scopeDefinition,
+      refreshCadence: input.refreshCadence,
+      createdAt: new Date().toISOString(),
+    };
+    this.snap.markets = [market, ...this.snap.markets];
+    this.snap.decks = [
+      ...this.snap.decks,
+      { id: `dck_${Date.now().toString(36)}`, marketId: market.id, createdAt: market.createdAt, lastRefreshedAt: null },
+    ];
+    this.persist();
+    return Promise.resolve(market);
+  }
+  updateMarketCadence(id: string, cadence: RefreshCadence): Promise<Market> {
+    const market = this.snap.markets.find((m) => m.id === id);
+    if (!market) return Promise.reject(new Error(`Market not found: ${id}`));
+    market.refreshCadence = cadence;
+    this.persist();
+    return Promise.resolve(market);
+  }
+
+  // Decks -------------------------------------------------------------------
+  getDeckByMarket(marketId: string): Promise<Deck | null> {
+    return Promise.resolve(this.snap.decks.find((d) => d.marketId === marketId) ?? null);
+  }
+
+  async createResearchedDeck(
+    brief: DeckResearchBrief,
+    handlers?: ResearchHandlers,
+  ): Promise<{ market: Market; deck: Deck }> {
+    const result = await runDeckResearch(brief, this.client, {
+      apiKey: '', // client already constructed
+      onEvent: (evt) => {
+        if (evt.type === 'status') handlers?.onProgress?.({ message: evt.message, progress: evt.progress });
+        else if (evt.type === 'warning') handlers?.onProgress?.({ message: evt.message });
+      },
+      signal: handlers?.signal,
+      targetCompanies: this.targetCompanies,
+      concurrency: this.concurrency,
+    });
+    this.ingest(result);
+    return { market: result.market, deck: result.deck };
+  }
+
+  async refreshDeck(marketId: string): Promise<Deck> {
+    const market = this.snap.markets.find((m) => m.id === marketId);
+    const deck = this.snap.decks.find((d) => d.marketId === marketId);
+    if (!market || !deck) return Promise.reject(new Error(`Market/deck not found: ${marketId}`));
+    // Re-run research for the same scope, replacing this deck's cards.
+    const brief: DeckResearchBrief = {
+      prompt: `${market.scopeDefinition.vertical}${market.name ? ` — ${market.name}` : ''}`,
+      region: market.scopeDefinition.geography,
+    };
+    const before = this.snap.cards.filter((c) => c.deckId === deck.id).map((c) => c.id);
+    this.snap.cards = this.snap.cards.filter((c) => c.deckId !== deck.id);
+    const result = await runDeckResearch(brief, this.client, { apiKey: '' });
+    // Re-point the fresh cards at the existing deck/market.
+    for (const cwc of result.cards) cwc.card.deckId = deck.id;
+    this.ingest({ market, deck: { ...deck, lastRefreshedAt: new Date().toISOString() }, cards: result.cards });
+    const after = this.snap.cards.filter((c) => c.deckId === deck.id).map((c) => c.id);
+    const updated = this.snap.decks.find((d) => d.id === deck.id)!;
+    this.emit({
+      marketId,
+      deckId: deck.id,
+      refreshedAt: updated.lastRefreshedAt ?? new Date().toISOString(),
+      addedCardIds: after.filter((id) => !before.includes(id)),
+      updatedCardIds: [],
+      prunedCardIds: before,
+    });
+    return updated;
+  }
+
+  // Cards -------------------------------------------------------------------
+  listCards(deckId: string, filter?: CardFilter): Promise<CardWithCompany[]> {
+    const result = this.snap.cards
+      .filter((c) => c.deckId === deckId)
+      .filter((c) => (filter?.cardType ? c.cardType === filter.cardType : true))
+      .filter((c) => (filter?.tier ? c.tier === filter.tier : true))
+      .map((card) => this.hydrate(card));
+    return Promise.resolve(result);
+  }
+  getCard(cardId: string): Promise<CardWithCompany | null> {
+    const card = this.snap.cards.find((c) => c.id === cardId);
+    return Promise.resolve(card ? this.hydrate(card) : null);
+  }
+  private hydrate(card: Card): CardWithCompany {
+    const company = card.companyId
+      ? (this.snap.companies.find((c) => c.id === card.companyId) ?? null)
+      : null;
+    const metrics = card.companyId ? this.snap.metrics.filter((m) => m.companyId === card.companyId) : [];
+    const viceClaims = card.cardType === 'vice' ? this.snap.viceClaims.filter((v) => v.cardId === card.id) : [];
+    return { card, company, metrics, viceClaims };
+  }
+
+  getCompany(companyId: string): Promise<Company | null> {
+    return Promise.resolve(this.snap.companies.find((c) => c.id === companyId) ?? null);
+  }
+  getCompanyMetrics(companyId: string): Promise<CompanyMetric[]> {
+    return Promise.resolve(this.snap.metrics.filter((m) => m.companyId === companyId));
+  }
+  getViceClaims(cardId: string): Promise<ViceClaim[]> {
+    return Promise.resolve(this.snap.viceClaims.filter((v) => v.cardId === cardId));
+  }
+
+  // Dashboard (lazy, cached) -----------------------------------------------
+  async getDashboardTab<T extends DashboardTab>(
+    companyId: string,
+    tab: T,
+  ): Promise<DashboardTabResult<T> | null> {
+    const company = this.snap.companies.find((c) => c.id === companyId);
+    if (!company) return null;
+    const cached = this.snap.dashboards[companyId]?.[tab];
+    if (cached) {
+      return { companyId, tab, content: cached.content as DashboardTabResult<T>['content'], lastRefreshedAt: cached.lastRefreshedAt };
+    }
+    const content = await researchDashboardTab(tab, {
+      company,
+      marketName: this.snap.companyMarket[companyId] ?? 'this market',
+      storedMetrics: this.snap.metrics.filter((m) => m.companyId === companyId),
+      client: this.client,
+    });
+    const lastRefreshedAt = new Date().toISOString();
+    this.snap.dashboards[companyId] = { ...this.snap.dashboards[companyId], [tab]: { content, lastRefreshedAt } };
+    this.persist();
+    return { companyId, tab, content, lastRefreshedAt };
+  }
+
+  async deepDive(input: DeepDiveInput): Promise<DeepDiveResult> {
+    const prompt = [
+      `Research "${input.topic}" for the company ${input.companyName}${input.context ? ` (${input.context})` : ''} in depth, using Google Search.`,
+      `Write a clear, well-structured markdown explanation: a one-line summary, then 2-4 short sections or bullet lists covering concrete figures, dates, drivers, and context. Cite specifics from the search results.`,
+      `If a detail is not disclosed or you cannot verify it, say so explicitly — do NOT speculate or invent numbers.`,
+    ].join('\n');
+    const g = await this.client.ground(prompt, { system: GROUNDED_SYSTEM });
+    return { markdown: g.text, citations: g.citations };
+  }
+
+  async factCheck(input: FactCheckInput): Promise<FactCheckResult> {
+    const g = await this.client.ground(
+      [
+        `Fact-check this claim${input.companyName ? ` about ${input.companyName}` : ''} using Google Search:`,
+        `"${input.claim}"`,
+        input.context ? `Context: ${input.context}` : '',
+        `State clearly whether the search results SUPPORT the claim, CONTRADICT it, or cannot verify it, and summarize the strongest evidence either way with specifics (figures, dates, sources). Never guess.`,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+      { system: GROUNDED_SYSTEM },
+    );
+    const out = await this.client.structure(
+      `Based ONLY on these fact-check notes, output JSON { "verdict": "supported"|"contradicted"|"unverified", "rationale": string (1-3 sentences) }.\n\nNOTES:\n${g.text}`,
+      factCheckOutSchema,
+      { system: STRUCTURE_SYSTEM },
+    );
+    return {
+      verdict: out.verdict ?? 'unverified',
+      rationale: out.rationale ?? '',
+      citations: g.citations,
+    };
+  }
+
+  async generateReport(request: ReportRequest): Promise<Report> {
+    let title = 'Research Report';
+    let digest = '';
+    if (request.kind === 'deck') {
+      const deck = this.snap.decks.find((d) => d.id === request.subjectId);
+      const market = deck ? this.snap.markets.find((m) => m.id === deck.marketId) : null;
+      if (!deck || !market) throw new Error('Deck not found for report');
+      title = `${market.name} — Market Report`;
+      const cards = this.snap.cards.filter((c) => c.deckId === deck.id);
+      const lines: string[] = [`MARKET: ${market.name} (${market.scopeDefinition.vertical})`];
+      for (const card of cards) {
+        const co = card.companyId ? this.snap.companies.find((c) => c.id === card.companyId) : null;
+        if (card.cardType === 'company' && co) {
+          const ms = this.snap.metrics.filter((m) => m.companyId === co.id);
+          const fmt = ms
+            .filter((m) => m.value != null)
+            .map((m) => `${m.metricType}=${m.value} (${m.confidence})`)
+            .join(', ');
+          lines.push(`COMPANY [tier ${card.tier ?? '?'}] ${co.name}: ${co.oneLiner}. ${fmt}`);
+        } else if (card.cardType === 'barrier') {
+          lines.push(`BARRIER: ${card.title} — ${card.summary}`);
+        } else if (co) {
+          lines.push(`${card.cardType.toUpperCase()}: ${co.name} — ${co.oneLiner}`);
+        }
+      }
+      digest = lines.join('\n');
+    } else {
+      const company = this.snap.companies.find((c) => c.id === request.subjectId);
+      if (!company) throw new Error('Company not found for report');
+      title = `${company.name} — Company Report`;
+      const ms = this.snap.metrics.filter((m) => m.companyId === company.id);
+      digest = [
+        `COMPANY: ${company.name} (${this.snap.companyMarket[company.id] ?? 'market unknown'})`,
+        `${company.oneLiner} HQ: ${company.hqLocation ?? '?'} Site: ${company.websiteUrl ?? '?'}`,
+        ...ms.map((m) => `${m.metricType}=${m.value ?? 'unknown'} (${m.confidence}${m.methodNote ? `, method: ${m.methodNote}` : ''})`),
+      ].join('\n');
+    }
+
+    const g = await this.client.ground(
+      [
+        `Write an executive-ready research report in GitHub-flavored markdown titled "${title}".`,
+        `Base it on the EVIDENCE DIGEST below (already-researched, sourced data) plus a fresh Google Search pass for current context and outlook.`,
+        `Structure: ## Executive summary · ## Landscape · ## Key players & signals · ## Risks & barriers · ## Outlook & what to watch. Keep claims attributed; where the digest marks a figure estimated/unknown, say so — never upgrade confidence or invent numbers.`,
+        ``,
+        `EVIDENCE DIGEST:`,
+        digest,
+      ].join('\n'),
+      { system: GROUNDED_SYSTEM },
+    );
+
+    const report: Report = {
+      id: `rpt_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+      kind: request.kind,
+      subjectId: request.subjectId,
+      title,
+      markdown: g.text,
+      citations: g.citations,
+      createdAt: new Date().toISOString(),
+    };
+    this.snap.reports = [report, ...this.snap.reports];
+    this.persist();
+    return report;
+  }
+
+  listReports(): Promise<Report[]> {
+    return Promise.resolve([...this.snap.reports]);
+  }
+  getReport(id: string): Promise<Report | null> {
+    return Promise.resolve(this.snap.reports.find((r) => r.id === id) ?? null);
+  }
+
+  subscribeDeckRefresh(listener: DeckRefreshListener): Unsubscribe {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+  private emit(event: DeckRefreshEvent): void {
+    for (const l of this.listeners) l(event);
+  }
+}
