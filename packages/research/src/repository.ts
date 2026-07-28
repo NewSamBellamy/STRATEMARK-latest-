@@ -341,6 +341,7 @@ export class GeminiRepository implements MarketIntelRepository {
         `Write an executive-ready research report in GitHub-flavored markdown titled "${title}".`,
         `Base it on the EVIDENCE DIGEST below (already-researched, sourced data) plus a fresh Google Search pass for current context and outlook.`,
         `Structure: ## Executive summary · ## Landscape · ## Key players & signals · ## Risks & barriers · ## Outlook & what to watch. Keep claims attributed; where the digest marks a figure estimated/unknown, say so — never upgrade confidence or invent numbers.`,
+        `Style: prose plus standard markdown lists/tables ONLY — never ASCII-art diagrams or box drawings. Do not repeat the report title as a heading; start directly with "## Executive summary".`,
         ``,
         `EVIDENCE DIGEST:`,
         digest,

@@ -48,7 +48,10 @@ export default function ReportViewerPage() {
             </header>
 
             <div className="markdown">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{r.markdown}</ReactMarkdown>
+              {/* Strip a leading H1 if the model repeated the title — the header above owns it. */}
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {r.markdown.replace(/^#\s[^\n]*\n+/, '')}
+              </ReactMarkdown>
             </div>
 
             {r.citations.length > 0 && (
