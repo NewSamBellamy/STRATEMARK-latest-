@@ -24,10 +24,13 @@ export function Logo({
   name,
   website,
   className,
+  onColor,
 }: {
   name: string;
   website: string | null | undefined;
   className?: string;
+  /** Fires with the logo's dominant color when extraction succeeds (CORS-permitting). */
+  onColor?: (hex: string) => void;
 }) {
   const sources = useMemo(() => {
     const domain = domainOf(website);
@@ -58,6 +61,12 @@ export function Logo({
           referrerPolicy="no-referrer"
           loading="lazy"
           onError={() => setIdx((i) => i + 1)}
+          onLoad={() => {
+            if (!onColor) return;
+            void import('@/lib/extractColor').then(({ extractDominantColor }) =>
+              extractDominantColor(src).then((hex) => hex && onColor(hex)),
+            );
+          }}
         />
       ) : (
         <span aria-label={`${name} monogram`}>{initials(name)}</span>

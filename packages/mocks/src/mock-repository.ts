@@ -12,10 +12,14 @@ import {
   type CreateMarketInput,
   type DashboardTab,
   type DashboardTabResult,
+  buildCmsInput,
+  computeCms,
   type DeepDiveInput,
   type DeepDiveResult,
+  type ExpandFocus,
   type FactCheckInput,
   type FactCheckResult,
+  type OverrideMetricInput,
   type Report,
   type ReportRequest,
   type Deck,
@@ -300,6 +304,66 @@ export class MockRepository implements MarketIntelRepository {
   }
   getReport(id: string): Promise<Report | null> {
     return this.delay(this.reports.find((r) => r.id === id) ?? null);
+  }
+
+  expandDeck(_marketId: string, _focus: ExpandFocus): Promise<{ added: number }> {
+    // Demo mode: targeted micro-research needs live grounding. UI hides the
+    // affordance without a key; this is a safe no-op if called anyway.
+    return this.delay({ added: 0 });
+  }
+
+  overrideMetric(input: OverrideMetricInput): Promise<CompanyMetric> {
+    let metric = this.metrics.find(
+      (m) => m.companyId === input.companyId && m.metricType === input.metricType,
+    );
+    if (!metric) {
+      metric = {
+        id: uid('met'),
+        companyId: input.companyId,
+        metricType: input.metricType,
+        value: null,
+        confidence: 'unknown',
+        source: null,
+        methodNote: null,
+        capturedAt: new Date().toISOString(),
+      };
+      this.metrics.push(metric);
+    }
+    metric.value = input.value;
+    metric.confidence = input.value == null ? 'unknown' : 'user_verified';
+    metric.methodNote = input.note ?? 'Manually corrected by user';
+    metric.capturedAt = new Date().toISOString();
+    // Recompute company-card tiers (same auditable rule as live: base tier, no stale nudge).
+    const deckUserValues = this.metrics
+      .filter((m) => m.metricType === 'users' && m.confidence !== 'unknown' && m.value !== null)
+      .map((m) => m.value as number);
+    for (const card of this.cards.filter(
+      (c) => c.companyId === input.companyId && c.cardType === 'company',
+    )) {
+      const result = computeCms(
+        buildCmsInput(this.metrics.filter((m) => m.companyId === input.companyId)),
+        { deckUserValues },
+      );
+      if (result.finalTier !== card.tier) {
+        card.tier = result.finalTier;
+        card.tierReason = 'Re-tiered after a user-verified metric override.';
+      }
+    }
+    return this.delay(metric);
+  }
+
+  getMarketOpportunity(_marketId: string, _force?: boolean): Promise<DeepDiveResult> {
+    return this.delay({
+      markdown: [
+        `## Positioning axes`,
+        `In demo mode this analysis uses sample data. With a key connected, the AI names the two most differentiating axes it observes and places every company on the 2×2.`,
+        `## The whitespace`,
+        `- Live analyses identify the underserved quadrant with grounded evidence.`,
+        `- Each bullet is attributed to current search results.`,
+        `- Connect a free Google AI Studio key in Settings to run this for real.`,
+      ].join('\n\n'),
+      citations: [],
+    });
   }
 
   deepDive(input: DeepDiveInput): Promise<DeepDiveResult> {

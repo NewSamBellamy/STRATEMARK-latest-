@@ -61,6 +61,7 @@ export const CONFIDENCE_STYLES: Record<Confidence, string> = {
   verified: 'border-emerald-300 bg-emerald-50 text-emerald-700',
   estimated: 'border-amber-300 bg-amber-50 text-amber-700',
   unknown: 'border-slate-300 bg-slate-100 text-slate-600',
+  user_verified: 'border-sky-300 bg-sky-50 text-sky-700',
 };
 
 /** Does a set of metrics include any estimated / unknown figures? Drives the card disclaimer. */

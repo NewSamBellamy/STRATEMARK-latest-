@@ -7,12 +7,19 @@
  * having an API key present — no UI changes.
  */
 import {
+  buildCmsInput,
+  computeCms,
+  CARD_TYPE_DESCRIPTIONS,
+  TIER_BLURBS,
+  TIER_LABELS,
   type Card,
   type CardFilter,
   type CardWithCompany,
   type Company,
   type CompanyMetric,
   type CreateMarketInput,
+  type ExpandFocus,
+  type OverrideMetricInput,
   type DashboardTab,
   type DashboardTabResult,
   type DeepDiveInput,
@@ -34,7 +41,7 @@ import {
 } from '@mi/contracts';
 import { createGeminiClient, type GeminiClientConfig } from './gemini';
 import { researchDashboardTab } from './dashboard';
-import { runDeckResearch, type ResearchResult } from './pipeline';
+import { expandDeckResearch, runDeckResearch, type ResearchResult } from './pipeline';
 import { GROUNDED_SYSTEM, STRUCTURE_SYSTEM } from './prompts';
 import { factCheckOutSchema } from './schemas';
 import type { LlmClient } from './types';
@@ -54,6 +61,8 @@ export interface RepoSnapshot {
   dashboards: Record<string, Partial<Record<DashboardTab, CachedTab>>>;
   companyMarket: Record<string, string>;
   reports: Report[];
+  /** marketId → cached whitespace analysis. */
+  opportunity: Record<string, { markdown: string; citations: { title: string; url: string }[]; at: string }>;
 }
 
 export interface ResearchStore {
@@ -71,12 +80,13 @@ const empty = (): RepoSnapshot => ({
   dashboards: {},
   companyMarket: {},
   reports: [],
+  opportunity: {},
 });
 
 /** Migration-safe read: older persisted snapshots may lack newer fields. */
 function normalize(raw: RepoSnapshot | null): RepoSnapshot {
   if (!raw) return empty();
-  return { ...empty(), ...raw, reports: raw.reports ?? [] };
+  return { ...empty(), ...raw, reports: raw.reports ?? [], opportunity: raw.opportunity ?? {} };
 }
 
 export interface GeminiRepositoryOptions extends GeminiClientConfig {
@@ -170,8 +180,28 @@ export class GeminiRepository implements MarketIntelRepository {
     const result = await runDeckResearch(brief, this.client, {
       apiKey: '', // client already constructed
       onEvent: (evt) => {
-        if (evt.type === 'status') handlers?.onProgress?.({ message: evt.message, progress: evt.progress });
-        else if (evt.type === 'warning') handlers?.onProgress?.({ message: evt.message });
+        // Glass-box stream: forward the pipeline's real steps as typed log lines.
+        const p = handlers?.onProgress;
+        if (!p) return;
+        if (evt.type === 'status') p({ message: evt.message, progress: evt.progress, kind: 'step' });
+        else if (evt.type === 'market')
+          p({
+            message: `Market defined: ${evt.market.marketName} · angles: ${evt.market.searchThemes.slice(0, 4).join(' / ')}`,
+            kind: 'find',
+          });
+        else if (evt.type === 'candidates')
+          p({
+            message: `Discovered ${evt.candidates.length} entities: ${evt.candidates.map((c) => c.name).slice(0, 8).join(', ')}${evt.candidates.length > 8 ? '…' : ''}`,
+            kind: 'find',
+          });
+        else if (evt.type === 'card') {
+          const c = evt.card;
+          const label = c.company?.name ?? c.card.title ?? 'card';
+          p({
+            message: `+ ${c.card.cardType} card: ${label}${c.card.tier ? ` (T${c.card.tier})` : ''} · ${c.metrics.filter((m) => m.value != null).length} metrics`,
+            kind: 'find',
+          });
+        } else if (evt.type === 'warning') p({ message: evt.message, kind: 'warn' });
       },
       signal: handlers?.signal,
       targetCompanies: this.targetCompanies,
@@ -368,6 +398,166 @@ export class GeminiRepository implements MarketIntelRepository {
   }
   getReport(id: string): Promise<Report | null> {
     return Promise.resolve(this.snap.reports.find((r) => r.id === id) ?? null);
+  }
+
+  async expandDeck(
+    marketId: string,
+    focus: ExpandFocus,
+    handlers?: ResearchHandlers,
+  ): Promise<{ added: number }> {
+    const market = this.snap.markets.find((m) => m.id === marketId);
+    const deck = this.snap.decks.find((d) => d.marketId === marketId);
+    if (!market || !deck) throw new Error(`Market/deck not found: ${marketId}`);
+    const focusPrompt = focus.tier
+      ? `${TIER_LABELS[focus.tier]}-stage companies (${TIER_BLURBS[focus.tier]})`
+      : focus.cardType
+        ? CARD_TYPE_DESCRIPTIONS[focus.cardType]
+        : 'notable companies missed in the first pass';
+    const existing = this.snap.cards
+      .filter((c) => c.deckId === deck.id && c.companyId)
+      .map((c) => this.snap.companies.find((x) => x.id === c.companyId)?.name ?? '')
+      .filter(Boolean);
+    const deckUserValues = this.snap.metrics
+      .filter((m) => m.metricType === 'users' && m.confidence !== 'unknown' && m.value !== null)
+      .map((m) => m.value as number);
+
+    const cards = await expandDeckResearch({
+      client: this.client,
+      marketName: market.name,
+      vertical: market.scopeDefinition.vertical,
+      geography: market.scopeDefinition.geography,
+      focusPrompt,
+      excludeNames: existing,
+      deckId: deck.id,
+      deckUserValues,
+      target: 3,
+      signal: handlers?.signal,
+      onEvent: (evt) => {
+        if (evt.type === 'status') handlers?.onProgress?.({ message: evt.message, kind: 'step' });
+      },
+    });
+
+    // For card-type focus, retag the found companies to that type.
+    for (const cwc of cards) {
+      if (focus.cardType && focus.cardType !== 'company') {
+        cwc.card.cardType = focus.cardType;
+        cwc.card.tier = null;
+        cwc.card.tierReason = null;
+      }
+      if (cwc.company && !this.snap.companies.some((c) => c.id === cwc.company!.id)) {
+        this.snap.companies.push(cwc.company);
+        this.snap.metrics.push(...cwc.metrics);
+        this.snap.companyMarket[cwc.company.id] = market.name;
+      }
+      this.snap.cards.push(cwc.card);
+    }
+    this.persist();
+    if (cards.length > 0) {
+      this.emit({
+        marketId,
+        deckId: deck.id,
+        refreshedAt: new Date().toISOString(),
+        addedCardIds: cards.map((c) => c.card.id),
+        updatedCardIds: [],
+        prunedCardIds: [],
+      });
+    }
+    return { added: cards.length };
+  }
+
+  overrideMetric(input: OverrideMetricInput): Promise<CompanyMetric> {
+    const company = this.snap.companies.find((c) => c.id === input.companyId);
+    if (!company) return Promise.reject(new Error(`Company not found: ${input.companyId}`));
+    let metric = this.snap.metrics.find(
+      (m) => m.companyId === input.companyId && m.metricType === input.metricType,
+    );
+    if (!metric) {
+      metric = {
+        id: `met_override_${Date.now().toString(36)}`,
+        companyId: input.companyId,
+        metricType: input.metricType,
+        value: null,
+        confidence: 'unknown',
+        source: null,
+        methodNote: null,
+        capturedAt: new Date().toISOString(),
+      };
+      this.snap.metrics.push(metric);
+    }
+    metric.value = input.value;
+    metric.confidence = input.value == null ? 'unknown' : 'user_verified';
+    metric.source = null;
+    metric.methodNote = input.note ?? 'Manually corrected by user';
+    metric.capturedAt = new Date().toISOString();
+
+    // Recompute the CMS tier for this company's company-cards (auditable: base
+    // tier from rules; prior LLM nudge is dropped as stale after an override).
+    const companyCards = this.snap.cards.filter(
+      (c) => c.companyId === input.companyId && c.cardType === 'company',
+    );
+    const updatedIds: string[] = [];
+    for (const card of companyCards) {
+      const deckUserValues = this.snap.metrics
+        .filter((m) => m.metricType === 'users' && m.confidence !== 'unknown' && m.value !== null)
+        .map((m) => m.value as number);
+      const metrics = this.snap.metrics.filter((m) => m.companyId === input.companyId);
+      const result = computeCms(buildCmsInput(metrics), { deckUserValues });
+      if (result.finalTier !== card.tier) {
+        card.tier = result.finalTier;
+        card.tierReason = 'Re-tiered after a user-verified metric override.';
+        updatedIds.push(card.id);
+      }
+    }
+    this.persist();
+    if (updatedIds.length > 0) {
+      const deck = this.snap.decks.find((d) => companyCards.some((c) => c.deckId === d.id));
+      if (deck) {
+        this.emit({
+          marketId: deck.marketId,
+          deckId: deck.id,
+          refreshedAt: new Date().toISOString(),
+          addedCardIds: [],
+          updatedCardIds: updatedIds,
+          prunedCardIds: [],
+        });
+      }
+    }
+    return Promise.resolve(metric);
+  }
+
+  async getMarketOpportunity(marketId: string, force = false): Promise<DeepDiveResult> {
+    const cached = this.snap.opportunity[marketId];
+    if (cached && !force) return { markdown: cached.markdown, citations: cached.citations };
+    const market = this.snap.markets.find((m) => m.id === marketId);
+    const deck = this.snap.decks.find((d) => d.marketId === marketId);
+    if (!market || !deck) throw new Error(`Market/deck not found: ${marketId}`);
+    const lines = this.snap.cards
+      .filter((c) => c.deckId === deck.id && c.cardType === 'company' && c.companyId)
+      .map((c) => {
+        const co = this.snap.companies.find((x) => x.id === c.companyId)!;
+        const ms = this.snap.metrics.filter((m) => m.companyId === co.id && m.value != null);
+        return `[T${c.tier ?? '?'}] ${co.name}: ${co.oneLiner} | ${ms.map((m) => `${m.metricType}=${m.value}`).join(', ')}`;
+      });
+    const g = await this.client.ground(
+      [
+        `You are analyzing the market "${market.name}" (${market.scopeDefinition.vertical}). Known landscape:`,
+        ...lines,
+        ``,
+        `Using Google Search for current context, produce a whitespace analysis in markdown:`,
+        `## Positioning axes — name the two most differentiating axes you observe for a 2×2 of this market and say where each company sits (one line each).`,
+        `## The whitespace — a 3-bullet thesis on the underserved quadrant/gap and why it is open.`,
+        `## Closest to the gap — which 1-2 existing players could pivot to capture it, and what to watch.`,
+        `Prose and markdown lists only. Attribute claims; never invent figures.`,
+      ].join('\n'),
+      { system: GROUNDED_SYSTEM },
+    );
+    this.snap.opportunity[marketId] = {
+      markdown: g.text,
+      citations: g.citations,
+      at: new Date().toISOString(),
+    };
+    this.persist();
+    return { markdown: g.text, citations: g.citations };
   }
 
   subscribeDeckRefresh(listener: DeckRefreshListener): Unsubscribe {

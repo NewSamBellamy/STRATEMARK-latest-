@@ -17,8 +17,10 @@ import type {
   DashboardTabResult,
   DeepDiveInput,
   DeepDiveResult,
+  ExpandFocus,
   FactCheckInput,
   FactCheckResult,
+  OverrideMetricInput,
   Report,
   ReportRequest,
   Deck,
@@ -90,6 +92,15 @@ export class IpcRepository implements MarketIntelRepository {
   }
   factCheck(input: FactCheckInput): Promise<FactCheckResult> {
     return this.api.factCheck(input);
+  }
+  expandDeck(marketId: string, focus: ExpandFocus): Promise<{ added: number }> {
+    return this.api.expandDeck(marketId, focus);
+  }
+  overrideMetric(input: OverrideMetricInput): Promise<CompanyMetric> {
+    return this.api.overrideMetric(input);
+  }
+  getMarketOpportunity(marketId: string, force?: boolean): Promise<DeepDiveResult> {
+    return this.api.getMarketOpportunity(marketId, force);
   }
   generateReport(request: ReportRequest): Promise<Report> {
     return this.api.generateReport(request);

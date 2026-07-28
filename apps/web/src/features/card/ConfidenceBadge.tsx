@@ -1,4 +1,4 @@
-import { BadgeCheck, CircleHelp, Sigma } from 'lucide-react';
+import { BadgeCheck, CircleHelp, Sigma, UserCheck } from 'lucide-react';
 import type { Confidence } from '@mi/contracts';
 import { CONFIDENCE_LABELS } from '@mi/contracts';
 import { cn } from '@/lib/cn';
@@ -9,6 +9,7 @@ const ICON = {
   verified: BadgeCheck,
   estimated: Sigma,
   unknown: CircleHelp,
+  user_verified: UserCheck,
 } as const;
 
 export function ConfidenceBadge({
@@ -26,7 +27,9 @@ export function ConfidenceBadge({
       ? (source ?? 'Sourced from a disclosed/public figure.')
       : confidence === 'estimated'
         ? (note ?? 'Estimated from indirect signals via a stated method.')
-        : 'No usable signal found — shown as Unknown (never scored as zero).';
+        : confidence === 'user_verified'
+          ? (note ?? 'Manually corrected by you — treated as ground truth for scoring.')
+          : 'No usable signal found — shown as Unknown (never scored as zero).';
   return (
     <Tooltip content={tip}>
       <span

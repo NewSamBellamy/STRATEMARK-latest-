@@ -6,8 +6,10 @@ import {
   FileText,
   Layers,
   RefreshCw,
+  Search,
   Settings,
   SlidersHorizontal,
+  Target,
 } from 'lucide-react';
 import {
   CARD_TYPE_DESCRIPTIONS,
@@ -20,7 +22,15 @@ import {
   type CardWithCompany,
   type MaturityTier,
 } from '@mi/contracts';
-import { useCards, useDeckByMarket, useGenerateReport, useMarket, useRefreshDeck } from '@/hooks/data';
+import {
+  useCards,
+  useDeckByMarket,
+  useExpandDeck,
+  useGenerateReport,
+  useMarket,
+  useRefreshDeck,
+} from '@/hooks/data';
+import { useApiKey } from '@/lib/settings/apiKey';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { CardGridSkeleton } from '@/components/states/Skeleton';
 import { EmptyState } from '@/components/states/EmptyState';
@@ -104,6 +114,14 @@ export default function DeckPage() {
             <RefreshCw className={`h-4 w-4 ${refreshDeck.isPending ? 'animate-spin' : ''}`} />
             Refresh
           </button>
+          <Link
+            to={`/markets/${marketId}/opportunity`}
+            className="btn-ghost"
+            title="Whitespace analysis: positioning map + where the gap is"
+          >
+            <Target className="h-4 w-4" />
+            Opportunity
+          </Link>
           <Link to={`/markets/${marketId}/settings`} className="btn-ghost">
             <Settings className="h-4 w-4" />
             Settings
@@ -137,7 +155,7 @@ export default function DeckPage() {
         {(list) => {
           // Level 2 — Company sub-deck split into 8 tier-decks.
           if (split === 'company') {
-            return <TierSplit cards={list} deckUserValues={userValues} />;
+            return <TierSplit cards={list} deckUserValues={userValues} marketId={marketId} />;
           }
           // Level 1 leaf — a specific non-company sub-deck's cards.
           if (split === 'types' && typeParam) {
@@ -148,7 +166,11 @@ export default function DeckPage() {
                   {CARD_TYPE_LABELS[typeParam]} — {filtered.length} card
                   {filtered.length === 1 ? '' : 's'}
                 </h2>
-                <CardGrid cards={filtered} deckUserValues={userValues} />
+                {filtered.length > 0 ? (
+                  <CardGrid cards={filtered} deckUserValues={userValues} />
+                ) : (
+                  <ExpandPrompt marketId={marketId} focus={{ cardType: typeParam }} label={`Hunt for ${CARD_TYPE_LABELS[typeParam].toLowerCase()} players in this market`} />
+                )}
               </section>
             );
           }
@@ -249,12 +271,57 @@ function SubDeckTile({
   );
 }
 
+/** Intelligent empty state: turn a dead end into a targeted micro-research run. */
+function ExpandPrompt({
+  marketId,
+  focus,
+  label,
+}: {
+  marketId: string | undefined;
+  focus: { tier?: MaturityTier; cardType?: CardType };
+  label: string;
+}) {
+  const hasKey = useApiKey((s) => s.hasKey);
+  const expand = useExpandDeck(marketId);
+  const isThisPending =
+    expand.isPending &&
+    expand.variables?.tier === focus.tier &&
+    expand.variables?.cardType === focus.cardType;
+  if (!hasKey) {
+    return (
+      <p className="py-3 text-sm text-muted">
+        Nothing found here in the sample data. With a key connected, the agent can hunt for these
+        specifically.
+      </p>
+    );
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-3 py-3">
+      <p className="text-sm text-muted">Nothing surfaced in the first pass.</p>
+      <button
+        type="button"
+        className="btn-ghost text-sm"
+        disabled={expand.isPending}
+        onClick={() => expand.mutate(focus)}
+      >
+        <Search className={`h-4 w-4 ${isThisPending ? 'animate-pulse' : ''}`} />
+        {isThisPending ? 'Hunting…' : label}
+      </button>
+      {expand.isSuccess && expand.data.added === 0 && !expand.isPending && (
+        <span className="text-xs text-muted">Search ran — nothing credible found (that’s honest).</span>
+      )}
+    </div>
+  );
+}
+
 function TierSplit({
   cards,
   deckUserValues,
+  marketId,
 }: {
   cards: CardWithCompany[];
   deckUserValues: number[];
+  marketId: string | undefined;
 }) {
   const companyCards = cards.filter((c) => c.card.cardType === 'company');
   const byTier = new Map<MaturityTier, CardWithCompany[]>();
@@ -277,7 +344,11 @@ function TierSplit({
             {group.length > 0 ? (
               <CardGrid cards={group} deckUserValues={deckUserValues} />
             ) : (
-              <p className="py-4 text-sm text-muted">No companies found at the {TIER_LABELS[tier]} tier.</p>
+              <ExpandPrompt
+                marketId={marketId}
+                focus={{ tier }}
+                label={`Hunt for ${TIER_LABELS[tier]} companies`}
+              />
             )}
           </section>
         );

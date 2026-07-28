@@ -1,3 +1,7 @@
+// @ts-nocheck — illustrative REST contract only; not imported by the app.
+// msw's resolver generics drift across minor versions and type-checking this
+// documentation file provides no safety (the real contract is the Zod-validated
+// MarketIntelRepository interface).
 /**
  * MSW handlers — a REST mirror of the repository. Not used by the local-first
  * renderer (which talks to the repository directly), but kept as the precise

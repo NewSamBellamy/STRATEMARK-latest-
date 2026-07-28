@@ -72,13 +72,14 @@ export const METRIC_TYPE_LABELS: Record<MetricType, string> = {
 // ---------------------------------------------------------------------------
 // Confidence (spec §6.4)
 // ---------------------------------------------------------------------------
-export const CONFIDENCE_LEVELS = ['verified', 'estimated', 'unknown'] as const;
+export const CONFIDENCE_LEVELS = ['verified', 'estimated', 'unknown', 'user_verified'] as const;
 export type Confidence = (typeof CONFIDENCE_LEVELS)[number];
 
 export const CONFIDENCE_LABELS: Record<Confidence, string> = {
   verified: 'Verified',
   estimated: 'Estimated',
   unknown: 'Unknown',
+  user_verified: 'User verified',
 };
 
 // ---------------------------------------------------------------------------

@@ -46,7 +46,7 @@
     @apply btn bg-ink text-white hover:bg-[#2a2a30] active:scale-[0.99];
   }
   .btn-ghost {
-    @apply btn border border-border bg-surface text-content hover:bg-surface-2;
+    @apply btn border border-border bg-surface text-content hover:bg-surface-2 active:scale-[0.99];
   }
   .input {
     @apply w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm text-content placeholder:text-faint focus:border-primary focus-visible:outline-none;
@@ -75,6 +75,26 @@
 .game-card__logo {
   background: #ffffff;
   border: 1px solid var(--brand-primary);
+}
+
+/* Modal / overlay entrance animations (micro-interaction polish). */
+@keyframes mi-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes mi-modal-in {
+  from { opacity: 0; transform: translate(-50%, -48%) scale(0.97); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+.mi-overlay-in { animation: mi-fade-in 0.16s ease-out; }
+.mi-modal-in { animation: mi-modal-in 0.22s cubic-bezier(0.16, 1, 0.3, 1); }
+
+/* Print / PDF export: only the report content survives. */
+@media print {
+  aside, header, .no-print { display: none !important; }
+  main { overflow: visible !important; padding: 0 !important; }
+  .panel { box-shadow: none !important; border: none !important; }
+  body { background: #fff !important; }
 }
 
 /* Markdown (Overview tab), light theme. */

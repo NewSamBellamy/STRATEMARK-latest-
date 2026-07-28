@@ -1,8 +1,45 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Globe2, KeyRound, Loader2, Sparkles, Wand2 } from 'lucide-react';
 import { useRepository } from '@/lib/repository/RepositoryProvider';
 import { useApiKey } from '@/lib/settings/apiKey';
+
+interface LogLine {
+  message: string;
+  kind: 'step' | 'find' | 'warn';
+  at: number;
+}
+
+/** Glass-box terminal: the agent's real research steps, streamed live. */
+function ResearchTerminal({ lines }: { lines: LogLine[] }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    ref.current?.scrollTo({ top: ref.current.scrollHeight, behavior: 'smooth' });
+  }, [lines.length]);
+  const color = (k: LogLine['kind']) =>
+    k === 'find' ? 'text-emerald-300' : k === 'warn' ? 'text-amber-300' : 'text-sky-300';
+  const prefix = (k: LogLine['kind']) => (k === 'find' ? '✓' : k === 'warn' ? '!' : '▸');
+  return (
+    <div
+      ref={ref}
+      className="mt-4 h-56 overflow-y-auto rounded-xl bg-[#12141A] p-3.5 font-mono text-[12px] leading-relaxed"
+      aria-live="polite"
+      aria-label="Live research log"
+    >
+      {lines.map((l, i) => (
+        <div key={i} className="flex gap-2">
+          <span className={color(l.kind)}>{prefix(l.kind)}</span>
+          <span className={l.kind === 'find' ? 'text-neutral-100' : 'text-neutral-400'}>
+            {l.message}
+          </span>
+        </div>
+      ))}
+      <div className="mt-1 flex gap-2 text-neutral-500">
+        <span className="animate-pulse">▮</span>
+      </div>
+    </div>
+  );
+}
 
 const EXAMPLES = [
   'Christian apparel companies',
@@ -20,6 +57,7 @@ export default function NewDeckPage() {
   const [region, setRegion] = useState('');
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<{ message: string; pct: number }>({ message: '', pct: 0 });
+  const [log, setLog] = useState<LogLine[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const onSubmit = async (e: FormEvent) => {
@@ -27,13 +65,16 @@ export default function NewDeckPage() {
     if (!prompt.trim() || running) return;
     setError(null);
     setRunning(true);
+    setLog([{ message: `New research brief: "${prompt.trim()}"${region.trim() ? ` · ${region.trim()}` : ''}`, kind: 'step', at: Date.now() }]);
     setProgress({ message: 'Starting…', pct: 0.02 });
     try {
       const { market } = await repo.createResearchedDeck(
         { prompt: prompt.trim(), region: region.trim() || null },
         {
-          onProgress: (p) =>
-            setProgress((prev) => ({ message: p.message, pct: p.progress ?? prev.pct })),
+          onProgress: (p) => {
+            setProgress((prev) => ({ message: p.message, pct: p.progress ?? prev.pct }));
+            setLog((prev) => [...prev, { message: p.message, kind: p.kind ?? 'step', at: Date.now() }]);
+          },
         },
       );
       navigate(`/markets/${market.id}/deck`);
@@ -83,9 +124,10 @@ export default function NewDeckPage() {
             />
           </div>
           <p className="mt-3 text-sm text-muted">{progress.message}</p>
-          <p className="mt-4 text-xs text-muted">
-            Grounded research makes several searches — this can take a minute. Cards appear when it’s
-            done.
+          <ResearchTerminal lines={log} />
+          <p className="mt-3 text-xs text-muted">
+            You’re watching the agent’s actual research steps — grounded Google searches, companies
+            found, and cards assembled. This typically takes a few minutes.
           </p>
         </div>
       ) : (

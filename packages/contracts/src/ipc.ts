@@ -38,6 +38,9 @@ export const IPC_CHANNELS = {
   generateReport: 'mi:generateReport',
   listReports: 'mi:listReports',
   getReport: 'mi:getReport',
+  expandDeck: 'mi:expandDeck',
+  overrideMetric: 'mi:overrideMetric',
+  getMarketOpportunity: 'mi:getMarketOpportunity',
   deckRefreshEvent: 'mi:deckRefreshEvent',
 } as const;
 

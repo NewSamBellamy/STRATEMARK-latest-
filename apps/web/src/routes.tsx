@@ -8,6 +8,7 @@ const MarketsListPage = lazy(() => import('@/features/markets/MarketsListPage'))
 const NewDeckPage = lazy(() => import('@/features/deck/NewDeckPage'));
 const MarketSettingsPage = lazy(() => import('@/features/markets/MarketSettingsPage'));
 const DeckPage = lazy(() => import('@/features/deck/DeckPage'));
+const OpportunityPage = lazy(() => import('@/features/deck/OpportunityPage'));
 const DashboardPage = lazy(() => import('@/features/dashboard/DashboardPage'));
 const SettingsPage = lazy(() => import('@/features/settings/SettingsPage'));
 const ReportsListPage = lazy(() => import('@/features/reports/ReportsListPage'));
@@ -32,6 +33,7 @@ export function AppRoutes() {
         <Route path="reports" element={<ReportsListPage />} />
         <Route path="reports/:reportId" element={<ReportViewerPage />} />
         <Route path="markets/:marketId/deck" element={<DeckPage />} />
+        <Route path="markets/:marketId/opportunity" element={<OpportunityPage />} />
         <Route path="markets/:marketId/settings" element={<MarketSettingsPage />} />
         <Route path="company/:companyId/dashboard" element={<Navigate to="overview" replace />} />
         <Route path="company/:companyId/dashboard/:tab" element={<DashboardPage />} />

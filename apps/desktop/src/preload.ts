@@ -37,6 +37,10 @@ const api: PreloadRepositoryApi = {
   generateReport: (request) => ipcRenderer.invoke(IPC_CHANNELS.generateReport, request),
   listReports: () => ipcRenderer.invoke(IPC_CHANNELS.listReports),
   getReport: (id) => ipcRenderer.invoke(IPC_CHANNELS.getReport, id),
+  expandDeck: (marketId, focus) => ipcRenderer.invoke(IPC_CHANNELS.expandDeck, marketId, focus),
+  overrideMetric: (input) => ipcRenderer.invoke(IPC_CHANNELS.overrideMetric, input),
+  getMarketOpportunity: (marketId, force) =>
+    ipcRenderer.invoke(IPC_CHANNELS.getMarketOpportunity, marketId, force),
   onDeckRefresh: (listener: DeckRefreshListener) => {
     const handler = (_event: unknown, evt: DeckRefreshEvent) => listener(evt);
     ipcRenderer.on(IPC_CHANNELS.deckRefreshEvent, handler);

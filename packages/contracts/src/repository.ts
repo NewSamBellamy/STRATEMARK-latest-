@@ -11,7 +11,7 @@
  * RepositoryProvider). Adding a method here is the single place the back end and
  * the UI agree on new capability.
  */
-import type { CardType, DashboardTab, MaturityTier, RefreshCadence } from './enums';
+import type { CardType, DashboardTab, MaturityTier, MetricType, RefreshCadence } from './enums';
 import type {
   Card,
   Company,
@@ -39,6 +39,8 @@ export interface ResearchProgress {
   message: string;
   /** 0..1 when known. */
   progress?: number;
+  /** Log-line flavor for glass-box terminals: step (phase), find (discovery), warn. */
+  kind?: 'step' | 'find' | 'warn';
 }
 
 export interface ResearchHandlers {
@@ -98,6 +100,22 @@ export interface Report {
   markdown: string;
   citations: Citation[];
   createdAt: string;
+}
+
+/** Targeted micro-research to fill a gap in an existing deck (intelligent empty states). */
+export interface ExpandFocus {
+  tier?: MaturityTier;
+  cardType?: CardType;
+}
+
+/** A user's manual correction to a metric (human-in-the-loop override). */
+export interface OverrideMetricInput {
+  companyId: string;
+  metricType: MetricType;
+  /** Raw number (USD for money, count for users/employees, percent for share); null clears to Unknown. */
+  value: number | null;
+  /** The user's source note, e.g. "Confirmed by their VP Sales at dinner 07/2026". */
+  note: string | null;
 }
 
 export interface CardFilter {
@@ -173,6 +191,19 @@ export interface MarketIntelRepository {
 
   /** Grounded verification of a single claim — verdict + rationale + sources. */
   factCheck(input: FactCheckInput): Promise<FactCheckResult>;
+
+  /** Fill a gap in a deck via targeted micro-research (e.g. hunt Seed-stage companies). */
+  expandDeck(
+    marketId: string,
+    focus: ExpandFocus,
+    handlers?: ResearchHandlers,
+  ): Promise<{ added: number }>;
+
+  /** Human-in-the-loop metric correction → confidence 'user_verified' → CMS re-tier. */
+  overrideMetric(input: OverrideMetricInput): Promise<CompanyMetric>;
+
+  /** Deck-level whitespace analysis (2×2 positioning thesis), grounded + cached. */
+  getMarketOpportunity(marketId: string, force?: boolean): Promise<DeepDiveResult>;
 
   // Reports — AI-composed research artifacts, kept in an organized library.
   generateReport(request: ReportRequest, handlers?: ResearchHandlers): Promise<Report>;

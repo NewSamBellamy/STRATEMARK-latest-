@@ -1,18 +1,139 @@
+import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ArrowLeft, Download, ExternalLink } from 'lucide-react';
-import { useReport } from '@/hooks/data';
+import { ArrowDown, ArrowLeft, ArrowUp, Download, ExternalLink, Presentation, Printer } from 'lucide-react';
+import { TIER_LABELS, type CardWithCompany, type MaturityTier, type MetricType } from '@mi/contracts';
+import { useCards, useReport } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
-import { formatRelative } from '@/lib/format';
+import { formatMetricValue, formatRelative } from '@/lib/format';
+import { METRIC_COLORS, TIER_COLORS, tint } from '@/lib/theme';
+import { exportDeckPptx } from './pptx';
+
+type SortKey = 'name' | 'tier' | 'market_share' | 'arr' | 'value' | 'employees';
+
+function metricValue(c: CardWithCompany, type: MetricType | 'value'): number | null {
+  if (type === 'value') {
+    const v = c.metrics.find(
+      (m) => (m.metricType === 'valuation' || m.metricType === 'market_cap') && m.value != null,
+    );
+    return v?.value ?? null;
+  }
+  return c.metrics.find((m) => m.metricType === type && m.value != null)?.value ?? null;
+}
+
+/** Sortable landscape grid built from the deck's real data (audit: no raw LLM tables). */
+function LandscapeTable({ deckId }: { deckId: string }) {
+  const cards = useCards(deckId);
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'tier', dir: -1 });
+
+  const rows = useMemo(() => {
+    const companies = (cards.data ?? []).filter((c) => c.card.cardType === 'company' && c.company);
+    const get = (c: CardWithCompany): number | string | null =>
+      sort.key === 'name'
+        ? c.company!.name.toLowerCase()
+        : sort.key === 'tier'
+          ? c.card.tier
+          : metricValue(c, sort.key);
+    return [...companies].sort((a, b) => {
+      const av = get(a);
+      const bv = get(b);
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      return (av < bv ? -1 : av > bv ? 1 : 0) * sort.dir;
+    });
+  }, [cards.data, sort]);
+
+  if (rows.length === 0) return null;
+
+  const Th = ({ k, label }: { k: SortKey; label: string }) => (
+    <th
+      className="cursor-pointer select-none whitespace-nowrap px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-muted hover:text-content"
+      onClick={() => setSort((s) => ({ key: k, dir: s.key === k ? ((s.dir * -1) as 1 | -1) : -1 }))}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {sort.key === k && (sort.dir === 1 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+      </span>
+    </th>
+  );
+
+  const maxShare = Math.max(...rows.map((r) => metricValue(r, 'market_share') ?? 0), 1);
+
+  return (
+    <div className="panel mb-5 overflow-x-auto p-0">
+      <table className="w-full text-sm">
+        <thead className="border-b border-border">
+          <tr>
+            <Th k="name" label="Company" />
+            <Th k="tier" label="Tier" />
+            <Th k="market_share" label="Share" />
+            <Th k="arr" label="ARR" />
+            <Th k="value" label="Valuation/Cap" />
+            <Th k="employees" label="Team" />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((c) => {
+            const share = metricValue(c, 'market_share');
+            return (
+              <tr key={c.card.id} className="border-b border-border/60 last:border-0 hover:bg-surface-2/60">
+                <td className="px-3 py-2 font-medium text-content">{c.company!.name}</td>
+                <td className="px-3 py-2">
+                  {c.card.tier != null && (
+                    <span
+                      className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-semibold text-content"
+                      style={{
+                        background: tint(TIER_COLORS[c.card.tier as MaturityTier], 0.1),
+                        borderColor: tint(TIER_COLORS[c.card.tier as MaturityTier], 0.3),
+                      }}
+                    >
+                      T{c.card.tier} {TIER_LABELS[c.card.tier as MaturityTier]}
+                    </span>
+                  )}
+                </td>
+                <td className="px-3 py-2 tabular-nums">
+                  <div className="flex items-center gap-2">
+                    <span className="w-12">{share != null ? `${share}%` : '—'}</span>
+                    {share != null && (
+                      <span className="h-1.5 w-16 overflow-hidden rounded-full" style={{ background: tint(METRIC_COLORS.market_share, 0.12) }}>
+                        <span
+                          className="block h-full rounded-full"
+                          style={{ width: `${(share / maxShare) * 100}%`, background: METRIC_COLORS.market_share }}
+                        />
+                      </span>
+                    )}
+                  </div>
+                </td>
+                <td className="px-3 py-2 tabular-nums">{formatMetricValue('arr', metricValue(c, 'arr'))}</td>
+                <td className="px-3 py-2 tabular-nums">
+                  {(() => {
+                    const v = c.metrics.find(
+                      (m) => (m.metricType === 'valuation' || m.metricType === 'market_cap') && m.value != null,
+                    );
+                    return v ? formatMetricValue(v.metricType, v.value) : 'Unknown';
+                  })()}
+                </td>
+                <td className="px-3 py-2 tabular-nums">{formatMetricValue('employees', metricValue(c, 'employees'))}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export default function ReportViewerPage() {
   const { reportId } = useParams();
   const report = useReport(reportId);
+  const deckCards = useCards(report.data?.kind === 'deck' ? report.data.subjectId : undefined);
+  const [exporting, setExporting] = useState(false);
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <Link to="/reports" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-content">
+    <div className="mx-auto max-w-4xl">
+      <Link to="/reports" className="no-print mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-content">
         <ArrowLeft className="h-4 w-4" />
         Reports
       </Link>
@@ -27,25 +148,56 @@ export default function ReportViewerPage() {
                   Generated {formatRelative(r.createdAt)} · {r.citations.length} sources
                 </p>
               </div>
-              <button
-                type="button"
-                className="btn-ghost"
-                onClick={() => {
-                  const blob = new Blob([`# ${r.title}\n\n${r.markdown}`], {
-                    type: 'text/markdown',
-                  });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `${r.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.md`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }}
-              >
-                <Download className="h-4 w-4" />
-                Download .md
-              </button>
+              <div className="no-print flex flex-wrap gap-2">
+                {r.kind === 'deck' && (
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    disabled={exporting || !deckCards.data?.length}
+                    title="Boss-ready PowerPoint: title, landscape, one slide per key company"
+                    onClick={async () => {
+                      setExporting(true);
+                      try {
+                        await exportDeckPptx({
+                          marketName: r.title.replace(/ — Market Report$/, ''),
+                          cards: deckCards.data ?? [],
+                          thesis: null,
+                        });
+                      } finally {
+                        setExporting(false);
+                      }
+                    }}
+                  >
+                    <Presentation className="h-4 w-4" />
+                    {exporting ? 'Building…' : 'Export .pptx'}
+                  </button>
+                )}
+                <button type="button" className="btn-ghost" onClick={() => window.print()} title="Print or save as PDF">
+                  <Printer className="h-4 w-4" />
+                  PDF
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={() => {
+                    const blob = new Blob([`# ${r.title}\n\n${r.markdown}`], {
+                      type: 'text/markdown',
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${r.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.md`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  <Download className="h-4 w-4" />
+                  .md
+                </button>
+              </div>
             </header>
+
+            {r.kind === 'deck' && <LandscapeTable deckId={r.subjectId} />}
 
             <div className="markdown">
               {/* Strip a leading H1 if the model repeated the title — the header above owns it. */}

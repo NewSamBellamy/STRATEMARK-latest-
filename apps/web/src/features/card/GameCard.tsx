@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   SIGNAL_BANDS,
   mapValueToTier,
@@ -18,6 +19,7 @@ const CONFIDENCE_DOT: Record<Confidence, string> = {
   verified: '#16A34A',
   estimated: '#CA8A04',
   unknown: '#9A9AA1',
+  user_verified: '#0284C7',
 };
 
 const BAND_KEY: Partial<Record<MetricType, keyof typeof SIGNAL_BANDS>> = {
@@ -86,6 +88,9 @@ export interface GameCardProps {
 
 export function GameCard({ data, onOpen, className }: GameCardProps) {
   const { card, company, metrics } = data;
+  // Programmatic brand color from the real logo (audit: collectible card faces).
+  // Falls back to the researched brandTheme, then the default.
+  const [logoColor, setLogoColor] = useState<string | null>(null);
 
   const shell =
     'group relative flex w-full flex-col overflow-hidden rounded-xl2 border border-border bg-surface text-left shadow-card transition-all hover:-translate-y-1 hover:shadow-card-hover focus-visible:outline-none';
@@ -111,19 +116,23 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
   const employees = getMetric(metrics, 'employees');
   const share = getMetric(metrics, 'market_share');
   const users = getMetric(metrics, 'users');
-  const soft = metrics.some((m) => m.confidence !== 'verified');
-  const brand = company.brandTheme?.primary ?? '#F15A24';
+  const soft = metrics.some((m) => m.confidence !== 'verified' && m.confidence !== 'user_verified');
+  const brand = logoColor ?? company.brandTheme?.primary ?? '#F15A24';
+  const vars = {
+    ...brandVars(company.brandTheme),
+    ...(logoColor ? { ['--brand-primary' as string]: logoColor } : {}),
+  };
 
   return (
     <button
       type="button"
       onClick={onOpen}
       className={cn('game-card', shell, className)}
-      style={brandVars(company.brandTheme)}
+      style={vars}
       aria-label={`${company.name} — ${CARD_TYPE_LABELS[card.cardType]} card`}
     >
-      {/* Brand accent strip — unique per company. */}
-      <div className="h-1 w-full" style={{ background: brand }} />
+      {/* Brand accent strip — extracted from the company's real logo. */}
+      <div className="h-1.5 w-full" style={{ background: brand }} />
 
       <div className="flex flex-1 flex-col p-4">
         {/* Header */}
@@ -136,7 +145,12 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
 
         {/* Hero */}
         <div className="mt-3 flex items-center gap-3">
-          <Logo name={company.name} website={company.websiteUrl} className="h-11 w-11" />
+          <Logo
+            name={company.name}
+            website={company.websiteUrl}
+            className="h-11 w-11"
+            onColor={setLogoColor}
+          />
           <div className="min-w-0">
             <h3 className="truncate font-display text-[15px] font-semibold leading-tight text-content">
               {company.name}

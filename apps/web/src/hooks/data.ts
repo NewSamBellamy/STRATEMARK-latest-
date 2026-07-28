@@ -167,6 +167,41 @@ export function useFactCheck() {
   });
 }
 
+/** Targeted micro-research to fill an empty tier/category (intelligent empty states). */
+export function useExpandDeck(marketId: string | undefined) {
+  const repo = useRepository();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (focus: Parameters<typeof repo.expandDeck>[1]) =>
+      repo.expandDeck(marketId as string, focus),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['cards'] }),
+  });
+}
+
+/** Human-in-the-loop metric correction → user_verified → CMS re-tier. */
+export function useOverrideMetric() {
+  const repo = useRepository();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Parameters<typeof repo.overrideMetric>[0]) => repo.overrideMetric(input),
+    onSuccess: (metric) => {
+      qc.invalidateQueries({ queryKey: qk.companyMetrics(metric.companyId) });
+      qc.invalidateQueries({ queryKey: ['cards'] });
+      qc.invalidateQueries({ queryKey: ['dashboard', metric.companyId] });
+    },
+  });
+}
+
+export function useMarketOpportunity(marketId: string | undefined) {
+  const repo = useRepository();
+  return useQuery({
+    queryKey: ['opportunity', marketId ?? ''],
+    queryFn: () => repo.getMarketOpportunity(marketId as string),
+    enabled: !!marketId,
+    staleTime: Infinity,
+  });
+}
+
 /** Subscribe to live deck-refresh events (spec §9) and invalidate affected caches. */
 export function useDeckRefreshSubscription(onEvent?: (evt: DeckRefreshEvent) => void): void {
   const repo = useRepository();

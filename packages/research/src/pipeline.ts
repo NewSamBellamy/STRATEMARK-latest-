@@ -272,6 +272,94 @@ async function researchBarriers(
   }));
 }
 
+/**
+ * Targeted micro-research to fill a gap in an existing deck (intelligent empty
+ * states): one focused grounded discovery + enrichment for a tier or card type.
+ * Returns fully-assembled cards; the caller stamps deckId and ingests.
+ */
+export async function expandDeckResearch(args: {
+  client: LlmClient;
+  marketName: string;
+  vertical: string;
+  geography: string | null;
+  focusPrompt: string;
+  excludeNames: string[];
+  deckId: string;
+  deckUserValues: number[];
+  target?: number;
+  onEvent?: OnResearchEvent;
+  signal?: AbortSignal;
+}): Promise<CardWithCompany[]> {
+  const emit: OnResearchEvent = args.onEvent ?? (() => {});
+  const plan: MarketPlan = {
+    marketName: args.marketName,
+    vertical: args.vertical,
+    geography: args.geography,
+    notes: null,
+    searchThemes: [args.focusPrompt],
+  };
+  emit({ type: 'status', step: 'discover', message: `Hunting: ${args.focusPrompt}` });
+  const grounded = await args.client.ground(
+    [
+      `Market: ${plan.marketName} — ${plan.vertical}${plan.geography ? ` in ${plan.geography}` : ''}.`,
+      `Using Google Search, find up to ${args.target ?? 3} REAL companies matching this focus: ${args.focusPrompt}.`,
+      `Exclude these already-known companies: ${args.excludeNames.join(', ') || '(none)'}.`,
+      `STRICT: only actual operating companies — no agencies, regulators, trade bodies, or concepts.`,
+    ].join('\n'),
+    { system: GROUNDED_SYSTEM, signal: args.signal },
+  );
+  const out = await args.client.structure(
+    structureDiscoveryPrompt(grounded.text),
+    discoveryOutSchema,
+    { system: STRUCTURE_SYSTEM, signal: args.signal },
+  );
+  const known = new Set(args.excludeNames.map((n) => n.toLowerCase()));
+  const candidates: CompanyCandidate[] = (out.companies ?? [])
+    .filter((c) => !known.has(c.name.trim().toLowerCase()))
+    .slice(0, args.target ?? 3)
+    .map((c) => ({
+      name: c.name.trim(),
+      domain: rootDomain(c.domain),
+      descriptor: c.descriptor ?? '',
+      cardTypes: ['company'],
+    }));
+  emit({ type: 'candidates', candidates });
+
+  const cards: CardWithCompany[] = [];
+  for (const candidate of candidates) {
+    throwIfAborted(args.signal);
+    const e = await enrichOne(args.client, candidate, plan, args.signal);
+    emit({ type: 'status', step: 'enrich', message: `Researched ${candidate.name}` });
+    const base = computeCms(buildCmsInput(e.metrics), { deckUserValues: args.deckUserValues });
+    let tier: MaturityTier | null = base.finalTier;
+    let tierReason: string | null = null;
+    if (base.finalTier != null) {
+      const review = await reviewTier(args.client, e.company.name, base.finalTier, e.metrics, args.signal);
+      tier = computeCms(
+        buildCmsInput(e.metrics),
+        { deckUserValues: args.deckUserValues },
+        { nudge: review.nudge },
+      ).finalTier;
+      tierReason = review.reason;
+    }
+    const card: Card = {
+      id: uid('crd', `${slugify(e.company.name)}-company`),
+      deckId: args.deckId,
+      companyId: e.company.id,
+      cardType: 'company',
+      title: null,
+      summary: null,
+      tier,
+      tierReason,
+      createdAt: now(),
+    };
+    const cwc: CardWithCompany = { card, company: e.company, metrics: e.metrics, viceClaims: [] };
+    cards.push(cwc);
+    emit({ type: 'card', card: cwc });
+  }
+  return cards;
+}
+
 /** Run the full deck-research pipeline. Streams progress via `onEvent`. */
 export async function runDeckResearch(
   brief: { prompt: string; region: string | null },

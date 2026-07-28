@@ -23,11 +23,19 @@ export function selectRepository(apiKey: string, model: string): MarketIntelRepo
     return new IpcRepository(window.mi);
   }
   if (apiKey) {
+    // Power-user knob (also used by scripted demos): localStorage 'mi.targetCompanies'.
+    let targetCompanies = 10;
+    try {
+      const raw = Number(localStorage.getItem('mi.targetCompanies'));
+      if (Number.isFinite(raw) && raw >= 2 && raw <= 25) targetCompanies = raw;
+    } catch {
+      /* opaque origin — keep default */
+    }
     return new GeminiRepository({
       apiKey,
       model: model || undefined,
       store: createLocalStore(),
-      targetCompanies: 10,
+      targetCompanies,
       concurrency: 3,
     });
   }

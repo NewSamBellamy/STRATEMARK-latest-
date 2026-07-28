@@ -147,6 +147,13 @@ function registerIpc(): void {
   );
   ipcMain.handle(IPC_CHANNELS.listReports, () => repository.listReports());
   ipcMain.handle(IPC_CHANNELS.getReport, (_e, id: string) => repository.getReport(id));
+  ipcMain.handle(IPC_CHANNELS.expandDeck, (_e, marketId: string, focus) =>
+    repository.expandDeck(marketId, focus),
+  );
+  ipcMain.handle(IPC_CHANNELS.overrideMetric, (_e, input) => repository.overrideMetric(input));
+  ipcMain.handle(IPC_CHANNELS.getMarketOpportunity, (_e, marketId: string, force?: boolean) =>
+    repository.getMarketOpportunity(marketId, force),
+  );
 
   // Secure key storage — persists to the OS keychain and hot-swaps the backend.
   ipcMain.handle(SECURE_CHANNELS.getApiKey, (): string => loadApiKey());

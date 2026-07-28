@@ -15,6 +15,8 @@ export default tseslint.config(
       '**/*.config.{js,ts,cjs,mjs}',
       '**/.storybook/**',
       '**/scripts/**',
+      // Illustrative REST contract only (ts-nocheck'd); real contract is the typed repository.
+      '**/msw-handlers.ts',
     ],
   },
   js.configs.recommended,
