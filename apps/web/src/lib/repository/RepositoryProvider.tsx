@@ -10,7 +10,8 @@
  */
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import type { MarketIntelRepository } from '@mi/contracts';
-import { MockRepository } from '@mi/mocks';
+import { MockRepository, type SeedSnapshot } from '@mi/mocks';
+import sampleSnapshot from '@/sample/frontier-snapshot.json';
 import { GeminiRepository } from '@mi/research';
 import { IpcRepository, isElectron } from './ipc-repository';
 import { createLocalStore } from './localStore';
@@ -50,7 +51,12 @@ export function selectRepository(
         : undefined,
     });
   }
-  return new MockRepository({ latencyMs: import.meta.env.MODE === 'test' ? 0 : 220 });
+  return new MockRepository({
+    latencyMs: import.meta.env.MODE === 'test' ? 0 : 220,
+    // Zero-state: a REAL researched deck (Frontier AI, live-baked with citations
+    // and confidence tags intact) so first launch shows the finished product.
+    seedSnapshot: sampleSnapshot as unknown as SeedSnapshot,
+  });
 }
 
 export function RepositoryProvider({

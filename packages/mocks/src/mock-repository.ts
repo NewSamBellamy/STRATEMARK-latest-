@@ -40,6 +40,26 @@ export interface MockRepositoryOptions {
   latencyMs?: number;
   /** Provide a prebuilt dataset (tests); defaults to the sample market. */
   dataset?: Dataset;
+  /**
+   * A baked research snapshot (exported from a real keyed run) to pre-seed the
+   * zero-state with — real markets, cards, dashboards, and reports served
+   * read-only alongside the demo dataset. Structurally matches @mi/research's
+   * RepoSnapshot; typed loosely here to avoid a package cycle.
+   */
+  seedSnapshot?: SeedSnapshot | null;
+}
+
+/** Structural subset of @mi/research's RepoSnapshot (see repository.ts there). */
+export interface SeedSnapshot {
+  markets: Market[];
+  decks: Deck[];
+  companies: Company[];
+  metrics: CompanyMetric[];
+  cards: Card[];
+  viceClaims?: ViceClaim[];
+  dashboards?: Record<string, Partial<Record<DashboardTab, { content: unknown; lastRefreshedAt: string }>>>;
+  reports?: Report[];
+  opportunity?: Record<string, { markdown: string; citations: { title: string; url: string }[]; at: string }>;
 }
 
 let counter = 0;
@@ -69,6 +89,31 @@ export class MockRepository implements MarketIntelRepository {
     this.cards = [...data.cards];
     this.viceClaims = [...data.viceClaims];
     this.dashboards = { ...data.dashboards };
+    if (options.seedSnapshot) this.ingestSeed(options.seedSnapshot);
+  }
+
+  /** Merge a baked real-research snapshot in AFTER the demo data (demo market stays first). */
+  private seededOpportunity: NonNullable<SeedSnapshot['opportunity']> = {};
+  private ingestSeed(seed: SeedSnapshot): void {
+    try {
+      this.markets = [...this.markets, ...(seed.markets ?? [])];
+      this.decks = [...this.decks, ...(seed.decks ?? [])];
+      this.companies = [...this.companies, ...(seed.companies ?? [])];
+      this.metrics = [...this.metrics, ...(seed.metrics ?? [])];
+      this.cards = [...this.cards, ...(seed.cards ?? [])];
+      this.viceClaims = [...this.viceClaims, ...(seed.viceClaims ?? [])];
+      for (const [companyId, tabs] of Object.entries(seed.dashboards ?? {})) {
+        const entries = Object.entries(tabs ?? {}) as Array<[DashboardTab, { content: unknown; lastRefreshedAt: string }]>;
+        if (!entries.length) continue;
+        const content = Object.fromEntries(entries.map(([t, v]) => [t, v.content])) as unknown as DashboardRecord['content'];
+        const lastRefreshedAt = entries.map(([, v]) => v.lastRefreshedAt).sort().at(-1)!;
+        this.dashboards[companyId] = { content, lastRefreshedAt };
+      }
+      this.reports = [...(seed.reports ?? []), ...this.reports];
+      this.seededOpportunity = seed.opportunity ?? {};
+    } catch {
+      /* a malformed seed must never break the demo experience */
+    }
   }
 
   private async delay<T>(value: T): Promise<T> {
@@ -255,7 +300,7 @@ export class MockRepository implements MarketIntelRepository {
     _force?: boolean,
   ): Promise<DashboardTabResult<T> | null> {
     const record = this.dashboards[companyId];
-    if (!record) return this.delay(null);
+    if (!record || record.content[tab] == null) return this.delay(null);
     const result: DashboardTabResult<T> = {
       companyId,
       tab,
@@ -353,7 +398,9 @@ export class MockRepository implements MarketIntelRepository {
     return this.delay(metric);
   }
 
-  getMarketOpportunity(_marketId: string, _force?: boolean): Promise<DeepDiveResult> {
+  getMarketOpportunity(marketId: string, _force?: boolean): Promise<DeepDiveResult> {
+    const seeded = this.seededOpportunity[marketId];
+    if (seeded) return this.delay({ markdown: seeded.markdown, citations: seeded.citations });
     return this.delay({
       markdown: [
         `## Positioning axes`,

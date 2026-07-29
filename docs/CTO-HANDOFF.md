@@ -86,11 +86,18 @@ change gets eyeballed across the whole app in one pass.
 - **Landing page.** Greenfield. Recommendation: static one-pager (the product sells itself with
   card screenshots + the journey video), deployable free on GitHub Pages/Cloudflare Pages; embed
   the demo video, deep-link to GitHub releases. Designer owns look; ~1 day of eng.
-- **Pay portal.** The product is open-source and runs on the user's own free key — recommend
-  launching free (stars/adoption are the currency for the hackathon), with monetization later
-  (hosted convenience tier, team sync, or "pro boosters"). If/when needed: Stripe Payment Links or
-  Lemon Squeezy (merchant-of-record, handles tax) bolt onto the landing page with zero backend.
-  Decision needed from CEO: what, if anything, is paid at launch — do not build before that call.
+- **Pay portal — DECIDED (CEO, 2026-07-28).** GitHub source = free forever. The convenience
+  **desktop installer** is a pay-what-you-want one-time purchase, **$1–$100** ("support the
+  project; it's yours, edit it, updates included, bring your own key"). Seller of record is
+  **Square Peg (Nigeria)** — NOT the CEO personally, and no OmniVeo association anywhere
+  (stealth until ~Oct 2026).
+  Payment rail (grounded research, 2026-07-28): **Stripe does not support Nigerian entities** —
+  don't chase it. Recommended: **Paddle as merchant of record** (handles US sales tax; pays out
+  weekly via **Payoneer or wire — both work for Nigeria**). Fallbacks: Flutterwave/Paystack
+  (Nigerian PSPs, more setup, no MoR tax handling). Avoid Lemon Squeezy (PayPal-centric payouts;
+  PayPal receiving is restricted in Nigeria) and Polar (pays out via Stripe → blocked).
+  During Paddle onboarding, Square Peg should verify: Nigerian-entity approval, and
+  pay-what-you-want / custom-amount checkout support (else use tiers: $1 / $5 / $25 / $100).
 - **Distribution/marketing.** Hackathon context: Google AI Studio / Gemini contest, deadline
   **Aug 17, 2026 1pm PT**, ~23k entrants. The wedge: "research any market into a collectible card
   deck, free, no signup, anti-fabrication by design" is inherently screenshot-able — the card grid
