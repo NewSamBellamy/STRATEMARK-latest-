@@ -89,12 +89,26 @@ function normalize(raw: RepoSnapshot | null): RepoSnapshot {
   return { ...empty(), ...raw, reports: raw.reports ?? [], opportunity: raw.opportunity ?? {} };
 }
 
+/**
+ * Optional prose-elevation pass (BYOK power-up). Receives a finished,
+ * Gemini-grounded draft and returns an elevated rewrite. It must never add
+ * facts — grounding, figures, and citations always come from the free path.
+ * Any throw is swallowed by the caller (fail-open to the draft).
+ */
+export type ProseElevator = (args: {
+  markdown: string;
+  kind: 'report' | 'deep_dive';
+  title?: string;
+}) => Promise<string>;
+
 export interface GeminiRepositoryOptions extends GeminiClientConfig {
   store?: ResearchStore;
   /** Inject a client for tests (bypasses network). */
   client?: LlmClient;
   targetCompanies?: number;
   concurrency?: number;
+  /** Optional BYOK writer pass for reports/deep-dives (fail-open). */
+  elevator?: ProseElevator;
 }
 
 export class GeminiRepository implements MarketIntelRepository {
@@ -103,6 +117,7 @@ export class GeminiRepository implements MarketIntelRepository {
   private readonly store?: ResearchStore;
   private readonly targetCompanies?: number;
   private readonly concurrency?: number;
+  private readonly elevator?: ProseElevator;
   private listeners = new Set<DeckRefreshListener>();
 
   constructor(options: GeminiRepositoryOptions) {
@@ -110,7 +125,20 @@ export class GeminiRepository implements MarketIntelRepository {
     this.store = options.store;
     this.targetCompanies = options.targetCompanies;
     this.concurrency = options.concurrency;
+    this.elevator = options.elevator;
     this.snap = normalize(this.store?.read() ?? null);
+  }
+
+  /** Apply the optional BYOK writer pass; on ANY failure return the draft untouched. */
+  private async elevate(markdown: string, kind: 'report' | 'deep_dive', title?: string): Promise<string> {
+    if (!this.elevator) return markdown;
+    try {
+      const out = await this.elevator({ markdown, kind, title });
+      // Sanity: an elevation that loses most of the draft is a failure, not a rewrite.
+      return out && out.length > markdown.length * 0.4 ? out : markdown;
+    } catch {
+      return markdown;
+    }
   }
 
   private persist(): void {
@@ -301,7 +329,8 @@ export class GeminiRepository implements MarketIntelRepository {
       `If a detail is not disclosed or you cannot verify it, say so explicitly — do NOT speculate or invent numbers.`,
     ].join('\n');
     const g = await this.client.ground(prompt, { system: GROUNDED_SYSTEM });
-    return { markdown: g.text, citations: g.citations };
+    const markdown = await this.elevate(g.text, 'deep_dive', input.topic);
+    return { markdown, citations: g.citations };
   }
 
   async factCheck(input: FactCheckInput): Promise<FactCheckResult> {
@@ -379,12 +408,13 @@ export class GeminiRepository implements MarketIntelRepository {
       { system: GROUNDED_SYSTEM },
     );
 
+    const markdown = await this.elevate(g.text, 'report', title);
     const report: Report = {
       id: `rpt_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
       kind: request.kind,
       subjectId: request.subjectId,
       title,
-      markdown: g.text,
+      markdown,
       citations: g.citations,
       createdAt: new Date().toISOString(),
     };

@@ -268,8 +268,9 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
           />
         </span>
 
-        {/* 3 — One-liner ribbon */}
-        <span className="line-clamp-2 px-3.5 pb-1 pt-2 text-left text-[10.5px] leading-snug text-muted">
+        {/* 3 — One-liner ribbon (hard 2-line lock: clamp + explicit max height so
+            long researched blurbs can never collide with the stat box) */}
+        <span className="line-clamp-2 max-h-[2.9em] overflow-hidden px-3.5 pb-1 pt-2 text-left text-[10.5px] leading-snug text-muted">
           {company.oneLiner}
         </span>
 

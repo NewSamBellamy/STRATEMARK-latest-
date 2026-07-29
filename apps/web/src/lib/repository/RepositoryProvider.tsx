@@ -15,10 +15,16 @@ import { GeminiRepository } from '@mi/research';
 import { IpcRepository, isElectron } from './ipc-repository';
 import { createLocalStore } from './localStore';
 import { useApiKey } from '@/lib/settings/apiKey';
+import { useBoosters } from '@/lib/settings/boosters';
+import { createClaudeElevator } from '@/lib/boosters/claudeElevator';
 
 const RepositoryContext = createContext<MarketIntelRepository | null>(null);
 
-export function selectRepository(apiKey: string, model: string): MarketIntelRepository {
+export function selectRepository(
+  apiKey: string,
+  model: string,
+  boosters?: { anthropicKey: string; anthropicModel: string },
+): MarketIntelRepository {
   if (isElectron() && window.mi) {
     return new IpcRepository(window.mi);
   }
@@ -37,6 +43,11 @@ export function selectRepository(apiKey: string, model: string): MarketIntelRepo
       store: createLocalStore(),
       targetCompanies,
       concurrency: 3,
+      // BYOK power-up: optional Claude writer pass on reports/deep-dives.
+      // Fail-open inside the repository — can never break the free path.
+      elevator: boosters?.anthropicKey
+        ? createClaudeElevator(boosters.anthropicKey, boosters.anthropicModel)
+        : undefined,
     });
   }
   return new MockRepository({ latencyMs: import.meta.env.MODE === 'test' ? 0 : 220 });
@@ -52,9 +63,11 @@ export function RepositoryProvider({
 }) {
   const apiKey = useApiKey((s) => s.apiKey);
   const model = useApiKey((s) => s.model);
+  const anthropicKey = useBoosters((s) => s.anthropicKey);
+  const anthropicModel = useBoosters((s) => s.anthropicModel);
   const value = useMemo(
-    () => repository ?? selectRepository(apiKey, model),
-    [repository, apiKey, model],
+    () => repository ?? selectRepository(apiKey, model, { anthropicKey, anthropicModel }),
+    [repository, apiKey, model, anthropicKey, anthropicModel],
   );
   return <RepositoryContext.Provider value={value}>{children}</RepositoryContext.Provider>;
 }

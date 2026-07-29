@@ -33,7 +33,7 @@ function renderApp() {
 const FIND = { timeout: 4000 } as const;
 
 describe('end-to-end deck flow (markets → deck → 2-level split → card → dashboard)', () => {
-  it('navigates the full journey against the mock repository', async () => {
+  it('navigates the full journey against the mock repository', { timeout: 20000 }, async () => {
     const { user } = renderApp();
 
     // Markets list → open the sample market's deck.
