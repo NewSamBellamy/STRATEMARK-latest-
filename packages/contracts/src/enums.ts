@@ -15,6 +15,7 @@ export const CARD_TYPES = [
   'distribution',
   'culture',
   'vice',
+  'insight',
   'barrier',
 ] as const;
 export type CardType = (typeof CARD_TYPES)[number];
@@ -25,6 +26,7 @@ export const CARD_TYPE_LABELS: Record<CardType, string> = {
   distribution: 'Distribution',
   culture: 'Culture',
   vice: 'Vice',
+  insight: 'Insight',
   barrier: 'Barrier to Entry',
 };
 
@@ -34,6 +36,8 @@ export const CARD_TYPE_DESCRIPTIONS: Record<CardType, string> = {
   distribution: 'Companies providing distribution/channel access into the market.',
   culture: 'Positive community/culture signal — engagement, giving back, non-profit ties.',
   vice: 'Negative/risk signal — lawsuits, bad press, founder-integrity issues.',
+  insight:
+    'A market-level finding worth remembering — a shift, pattern, or non-obvious dynamic surfaced by the research.',
   barrier: 'Structural barriers identified for the market (regulatory, capital, network effects).',
 };
 
@@ -44,6 +48,7 @@ export const CARD_TYPE_ORDER: readonly CardType[] = [
   'distribution',
   'culture',
   'vice',
+  'insight',
   'barrier',
 ];
 

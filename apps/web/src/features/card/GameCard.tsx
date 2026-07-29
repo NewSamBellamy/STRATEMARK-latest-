@@ -3,6 +3,7 @@ import {
   Building2,
   Landmark,
   Layers,
+  Lightbulb,
   ShieldAlert,
   Sparkles,
   Waypoints,
@@ -40,6 +41,7 @@ const TYPE_ICON: Record<CardType, LucideIcon> = {
   distribution: Waypoints,
   culture: Sparkles,
   vice: ShieldAlert,
+  insight: Lightbulb,
   barrier: Landmark,
 };
 
@@ -275,6 +277,7 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
             <Logo
               name={company.name}
               website={company.websiteUrl}
+              logoUrl={company.logoUrl}
               onColor={setLogoColor}
               bare
               retryNonce={logoNonce}

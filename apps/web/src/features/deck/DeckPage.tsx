@@ -30,6 +30,7 @@ import {
   useMarket,
   useRefreshDeck,
 } from '@/hooks/data';
+import { cn } from '@/lib/cn';
 import { useApiKey } from '@/lib/settings/apiKey';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { CardGridSkeleton } from '@/components/states/Skeleton';
@@ -191,19 +192,45 @@ export default function DeckPage() {
               </div>
             );
           }
-          // Level 0 — the full deck.
+          // Level 0 — the full deck, with a persistent card-type nav that
+          // re-filters the grid in place.
+          const filtered = typeParam ? list.filter((c) => c.card.cardType === typeParam) : list;
           return (
             <section>
-              <div className="mb-4 flex items-center justify-between">
+              <TypeNav
+                cards={list}
+                active={typeParam}
+                onSelect={(t) => setSplit(t ? { type: t } : {})}
+              />
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm text-muted">
-                  {list.length} cards across {countByType.size} categories
+                  {typeParam
+                    ? `${filtered.length} ${CARD_TYPE_LABELS[typeParam].toLowerCase()} card${filtered.length === 1 ? '' : 's'}`
+                    : `${list.length} cards across ${countByType.size} categories`}
                 </p>
-                <button type="button" className="btn-primary" onClick={() => setSplit({ split: 'types' })}>
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={() => setSplit({ split: 'company' })}
+                  title="Group company cards into the eight maturity tiers"
+                >
                   <SlidersHorizontal className="h-4 w-4" />
-                  Split by card type
+                  Group by tier
                 </button>
               </div>
-              <CardGrid cards={list} deckUserValues={userValues} />
+              {filtered.length > 0 ? (
+                <CardGrid cards={filtered} deckUserValues={userValues} />
+              ) : (
+                <ExpandPrompt
+                  marketId={marketId}
+                  focus={typeParam ? { cardType: typeParam } : {}}
+                  label={
+                    typeParam
+                      ? `Hunt for ${CARD_TYPE_LABELS[typeParam].toLowerCase()} cards in this market`
+                      : 'Hunt for more companies in this market'
+                  }
+                />
+              )}
             </section>
           );
         }}
@@ -268,6 +295,65 @@ function SubDeckTile({
         <ChevronRight className="h-3.5 w-3.5" />
       </span>
     </button>
+  );
+}
+
+/**
+ * Persistent card-type navigation.
+ *
+ * Replaces the old drill-down (split → pick a type → new screen) with a bar that
+ * stays put: click a type and the grid below re-filters in place, the way you'd
+ * flip between sections of a binder. Counts come from the real deck so an empty
+ * type is visible rather than hidden behind a click.
+ */
+function TypeNav({
+  cards,
+  active,
+  onSelect,
+}: {
+  cards: CardWithCompany[];
+  active: CardType | null;
+  onSelect: (t: CardType | null) => void;
+}) {
+  const counts = new Map<CardType, number>();
+  for (const c of cards) counts.set(c.card.cardType, (counts.get(c.card.cardType) ?? 0) + 1);
+  const present = CARD_TYPE_ORDER.filter((t) => (counts.get(t) ?? 0) > 0);
+  if (present.length <= 1) return null;
+
+  const Tab = ({ label, count, selected, onClick }: { label: string; count: number; selected: boolean; onClick: () => void }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      className={cn(
+        'whitespace-nowrap rounded-t-lg border-b-2 px-3.5 py-2 text-sm font-medium transition-colors',
+        selected ? 'border-primary text-content' : 'border-transparent text-muted hover:text-content',
+      )}
+    >
+      {label}
+      {/* text-faint fails AA contrast at this size (axe caught it) — muted passes. */}
+      <span className={cn('ml-1.5 tabular-nums text-xs', selected ? 'text-primary-ink' : 'text-muted')}>
+        {count}
+      </span>
+    </button>
+  );
+
+  return (
+    <nav
+      className="mb-5 flex gap-1 overflow-x-auto border-b border-border pb-px"
+      aria-label="Filter deck by card type"
+    >
+      <Tab label="All cards" count={cards.length} selected={active === null} onClick={() => onSelect(null)} />
+      {present.map((t) => (
+        <Tab
+          key={t}
+          label={CARD_TYPE_LABELS[t]}
+          count={counts.get(t) ?? 0}
+          selected={active === t}
+          onClick={() => onSelect(t)}
+        />
+      ))}
+    </nav>
   );
 }
 

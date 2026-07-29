@@ -12,12 +12,12 @@ test('full journey: markets → deck → 2-level split → card reader → dashb
   await page.getByText('Christian Apparel Companies — California').click();
   await expect(page.getByTestId('card-grid')).toBeVisible();
 
-  // Level 1 split.
-  await page.getByRole('button', { name: /split by card type/i }).click();
-  await expect(page.getByText('Barrier to Entry')).toBeVisible();
+  // Level 1 → tier grouping.
+  // Persistent card-type nav filters in place; tier grouping is one click.
+  await expect(page.getByRole('button', { name: /all cards/i })).toBeVisible();
+  await page.getByRole('button', { name: /group by tier/i }).click();
 
-  // Company sub-deck → Level 2 tier split.
-  await page.getByText(/Core entry for any company/i).click();
+  // Company cards grouped into maturity tiers.
   await expect(page.getByText('The Titans').first()).toBeVisible();
   await expect(page.getByText('The Sandbox').first()).toBeVisible();
 

@@ -131,7 +131,7 @@ export default function DashboardPage() {
         {(c) => (
           <>
             <header className="mb-5 flex items-center gap-4">
-              <Logo name={c.name} website={c.websiteUrl} className="h-14 w-14 border border-border" />
+              <Logo name={c.name} website={c.websiteUrl} logoUrl={c.logoUrl} className="h-14 w-14 border border-border" />
               <div className="min-w-0 flex-1">
                 <h1 className="font-display text-2xl font-semibold text-content">{c.name}</h1>
                 <p className="text-sm text-muted">{c.oneLiner}</p>

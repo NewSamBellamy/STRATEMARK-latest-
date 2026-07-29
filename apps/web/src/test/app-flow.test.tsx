@@ -44,15 +44,14 @@ describe('end-to-end deck flow (markets → deck → 2-level split → card → 
     );
     await user.click(marketBtn);
 
-    // Level 0 — full deck.
-    const splitBtn = await screen.findByRole('button', { name: /split by card type/i }, FIND);
-    await user.click(splitBtn);
+    // Level 0 — full deck with the persistent card-type nav. Filtering happens
+    // in place now, so verify the nav renders and then group by tier directly
+    // (the old drill-down screen is gone).
+    expect(await screen.findByRole('button', { name: /all cards/i }, FIND)).toBeInTheDocument();
+    const tierBtn = await screen.findByRole('button', { name: /group by tier/i }, FIND);
+    await user.click(tierBtn);
 
-    // Level 1 — six card-type sub-decks. Open the Company sub-deck.
-    const companyTile = await screen.findByText(/Core entry for any company/i, undefined, FIND);
-    await user.click(companyTile);
-
-    // Level 2 — Company split into 8 tier-decks (labels appear in headers + card badges).
+    // Company cards grouped into the 8 tier-decks (labels in headers + card badges).
     expect((await screen.findAllByText('The Titans', undefined, FIND)).length).toBeGreaterThan(0);
     expect(screen.getAllByText('The Sandbox').length).toBeGreaterThan(0);
 

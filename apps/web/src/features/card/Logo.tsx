@@ -53,14 +53,19 @@ function heroScale(naturalWidth: number): string {
 interface Candidate {
   src: string;
   width: number;
+  /** Vector art is sharp at ANY size, so resolution heuristics don't apply. */
+  vector: boolean;
 }
+
+const isSvg = (src: string): boolean => /\.svg(\?|$)|image\/svg/i.test(src);
 
 /** Load an image off-screen just to learn whether it exists and how big it is. */
 function probe(src: string): Promise<Candidate | null> {
   return new Promise((resolve) => {
     const img = new Image();
     img.referrerPolicy = 'no-referrer';
-    img.onload = () => resolve(img.naturalWidth > 0 ? { src, width: img.naturalWidth } : null);
+    img.onload = () =>
+      resolve(img.naturalWidth > 0 ? { src, width: img.naturalWidth, vector: isSvg(src) } : null);
     img.onerror = () => resolve(null);
     img.src = src;
   });
@@ -78,9 +83,16 @@ export function Logo({
   onColor,
   bare = false,
   retryNonce = 0,
+  logoUrl,
 }: {
   name: string;
   website: string | null | undefined;
+  /**
+   * Logo resolved during the research pass (Wikidata/Commons vector art where
+   * available) and stored on the company. When present it's tried FIRST, which
+   * is what collapses per-card probing from ~3 requests to 1 (audit 2.2).
+   */
+  logoUrl?: string | null;
   className?: string;
   /** Fires with the logo's dominant color when extraction succeeds (CORS-permitting). */
   onColor?: (hex: string) => void;
@@ -90,20 +102,24 @@ export function Logo({
   retryNonce?: number;
 }) {
   const sources = useMemo(() => {
-    const domain = domainOf(website);
-    if (!domain) return [];
     const bust = retryNonce > 0 ? `r=${retryNonce}` : '';
     const q = (sep: string) => (bust ? `${sep}${bust}` : '');
+    // Pre-resolved art wins: it was chosen at research time from a trusted
+    // source and is usually vector, so there's nothing better to look for.
+    const preferred = logoUrl ? [logoUrl + (bust ? (logoUrl.includes('?') ? `&${bust}` : `?${bust}`) : '')] : [];
+    const domain = domainOf(website);
+    if (!domain) return preferred;
     // NOTE: icon.horse is deliberately absent (returns its own grey placeholder
     // with HTTP 200) and gstatic runs WITHOUT fallback_opts (so it 404s instead
     // of serving a default globe). Sources must fail honestly — a generic
     // placeholder poisons both the hero and the brand-color extraction.
     return [
+      ...preferred,
       `https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&url=https://${domain}&size=256${q('&')}`,
       `https://unavatar.io/${domain}?fallback=false${q('&')}`,
       `https://icons.duckduckgo.com/ip3/${domain}.ico${q('?')}`,
     ];
-  }, [website, retryNonce]);
+  }, [website, retryNonce, logoUrl]);
 
   const [best, setBest] = useState<Candidate | null>(null);
   const [settled, setSettled] = useState(false);
@@ -122,10 +138,11 @@ export function Logo({
       for (const src of sources) {
         const hit = await probe(src);
         if (cancelled) return;
-        if (hit && (!winner || hit.width > winner.width)) {
+        if (hit && (!winner || hit.vector || hit.width > winner.width)) {
           winner = hit;
           setBest(winner);
-          if (hit.width >= GOOD_ENOUGH_PX) break; // sharp enough; stop paying for probes
+          // Vector wins outright; raster only if it's already sharp enough.
+          if (hit.vector || hit.width >= GOOD_ENOUGH_PX) break;
         }
       }
       if (!cancelled) setSettled(true);
@@ -151,7 +168,7 @@ export function Logo({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [best?.src]);
 
-  const usable = best && best.width >= MIN_USABLE_PX ? best : null;
+  const usable = best && (best.vector || best.width >= MIN_USABLE_PX) ? best : null;
 
   return (
     <div
@@ -161,7 +178,7 @@ export function Logo({
         className,
       )}
     >
-      {usable && bare && usable.width < CRISP_PX ? (
+      {usable && bare && !usable.vector && usable.width < CRISP_PX ? (
         // Low-res mark: show it at its honest size (capped upscale) inside a
         // composed plate with the name beneath — same composition family as the
         // lettermark below, so the grid still reads as one set instead of one
@@ -183,7 +200,14 @@ export function Logo({
           src={usable.src}
           alt={`${name} logo`}
           className={cn('object-contain', bare ? 'p-1' : 'h-full w-full p-1.5')}
-          style={bare ? { width: heroScale(usable.width), height: heroScale(usable.width) } : undefined}
+          style={
+            bare
+              ? {
+                  width: usable.vector ? '100%' : heroScale(usable.width),
+                  height: usable.vector ? '100%' : heroScale(usable.width),
+                }
+              : undefined
+          }
           referrerPolicy="no-referrer"
         />
       ) : !settled ? (

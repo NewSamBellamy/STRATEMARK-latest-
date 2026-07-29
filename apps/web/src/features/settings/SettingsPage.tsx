@@ -5,13 +5,11 @@ import {
   ExternalLink,
   KeyRound,
   Loader2,
-  Rocket,
   ShieldCheck,
   Trash2,
 } from 'lucide-react';
 import { createGeminiClient } from '@mi/research';
 import { looksLikeGeminiKey, sanitizeApiKey, useApiKey } from '@/lib/settings/apiKey';
-import { DEFAULT_ANTHROPIC_MODEL, useBoosters } from '@/lib/settings/boosters';
 
 type TestState = { status: 'idle' | 'testing' | 'ok' | 'fail'; detail?: string };
 
@@ -191,113 +189,6 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <PowerUps />
-    </div>
-  );
-}
-
-/**
- * BYOK power-ups — optional keys that supercharge specific stages.
- * The free Gemini path is always the foundation; boosters can only add.
- */
-function PowerUps() {
-  const { anthropicKey, anthropicModel, setAnthropicKey, setAnthropicModel, clearAnthropic } =
-    useBoosters();
-  const [draft, setDraft] = useState(anthropicKey);
-  const [saved, setSaved] = useState(false);
-  const active = anthropicKey.length > 0;
-
-  return (
-    <div className="panel mt-6 space-y-4 p-6">
-      <div className="flex items-center gap-2">
-        <Rocket className="h-5 w-5 text-primary-ink" />
-        <h2 className="font-display text-lg text-content">Power-ups</h2>
-        <span className="chip border-border text-muted">optional · bring your own keys</span>
-        {active && (
-          <span className="chip border-sky-300 bg-sky-50 text-sky-700">
-            <CheckCircle2 className="h-3.5 w-3.5" /> Analyst voice active
-          </span>
-        )}
-      </div>
-      <p className="text-sm text-muted">
-        Everything core runs free on your Google AI Studio key. Power-ups let you plug in other
-        keys to supercharge specific stages — they can only <em>add</em>; if a booster ever fails,
-        the app silently falls back to the free path.
-      </p>
-
-      <div className="panel-2 space-y-3 p-4">
-        <div>
-          <h3 className="font-display text-sm font-semibold text-content">
-            Anthropic — analyst voice
-          </h3>
-          <p className="mt-0.5 text-xs text-muted">
-            Claude rewrites finished reports and deep-dives for executive clarity. Facts, figures,
-            and citations always come from the grounded Gemini pass — the writer is forbidden to
-            add or alter any figure or confidence qualifier.
-          </p>
-        </div>
-        <div>
-          <label className="label" htmlFor="anthropic-key">
-            Anthropic API key
-          </label>
-          <input
-            id="anthropic-key"
-            type="password"
-            className="input font-mono"
-            placeholder="sk-ant-…"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            autoComplete="off"
-          />
-        </div>
-        <details className="text-sm">
-          <summary className="cursor-pointer text-muted hover:text-content">
-            Advanced: writer model
-          </summary>
-          <div className="mt-2">
-            <input
-              className="input font-mono"
-              placeholder={DEFAULT_ANTHROPIC_MODEL}
-              value={anthropicModel}
-              onChange={(e) => setAnthropicModel(e.target.value)}
-            />
-            <p className="mt-1 text-xs text-muted">
-              Any Anthropic messages-API model id. Default: {DEFAULT_ANTHROPIC_MODEL}.
-            </p>
-          </div>
-        </details>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            className="btn-primary"
-            disabled={!draft.trim()}
-            onClick={() => {
-              setAnthropicKey(draft);
-              setSaved(true);
-              setTimeout(() => setSaved(false), 2000);
-            }}
-          >
-            {saved ? 'Saved ✓' : 'Save key'}
-          </button>
-          {active && (
-            <button
-              type="button"
-              className="btn-ghost text-negative"
-              onClick={() => {
-                clearAnthropic();
-                setDraft('');
-              }}
-            >
-              <Trash2 className="h-4 w-4" /> Remove
-            </button>
-          )}
-        </div>
-        <p className="flex items-start gap-2 rounded-lg bg-surface-2 px-3 py-2 text-xs text-muted">
-          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
-          Stored only in this browser; sent only to Anthropic. This booster is experimental — if
-          Anthropic rejects the call for any reason, your report still generates normally.
-        </p>
-      </div>
     </div>
   );
 }

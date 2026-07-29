@@ -55,6 +55,7 @@ import type {
   OnResearchEvent,
   RunResearchOptions,
 } from './types';
+import { faviconUrl, resolveLogo } from './logos';
 import { mapWithConcurrency, rootDomain, slugify, throwIfAborted } from './util';
 
 export interface ResearchResult {
@@ -67,13 +68,6 @@ const uid = (prefix: string, slug: string): string =>
   `${prefix}_${slug}_${Math.random().toString(36).slice(2, 7)}`;
 
 const now = (): string => new Date().toISOString();
-
-/** Real, free logo source (faviconV2). The UI falls back to a monogram on error. */
-export function faviconUrl(domain: string | null): string | null {
-  if (!domain) return null;
-  const site = encodeURIComponent(`https://${domain}`);
-  return `https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=${site}&size=128`;
-}
 
 const DEFAULT_BRAND: BrandTheme = {
   primary: '#4f46e5',
@@ -473,6 +467,16 @@ export async function runDeckResearch(
     .flatMap((e) => e.metrics)
     .filter((m) => m.metricType === 'users' && m.confidence !== 'unknown' && m.value !== null)
     .map((m) => m.value as number);
+
+  // Resolve logos ONCE here rather than probing per card at render time (audit
+  // findings 2.2 / 3.1 / 3.3). Free, keyless, paced, and prefers vector art.
+  emit({ type: 'status', step: 'score', message: 'Resolving company logos…' });
+  await mapWithConcurrency(enriched, 2, async (e) => {
+    const domain = rootDomain(e.company.websiteUrl) ?? e.candidate.domain;
+    const logo = await resolveLogo({ name: e.company.name, domain }, { signal });
+    if (logo.url) e.company.logoUrl = logo.url;
+    return null;
+  });
 
   emit({ type: 'status', step: 'score', message: 'Scoring maturity tiers…' });
 
