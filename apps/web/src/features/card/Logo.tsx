@@ -78,13 +78,25 @@ export function Logo({
             );
           }}
         />
-      ) : (
+      ) : bare ? (
+        // Designed lettermark plate — brand-colored initials + the full name,
+        // so a missing logo still reads as an intentional card face.
         <span
           aria-label={`${name} monogram`}
-          className={cn(bare && 'font-display text-4xl font-bold tracking-tight text-content/70')}
+          className="flex max-w-full flex-col items-center justify-center gap-1.5 px-2 text-center"
         >
-          {initials(name)}
+          <span
+            className="font-display text-[42px] font-bold leading-none tracking-tight"
+            style={{ color: 'var(--tcg-primary, #3F3F46)', opacity: 0.88 }}
+          >
+            {initials(name)}
+          </span>
+          <span className="max-w-full truncate text-[8.5px] font-semibold uppercase tracking-[0.2em] text-faint">
+            {name}
+          </span>
         </span>
+      ) : (
+        <span aria-label={`${name} monogram`}>{initials(name)}</span>
       )}
     </div>
   );

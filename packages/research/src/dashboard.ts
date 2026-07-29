@@ -94,7 +94,7 @@ export async function researchDashboardTab<T extends DashboardTab>(
 
     case 'live_intel': {
       const g = await client.ground(
-        `Find the most recent news, X/Twitter, and Reddit discussion about ${ctx(args)} (last few weeks). For each, note the source type, headline, URL, a one-line summary, and sentiment.`,
+        `Find the most recent news, X/Twitter, and Reddit discussion about ${ctx(args)} (last few weeks). Surface 12–18 DISTINCT items — separate stories, threads, and announcements, not variations of one story — mixing all three source types where they exist. For each, note the source type, headline, URL, a one-line summary, and sentiment. If fewer genuinely exist, return only what is real; never pad.`,
         system,
       );
       const loose = await client.structure(

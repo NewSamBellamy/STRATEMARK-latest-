@@ -57,3 +57,27 @@ into one Market Opportunity epic.
 Sequencing rationale: A restores the "wow" perception cheaply, B creates the features
 worth paying for, C is the moat, D makes first-run magical. Every phase ends with the
 full gate (typecheck, lint, unit, E2E/a11y) + a fresh journey recording.
+
+---
+
+## Addendum — 2026-07-28 evening (post P1/P2 direction from founder)
+
+**Shipped same-day:** designed lettermark plate fallback (brand-colored initials + name) when no
+usable logo exists; company **Intel File** (reports attach to the company they're about, shown in
+the dashboard header); **Research composer** on the dashboard ("you're already halfway there" —
+free-text grounded dig from company context); Live Intel prompt now demands 12–18 distinct items
+(never padded).
+
+**Queued (P3-grade, in priority order):**
+1. **Hero brand imagery** — when a logo is missing/tiny, capture the company site's og:image /
+   hero image *at research time* and store it on the company record. Reality check: arbitrary-site
+   fetch is CORS-blocked in the web build, so this lands via (a) the Electron main process, or
+   (b) a research-pipeline capture step. Until then the lettermark plate is the honest fallback.
+2. **Persist deep-dives to the Intel File** — dig-deeper results are currently session-cached only;
+   persist them on the company (repository + snapshot change) so every conversation about a company
+   lives on its card.
+3. **Per-market monitoring checklist** — user-editable "what I care about" list feeding the refresh
+   cadence (the personalized cron: daily/weekly/monthly + manual), with per-tab freshness.
+4. **Live Intel stream toggle** — optional auto-refresh ("watch mode") on the Live Intel tab.
+5. Vice/insight cards positioned as *discovered market reports* — deepen the vice card back face
+   (full sourced claims already exist) and surface them in the market report.

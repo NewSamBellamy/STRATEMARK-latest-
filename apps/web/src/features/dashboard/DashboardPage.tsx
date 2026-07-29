@@ -1,11 +1,13 @@
-import { NavLink, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, FileText } from 'lucide-react';
+import { useState, type FormEvent } from 'react';
+import { Link, NavLink, useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, FileText, Sparkles } from 'lucide-react';
 import { DASHBOARD_TABS, DASHBOARD_TAB_LABELS, type DashboardTab } from '@mi/contracts';
-import { useCompany, useGenerateReport } from '@/hooks/data';
+import { useCompany, useGenerateReport, useReports } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { cn } from '@/lib/cn';
+import { formatRelative } from '@/lib/format';
 import { Logo } from '@/features/card/Logo';
-import { DigDeeper } from '@/features/deepdive/DeepDive';
+import { DigDeeper, useDeepDive } from '@/features/deepdive/DeepDive';
 import { OverviewTab } from './tabs/OverviewTab';
 import { LiveIntelTab } from './tabs/LiveIntelTab';
 import { TeamOrgTab } from './tabs/TeamOrgTab';
@@ -15,6 +17,70 @@ import { MissionGovernanceTab } from './tabs/MissionGovernanceTab';
 import { HistoryTab } from './tabs/HistoryTab';
 import { ProductsRoadmapTab } from './tabs/ProductsRoadmapTab';
 import NotFoundPage from '@/features/NotFoundPage';
+
+/**
+ * "You're already halfway there" — free-text grounded research from inside the
+ * company's context. Opens the sourced deep-dive sheet with whatever you ask.
+ */
+function ResearchComposer({ companyId, companyName }: { companyId: string; companyName: string }) {
+  const { open } = useDeepDive();
+  const [q, setQ] = useState('');
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    const topic = q.trim();
+    if (!topic) return;
+    open({ topic, companyId, companyName, context: null });
+    setQ('');
+  };
+  return (
+    <form onSubmit={submit} className="flex min-w-0 flex-1 items-center gap-2">
+      <div className="relative min-w-0 flex-1">
+        <Sparkles className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-faint" />
+        <input
+          className="input py-2 pl-8 text-[13px]"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={`Research anything about ${companyName} — grounded & sourced…`}
+          aria-label={`Research anything about ${companyName}`}
+        />
+      </div>
+      <button type="submit" className="btn-ghost shrink-0 px-3 py-2 text-xs" disabled={!q.trim()}>
+        Dig
+      </button>
+    </form>
+  );
+}
+
+/** The company's intel file: every report generated about it, attached here. */
+function IntelFile({ companyId }: { companyId: string }) {
+  const reports = useReports();
+  const mine = (reports.data ?? []).filter((r) => r.kind === 'company' && r.subjectId === companyId);
+  if (mine.length === 0) return null;
+  return (
+    <div className="flex min-w-0 items-center gap-2 overflow-x-auto">
+      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-widest text-faint">
+        Intel file
+      </span>
+      {mine.slice(0, 4).map((r) => (
+        <Link
+          key={r.id}
+          to={`/reports/${r.id}`}
+          className="chip shrink-0 border-border text-muted hover:border-primary/50 hover:text-content"
+          title={r.title}
+        >
+          <FileText className="h-3 w-3" />
+          <span className="max-w-[180px] truncate">{r.title.replace(/ — Company Report.*$/, '')}</span>
+          <span className="text-faint">{formatRelative(r.createdAt)}</span>
+        </Link>
+      ))}
+      {mine.length > 4 && (
+        <Link to="/reports" className="shrink-0 text-[11px] text-primary-ink hover:underline">
+          +{mine.length - 4} more
+        </Link>
+      )}
+    </div>
+  );
+}
 
 function TabView({ tab, companyId }: { tab: DashboardTab; companyId: string }) {
   switch (tab) {
@@ -89,6 +155,12 @@ export default function DashboardPage() {
                 className="shrink-0 px-3 py-1.5 text-xs"
               />
             </header>
+
+            {/* Context-aware research row: ask anything + this company's intel file. */}
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+              <ResearchComposer companyId={companyId} companyName={c.name} />
+              <IntelFile companyId={companyId} />
+            </div>
 
             {/* Locked 8-tab order (spec §8), deep-linkable routes. */}
             <nav
