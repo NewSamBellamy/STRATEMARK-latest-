@@ -4,6 +4,7 @@
  */
 export * from './enums';
 export * from './tiers';
+export * from './provenance';
 export * from './scoring';
 export * from './schemas';
 export * from './types';

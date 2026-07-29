@@ -81,7 +81,16 @@ export const companyMetricSchema = z.object({
   metricType: metricTypeSchema,
   value: z.number().nullable(), // null iff confidence === 'unknown'
   confidence: confidenceSchema,
-  source: z.string().nullable(), // citation URL/text for verified figures
+  source: z.string().nullable(), // primary citation URL (back-compat; mirrors citations[0])
+  /**
+   * Every source behind THIS figure.
+   *
+   * `title` holds the publisher (e.g. "carnegieendowment.org") and is what the
+   * UI shows: grounding URLs are opaque `vertexaisearch...` redirects that also
+   * expire, so the publisher name is the durable half of the provenance.
+   * Defaulted to [] so snapshots written before this field still parse.
+   */
+  citations: z.array(z.object({ title: z.string(), url: z.string() })).default([]),
   methodNote: z.string().nullable(), // "how we got this number" for estimated figures
   capturedAt: isoTimestamp,
 });

@@ -24,6 +24,7 @@ import {
   type MaturityTier,
   type MetricType,
   type ViceClaim,
+  enforceMetricsProvenance,
 } from '@mi/contracts';
 import {
   barrierOutSchema,
@@ -103,22 +104,27 @@ function metricRows(
   companyId: string,
 ): CompanyMetric[] {
   const rows: CompanyMetric[] = [];
-  const source = (idx: number | null | undefined): string | null =>
-    idx != null && citations[idx] ? citations[idx]!.url : null;
+  const cited = (idx: number | null | undefined): Citation[] =>
+    idx != null && citations[idx] ? [citations[idx]!] : [];
   for (const [type, m] of Object.entries(enrich.metrics ?? {})) {
     if (!m) continue;
+    const attached = cited(m.sourceIndex);
     rows.push({
       id: uid('met', `${companyId}-${type}`),
       companyId,
       metricType: type as MetricType,
       value: m.value ?? null,
       confidence: m.confidence ?? 'unknown',
-      source: source(m.sourceIndex),
+      source: attached[0]?.url ?? null,
+      citations: attached,
       methodNote: m.method ?? null,
       capturedAt: now(),
     });
   }
-  return rows;
+  // The model may claim "verified" while pointing at nothing. Provenance rules
+  // decide the final confidence — evidence, not assertion. (Audit 2026-07-29:
+  // 3 of 29 "verified" figures had no source at all.)
+  return enforceMetricsProvenance(rows);
 }
 
 interface EnrichedCompany {

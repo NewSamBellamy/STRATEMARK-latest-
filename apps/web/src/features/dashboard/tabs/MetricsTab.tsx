@@ -145,7 +145,13 @@ function MetricTile({
             {METRIC_TYPE_LABELS[metric.metricType]}
           </span>
           <span className="flex items-center gap-1.5">
-            <ConfidenceBadge confidence={metric.confidence} note={metric.methodNote} source={metric.source} />
+            <ConfidenceBadge
+              confidence={metric.confidence}
+              note={metric.methodNote}
+              source={metric.source}
+              citations={metric.citations}
+              metricLabel={METRIC_TYPE_LABELS[metric.metricType]}
+            />
             <button
               type="button"
               className="rounded-md p-1 text-faint transition-colors hover:bg-surface-2 hover:text-content"

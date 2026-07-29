@@ -510,6 +510,7 @@ export class GeminiRepository implements MarketIntelRepository {
         value: null,
         confidence: 'unknown',
         source: null,
+        citations: [],
         methodNote: null,
         capturedAt: new Date().toISOString(),
       };
@@ -517,7 +518,9 @@ export class GeminiRepository implements MarketIntelRepository {
     }
     metric.value = input.value;
     metric.confidence = input.value == null ? 'unknown' : 'user_verified';
-    metric.source = null;
+    // A human override is its own provenance: the note IS the source.
+    metric.source = input.note?.trim() || 'Manually corrected by user';
+    metric.citations = [];
     metric.methodNote = input.note ?? 'Manually corrected by user';
     metric.capturedAt = new Date().toISOString();
 

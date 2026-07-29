@@ -14,6 +14,7 @@ import {
   type DashboardTabResult,
   buildCmsInput,
   computeCms,
+  enforceMetricsProvenance,
   type DeepDiveInput,
   type DeepDiveResult,
   type ExpandFocus,
@@ -99,7 +100,13 @@ export class MockRepository implements MarketIntelRepository {
       this.markets = [...this.markets, ...(seed.markets ?? [])];
       this.decks = [...this.decks, ...(seed.decks ?? [])];
       this.companies = [...this.companies, ...(seed.companies ?? [])];
-      this.metrics = [...this.metrics, ...(seed.metrics ?? [])];
+      // The baked snapshot predates provenance enforcement and contains figures
+      // labelled "verified" with no evidence at all (audit 2026-07-29 found 3).
+      // Run the same rules over it so the shipped sample deck is honest.
+      this.metrics = [
+        ...this.metrics,
+        ...enforceMetricsProvenance((seed.metrics ?? []).map((m) => ({ ...m, citations: m.citations ?? [] }))),
+      ];
       this.cards = [...this.cards, ...(seed.cards ?? [])];
       this.viceClaims = [...this.viceClaims, ...(seed.viceClaims ?? [])];
       for (const [companyId, tabs] of Object.entries(seed.dashboards ?? {})) {
@@ -370,6 +377,7 @@ export class MockRepository implements MarketIntelRepository {
         value: null,
         confidence: 'unknown',
         source: null,
+        citations: [],
         methodNote: null,
         capturedAt: new Date().toISOString(),
       };

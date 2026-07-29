@@ -15,6 +15,7 @@ import {
   type MaturityTier,
   type RefreshCadence,
   type ViceClaim,
+  enforceMetricsProvenance,
 } from '@mi/contracts';
 import { BARRIER_SEEDS, COMPANY_SEEDS, type CompanySeed } from './seed';
 import { generateDashboardContent } from './dashboard-content';
@@ -51,11 +52,17 @@ function metricRowsFor(seed: CompanySeed): CompanyMetric[] {
       value: m.value,
       confidence: m.confidence,
       source: m.source,
+      // Fixture provenance: a sourced figure gets a citation whose publisher is
+      // its host, so the demo exercises the same provenance UI as live data.
+      citations: m.source && /^https?:\/\//i.test(m.source)
+        ? [{ title: new URL(m.source).hostname.replace(/^www\./, ''), url: m.source }]
+        : [],
       methodNote: m.method,
       capturedAt: ts(0),
     });
   }
-  return rows;
+  // Same rules the live pipeline obeys — fixtures cannot claim what they can't show.
+  return enforceMetricsProvenance(rows);
 }
 
 export function buildDataset(cadence: RefreshCadence = DEFAULT_CADENCE): Dataset {

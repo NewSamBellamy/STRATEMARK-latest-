@@ -72,6 +72,8 @@ export function CardReader({
                           confidence={m.confidence}
                           note={m.methodNote}
                           source={m.source}
+                          citations={m.citations}
+                          metricLabel={METRIC_TYPE_LABELS[m.metricType]}
                         />
                       </span>
                     </div>
