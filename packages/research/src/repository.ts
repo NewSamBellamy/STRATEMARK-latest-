@@ -303,10 +303,11 @@ export class GeminiRepository implements MarketIntelRepository {
   async getDashboardTab<T extends DashboardTab>(
     companyId: string,
     tab: T,
+    force?: boolean,
   ): Promise<DashboardTabResult<T> | null> {
     const company = this.snap.companies.find((c) => c.id === companyId);
     if (!company) return null;
-    const cached = this.snap.dashboards[companyId]?.[tab];
+    const cached = force ? undefined : this.snap.dashboards[companyId]?.[tab];
     if (cached) {
       return { companyId, tab, content: cached.content as DashboardTabResult<T>['content'], lastRefreshedAt: cached.lastRefreshedAt };
     }

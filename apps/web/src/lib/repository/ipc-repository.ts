@@ -84,8 +84,9 @@ export class IpcRepository implements MarketIntelRepository {
   getDashboardTab<T extends DashboardTab>(
     companyId: string,
     tab: T,
+    force?: boolean,
   ): Promise<DashboardTabResult<T> | null> {
-    return this.api.getDashboardTab(companyId, tab);
+    return this.api.getDashboardTab(companyId, tab, force);
   }
   deepDive(input: DeepDiveInput): Promise<DeepDiveResult> {
     return this.api.deepDive(input);

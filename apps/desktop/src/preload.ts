@@ -30,8 +30,8 @@ const api: PreloadRepositoryApi = {
   getCompany: (companyId) => ipcRenderer.invoke(IPC_CHANNELS.getCompany, companyId),
   getCompanyMetrics: (companyId) => ipcRenderer.invoke(IPC_CHANNELS.getCompanyMetrics, companyId),
   getViceClaims: (cardId) => ipcRenderer.invoke(IPC_CHANNELS.getViceClaims, cardId),
-  getDashboardTab: (companyId, tab) =>
-    ipcRenderer.invoke(IPC_CHANNELS.getDashboardTab, companyId, tab),
+  getDashboardTab: (companyId, tab, force) =>
+    ipcRenderer.invoke(IPC_CHANNELS.getDashboardTab, companyId, tab, force),
   deepDive: (input) => ipcRenderer.invoke(IPC_CHANNELS.deepDive, input),
   factCheck: (input) => ipcRenderer.invoke(IPC_CHANNELS.factCheck, input),
   generateReport: (request) => ipcRenderer.invoke(IPC_CHANNELS.generateReport, request),

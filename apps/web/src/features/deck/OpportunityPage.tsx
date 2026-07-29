@@ -14,9 +14,17 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { TIER_LABELS, type MaturityTier } from '@mi/contracts';
-import { useCards, useDeckByMarket, useMarket, useMarketOpportunity } from '@/hooks/data';
+import {
+  useCards,
+  useDeckByMarket,
+  useMarket,
+  useMarketOpportunity,
+  useRerunOpportunity,
+} from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
+import { ContextRerun } from '@/components/ui/ContextRerun';
 import { FullPageLoader } from '@/components/states/FullPageLoader';
+import { useApiKey } from '@/lib/settings/apiKey';
 import { formatUsd } from '@/lib/format';
 import { TIER_COLORS } from '@/lib/theme';
 
@@ -38,6 +46,8 @@ export default function OpportunityPage() {
   const deck = useDeckByMarket(marketId);
   const cards = useCards(deck.data?.id);
   const opportunity = useMarketOpportunity(marketId);
+  const rerunOpportunity = useRerunOpportunity(marketId);
+  const hasKey = useApiKey((s) => s.hasKey);
 
   const points = useMemo<Point[]>(() => {
     return (cards.data ?? [])
@@ -146,8 +156,15 @@ export default function OpportunityPage() {
         )}
       </div>
 
-      {/* Grounded whitespace thesis. */}
-      <div className="panel mt-4 p-6">
+      {/* Grounded whitespace thesis — right-click to re-run the analysis. */}
+      <ContextRerun
+        label="the whitespace analysis"
+        onRerun={() => rerunOpportunity.mutate()}
+        running={rerunOpportunity.isPending}
+        disabled={!hasKey}
+        className="mt-4"
+      >
+      <div className="panel p-6">
         <QueryBoundary
           query={opportunity}
           loading={<FullPageLoader label="Analyzing the whitespace (grounded search)…" />}
@@ -182,6 +199,7 @@ export default function OpportunityPage() {
           )}
         </QueryBoundary>
       </div>
+      </ContextRerun>
     </div>
   );
 }

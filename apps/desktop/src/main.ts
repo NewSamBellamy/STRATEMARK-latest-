@@ -137,8 +137,8 @@ function registerIpc(): void {
   ipcMain.handle(IPC_CHANNELS.getViceClaims, (_e, cardId: string) =>
     repository.getViceClaims(cardId),
   );
-  ipcMain.handle(IPC_CHANNELS.getDashboardTab, (_e, companyId: string, tab) =>
-    repository.getDashboardTab(companyId, tab),
+  ipcMain.handle(IPC_CHANNELS.getDashboardTab, (_e, companyId: string, tab, force?: boolean) =>
+    repository.getDashboardTab(companyId, tab, force),
   );
   ipcMain.handle(IPC_CHANNELS.deepDive, (_e, input) => repository.deepDive(input));
   ipcMain.handle(IPC_CHANNELS.factCheck, (_e, input) => repository.factCheck(input));

@@ -23,7 +23,7 @@ describe('GameCard', () => {
   it('renders the required face fields (spec §7) for a company card', () => {
     const cwc = hydrate(companyCard.id);
     renderWithProviders(<GameCard data={cwc} />);
-    expect(screen.getByText('GraceWear Global')).toBeInTheDocument();
+    expect(screen.getAllByText('GraceWear Global').length).toBeGreaterThan(0); // name renders in header + lettermark plate
     expect(screen.getByText(cwc.company!.oneLiner)).toBeInTheDocument();
     expect(screen.getByText('ARR')).toBeInTheDocument();
     expect(screen.getByText('Team')).toBeInTheDocument();

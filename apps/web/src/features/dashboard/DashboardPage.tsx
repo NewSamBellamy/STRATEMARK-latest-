@@ -2,10 +2,12 @@ import { useState, type FormEvent } from 'react';
 import { Link, NavLink, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, FileText, Sparkles } from 'lucide-react';
 import { DASHBOARD_TABS, DASHBOARD_TAB_LABELS, type DashboardTab } from '@mi/contracts';
-import { useCompany, useGenerateReport, useReports } from '@/hooks/data';
+import { useCompany, useGenerateReport, useReports, useRerunDashboardTab } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
+import { ContextRerun } from '@/components/ui/ContextRerun';
 import { cn } from '@/lib/cn';
 import { formatRelative } from '@/lib/format';
+import { useApiKey } from '@/lib/settings/apiKey';
 import { Logo } from '@/features/card/Logo';
 import { DigDeeper, useDeepDive } from '@/features/deepdive/DeepDive';
 import { OverviewTab } from './tabs/OverviewTab';
@@ -108,8 +110,10 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const company = useCompany(companyId);
   const generateReport = useGenerateReport();
-
+  const hasKey = useApiKey((s) => s.hasKey);
   const activeTab = tab as DashboardTab;
+  const rerunTab = useRerunDashboardTab(companyId, activeTab);
+
   if (!companyId || !DASHBOARD_TABS.includes(activeTab)) return <NotFoundPage />;
 
   return (
@@ -185,7 +189,15 @@ export default function DashboardPage() {
               ))}
             </nav>
 
-            <TabView tab={activeTab} companyId={companyId} />
+            {/* Right-click any tab's content → rerun just that research. */}
+            <ContextRerun
+              label={`the ${DASHBOARD_TAB_LABELS[activeTab]} tab`}
+              onRerun={() => rerunTab.mutate()}
+              running={rerunTab.isPending}
+              disabled={!hasKey}
+            >
+              <TabView tab={activeTab} companyId={companyId} />
+            </ContextRerun>
           </>
         )}
       </QueryBoundary>

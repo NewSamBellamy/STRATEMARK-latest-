@@ -252,6 +252,7 @@ export class MockRepository implements MarketIntelRepository {
   getDashboardTab<T extends DashboardTab>(
     companyId: string,
     tab: T,
+    _force?: boolean,
   ): Promise<DashboardTabResult<T> | null> {
     const record = this.dashboards[companyId];
     if (!record) return this.delay(null);

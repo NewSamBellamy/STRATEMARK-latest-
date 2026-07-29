@@ -184,6 +184,8 @@ export interface MarketIntelRepository {
   getDashboardTab<T extends DashboardTab>(
     companyId: string,
     tab: T,
+    /** Bypass the cached result and re-research this tab (user-directed rerun). */
+    force?: boolean,
   ): Promise<DashboardTabResult<T> | null>;
 
   /** Grounded, sourced deep-dive on a specific topic — the "dig deeper" drill-down. */

@@ -202,6 +202,34 @@ export function useMarketOpportunity(marketId: string | undefined) {
   });
 }
 
+/**
+ * User-directed rerun of a single dashboard tab (right-click → Rerun).
+ * Bypasses the cached research and replaces it in place — the curated-deck
+ * primitive: fix exactly the piece that's wrong, touch nothing else.
+ */
+export function useRerunDashboardTab(companyId: string | undefined, tab: DashboardTab) {
+  const repo = useRepository();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => repo.getDashboardTab(companyId as string, tab, true),
+    onSuccess: (result) => {
+      if (result) qc.setQueryData(qk.dashboard(companyId as string, tab), result);
+    },
+  });
+}
+
+/** User-directed rerun of the market-opportunity whitespace analysis. */
+export function useRerunOpportunity(marketId: string | undefined) {
+  const repo = useRepository();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => repo.getMarketOpportunity(marketId as string, true),
+    onSuccess: (result) => {
+      qc.setQueryData(['opportunity', marketId ?? ''], result);
+    },
+  });
+}
+
 /** Subscribe to live deck-refresh events (spec §9) and invalidate affected caches. */
 export function useDeckRefreshSubscription(onEvent?: (evt: DeckRefreshEvent) => void): void {
   const repo = useRepository();
