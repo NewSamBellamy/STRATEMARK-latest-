@@ -1,34 +1,21 @@
-import { useLayoutEffect, useRef, useState, type ReactElement } from 'react';
-import {
-  CartesianGrid,
-  Cell,
-  Legend,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  Tooltip as ReTooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import { useState } from 'react';
+import { Pencil, SearchX } from 'lucide-react';
 import {
   METRIC_TYPE_LABELS,
-  SIGNAL_BANDS,
-  mapValueToTier,
+  type SIGNAL_BANDS,
   type CompanyMetric,
   type MetricType,
-  type TimePoint,
 } from '@mi/contracts';
 import { useCompany, useCompanyMetrics, useDashboardTab, useOverrideMetric } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { EmptyState } from '@/components/states/EmptyState';
 import { Modal } from '@/components/ui/Modal';
 import { formatMetricValue } from '@/lib/format';
-import { CHART, METRIC_COLORS, tint } from '@/lib/theme';
+import { METRIC_COLORS } from '@/lib/theme';
 import { ConfidenceBadge } from '@/features/card/ConfidenceBadge';
 import { DigDeeper } from '@/features/deepdive/DeepDive';
 import { FactCheck } from '@/features/factcheck/FactCheck';
-import { Pencil } from 'lucide-react';
+import { BandGauge, ChartPanel, CompositionDonut, Delta, ShareDonut, TrendArea } from './metricViz';
 
 /** Readable deep-dive topics per metric. */
 const DEEP_TOPIC: Record<MetricType, string> = {
@@ -135,24 +122,24 @@ function OverrideModal({
   );
 }
 
+/** Tile chrome shared by every metric: header, affordances, provenance. */
 function MetricTile({
   metric,
   companyId,
   companyName,
+  children,
 }: {
   metric: CompanyMetric;
   companyId: string;
   companyName: string;
+  children: React.ReactNode;
 }) {
   const color = METRIC_COLORS[metric.metricType];
-  const key = BAND_KEY[metric.metricType];
   const [editing, setEditing] = useState(false);
-  const level =
-    metric.value != null && key ? (mapValueToTier(SIGNAL_BANDS[key], metric.value) ?? 0) / 8 : 0;
   return (
     <div className="panel overflow-hidden p-0">
       <div className="h-1 w-full" style={{ background: color }} />
-      <div className="p-4">
+      <div className="flex h-[calc(100%-4px)] flex-col p-4">
         <div className="flex items-center justify-between gap-2">
           <span className="text-[10px] font-semibold uppercase tracking-widest text-muted">
             {METRIC_TYPE_LABELS[metric.metricType]}
@@ -170,17 +157,12 @@ function MetricTile({
             </button>
           </span>
         </div>
-        <div className="mt-1 font-display text-3xl font-semibold tabular-nums text-content">
-          {formatMetricValue(metric.metricType, metric.value)}
-        </div>
         {editing && (
           <OverrideModal metric={metric} companyName={companyName} open={editing} onOpenChange={setEditing} />
         )}
-        {level > 0 && (
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full" style={{ background: tint(color, 0.14) }}>
-            <div className="h-full rounded-full" style={{ width: `${level * 100}%`, background: color }} />
-          </div>
-        )}
+
+        <div className="mt-2 flex-1">{children}</div>
+
         {metric.confidence === 'estimated' && metric.methodNote && (
           <p className="mt-2 text-[11px] italic text-muted">How we got this: {metric.methodNote}</p>
         )}
@@ -217,45 +199,55 @@ function MetricTile({
   );
 }
 
-// ---- Optional charts (only when real series exist, e.g. demo data) ----------
-function useWidth(): readonly [React.RefObject<HTMLDivElement>, number] {
-  const ref = useRef<HTMLDivElement>(null);
-  const [w, setW] = useState(0);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const update = () => setW(el.clientWidth);
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  return [ref, w] as const;
-}
-
-const H = 200;
-function ChartPanel({ title, render }: { title: string; render: (w: number) => ReactElement }) {
-  const [ref, w] = useWidth();
+/** Honest gap: unknown is a finding, not a blank (design system §4). */
+function UnknownSlot() {
   return (
-    <div className="panel p-4">
-      <h3 className="mb-3 font-display text-sm font-semibold text-content">{title}</h3>
-      {/* Charts supplement the textual tiles above, which carry the same numbers. */}
-      <div ref={ref} className="w-full" style={{ height: H }}>
-        {w > 0 && render(w)}
-      </div>
+    <div className="flex h-full min-h-[72px] flex-col items-start justify-center gap-1 rounded-lg border border-dashed border-border bg-surface-2/50 px-3 py-2.5">
+      <span className="flex items-center gap-1.5 font-display text-lg font-semibold text-muted">
+        <SearchX className="h-4 w-4" />
+        Unknown
+      </span>
+      <span className="text-[11px] leading-snug text-faint">
+        No credible public figure found — we don’t invent data. Dig deeper or correct it if you know it.
+      </span>
     </div>
   );
 }
-const tooltipStyle = { background: CHART.tooltipBg, border: `1px solid ${CHART.tooltipBorder}`, borderRadius: 8, color: CHART.tooltipText } as const;
-function trend(w: number, data: TimePoint[], color: string, fmt?: (v: number) => string) {
+
+/** Number + the right micro-visualization for the metric's semantic shape. */
+function MetricBody({ metric }: { metric: CompanyMetric }) {
+  const color = METRIC_COLORS[metric.metricType];
+  const known = metric.value != null && metric.confidence !== 'unknown';
+  if (!known) return <UnknownSlot />;
+
+  // Share of a whole → radial against the rest of the market.
+  if (metric.metricType === 'market_share') {
+    return (
+      <div className="flex items-center gap-4">
+        <ShareDonut value={metric.value} confidence={metric.confidence} color={color} />
+        <div className="min-w-0 text-[11px] leading-relaxed text-muted">
+          The rest of the market holds{' '}
+          <span className="font-semibold tabular-nums text-content">
+            {(100 - (metric.value ?? 0)).toFixed(1)}%
+          </span>
+          .
+        </div>
+      </div>
+    );
+  }
+
+  const bandKey = BAND_KEY[metric.metricType];
   return (
-    <LineChart width={w} height={H} data={data} margin={{ top: 6, right: 14, bottom: 0, left: 4 }}>
-      <CartesianGrid stroke={CHART.grid} strokeDasharray="3 3" />
-      <XAxis dataKey="period" stroke={CHART.axis} fontSize={11} tickLine={false} />
-      <YAxis stroke={CHART.axis} fontSize={11} tickLine={false} width={52} tickFormatter={fmt} />
-      <ReTooltip contentStyle={tooltipStyle} formatter={(v: number) => (fmt ? fmt(v) : v)} />
-      <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2.5} dot={false} isAnimationActive={false} />
-    </LineChart>
+    <div>
+      <div className="font-display text-3xl font-semibold tabular-nums leading-none text-content">
+        {formatMetricValue(metric.metricType, metric.value)}
+      </div>
+      {bandKey && (
+        <div className="mt-3">
+          <BandGauge bandKey={bandKey} value={metric.value} confidence={metric.confidence} color={color} />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -278,36 +270,56 @@ export function MetricsTab({ companyId }: { companyId: string }) {
         const hasSeries = !!series && (series.revenue.length > 1 || series.users.length > 1);
         return (
           <div className="space-y-5">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {tiles.map((m) => (
-                <MetricTile key={m.id} metric={m} companyId={companyId} companyName={companyName} />
+                <MetricTile key={m.id} metric={m} companyId={companyId} companyName={companyName}>
+                  <MetricBody metric={m} />
+                </MetricTile>
               ))}
             </div>
 
             {hasSeries && series && (
               <div className="grid gap-4 lg:grid-cols-2">
                 {series.revenue.length > 1 && (
-                  <ChartPanel title="Revenue" render={(w) => trend(w, series.revenue, METRIC_COLORS.arr, (v) => formatMetricValue('arr', v))} />
+                  <ChartPanel
+                    title="Revenue trend"
+                    sub={`${series.revenue[0]!.period} → ${series.revenue[series.revenue.length - 1]!.period} · estimated series`}
+                    right={<Delta data={series.revenue} fmt={(v) => formatMetricValue('arr', v)} />}
+                    render={(w) => (
+                      <TrendArea data={series.revenue} color={METRIC_COLORS.arr} width={w} fmt={(v) => formatMetricValue('arr', v)} />
+                    )}
+                  />
                 )}
                 {series.users.length > 1 && (
-                  <ChartPanel title="Users" render={(w) => trend(w, series.users, METRIC_COLORS.users, (v) => formatMetricValue('users', v))} />
+                  <ChartPanel
+                    title="Users trend"
+                    sub={`${series.users[0]!.period} → ${series.users[series.users.length - 1]!.period} · estimated series`}
+                    right={<Delta data={series.users} fmt={(v) => formatMetricValue('users', v)} />}
+                    render={(w) => (
+                      <TrendArea data={series.users} color={METRIC_COLORS.users} width={w} fmt={(v) => formatMetricValue('users', v)} />
+                    )}
+                  />
                 )}
                 {series.churn.length > 1 && (
-                  <ChartPanel title="Churn %" render={(w) => trend(w, series.churn, '#DC2626', (v) => `${v.toFixed(1)}%`)} />
+                  <ChartPanel
+                    title="Churn"
+                    sub="lower is better · estimated series"
+                    right={<Delta data={series.churn} fmt={(v) => `${v.toFixed(1)}%`} />}
+                    render={(w) => (
+                      <TrendArea data={series.churn} color="#DC2626" width={w} fmt={(v) => `${v.toFixed(1)}%`} />
+                    )}
+                  />
                 )}
                 {series.capTable.length > 0 && (
                   <ChartPanel
                     title="Cap table"
+                    sub="ownership composition"
                     render={(w) => (
-                      <PieChart width={w} height={H}>
-                        <Pie data={series.capTable} dataKey="pct" nameKey="holder" cx="50%" cy="50%" outerRadius={72} label={(e) => `${e.holder} ${e.pct}%`} labelLine={false} isAnimationActive={false}>
-                          {series.capTable.map((_, i) => (
-                            <Cell key={i} fill={Object.values(METRIC_COLORS)[i % 6]} />
-                          ))}
-                        </Pie>
-                        <Legend wrapperStyle={{ fontSize: 11 }} />
-                        <ReTooltip contentStyle={tooltipStyle} formatter={(v: number) => `${v}%`} />
-                      </PieChart>
+                      <CompositionDonut
+                        slices={series.capTable}
+                        palette={[METRIC_COLORS.valuation, METRIC_COLORS.users, METRIC_COLORS.arr, METRIC_COLORS.employees, METRIC_COLORS.market_share, '#64748B']}
+                        width={w}
+                      />
                     )}
                   />
                 )}

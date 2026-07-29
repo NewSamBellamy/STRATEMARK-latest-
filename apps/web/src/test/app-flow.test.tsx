@@ -65,7 +65,7 @@ describe('end-to-end deck flow (markets → deck → 2-level split → card → 
     // Dashboard — overview content + tab switch to Metrics.
     expect(await screen.findByText(/What they do/i, undefined, FIND)).toBeInTheDocument();
     await user.click(screen.getByRole('link', { name: 'Metrics' }));
-    expect(await screen.findByText('Revenue', undefined, FIND)).toBeInTheDocument();
+    expect(await screen.findByText(/Revenue trend/i, undefined, FIND)).toBeInTheDocument();
     expect(screen.getByText('Cap table')).toBeInTheDocument();
   });
 });

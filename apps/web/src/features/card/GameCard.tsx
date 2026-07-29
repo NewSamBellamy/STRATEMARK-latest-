@@ -1,25 +1,45 @@
-import { useState } from 'react';
+import { useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
 import {
+  Building2,
+  Landmark,
+  Layers,
+  ShieldAlert,
+  Sparkles,
+  Waypoints,
+  type LucideIcon,
+} from 'lucide-react';
+import {
+  CARD_TYPE_LABELS,
   SIGNAL_BANDS,
+  TIER_LABELS,
   mapValueToTier,
+  type CardType,
   type CardWithCompany,
   type Confidence,
   type MetricType,
 } from '@mi/contracts';
-import { CARD_TYPE_LABELS } from '@mi/contracts';
 import { cn } from '@/lib/cn';
+import { deriveTriad, tierMaterial } from '@/lib/brand';
 import { formatCount, formatMetricValue } from '@/lib/format';
-import { METRIC_COLORS, tint } from '@/lib/theme';
 import { Logo } from './Logo';
-import { TierBadge } from './TierBadge';
 import { SoftDataDisclaimer } from './CardDisclaimer';
-import { brandVars, getMetric, valueMetric } from './metrics';
+import { getMetric, valueMetric } from './metrics';
 
 const CONFIDENCE_DOT: Record<Confidence, string> = {
   verified: '#16A34A',
   estimated: '#CA8A04',
   unknown: '#9A9AA1',
   user_verified: '#0284C7',
+};
+
+/** Taxonomy emblem — communicates the CARD type, never the company (system §1). */
+const TYPE_ICON: Record<CardType, LucideIcon> = {
+  company: Building2,
+  infrastructure: Layers,
+  distribution: Waypoints,
+  culture: Sparkles,
+  vice: ShieldAlert,
+  barrier: Landmark,
 };
 
 const BAND_KEY: Partial<Record<MetricType, keyof typeof SIGNAL_BANDS>> = {
@@ -38,7 +58,8 @@ function levelFor(type: MetricType, value: number | null): number {
   return tier ? tier / 8 : 0;
 }
 
-function MetricBar({
+/** One attack-style stat row: label · powered bar · value + confidence dot. */
+function StatRow({
   type,
   label,
   value,
@@ -49,34 +70,63 @@ function MetricBar({
   value: number | null;
   confidence: Confidence | undefined;
 }) {
-  const color = METRIC_COLORS[type];
   const level = levelFor(type, value);
   const known = value != null && confidence !== 'unknown';
+  const estimated = confidence === 'estimated';
   return (
     <div>
-      <div className="flex items-center justify-between text-[11px]">
-        <span className="flex items-center gap-1.5 font-medium uppercase tracking-wide text-muted">
-          <span className="h-2 w-2 rounded-full" style={{ background: color }} />
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[9.5px] font-semibold uppercase tracking-[0.14em] text-muted">
           {label}
         </span>
-        <span className="flex items-center gap-1.5 tabular-nums font-semibold text-content">
+        <span className="flex items-center gap-1.5 font-display text-[13px] font-bold tabular-nums leading-none text-content">
           {formatMetricValue(type, value)}
           {confidence && (
             <span
-              className="h-1.5 w-1.5 rounded-full"
+              className="h-1.5 w-1.5 shrink-0 rounded-full"
               style={{ background: CONFIDENCE_DOT[confidence] }}
-              title={`Confidence: ${confidence}`}
+              title={`Confidence: ${confidence.replace('_', ' ')}`}
             />
           )}
         </span>
       </div>
-      <div className="mt-1 h-1.5 overflow-hidden rounded-full" style={{ background: tint(color, 0.12) }}>
-        <div
-          className="h-full rounded-full"
-          style={{ width: `${Math.max(known ? 8 : 0, level * 100)}%`, background: color, opacity: known ? 1 : 0.3 }}
-        />
+      <div
+        className="mt-[3px] h-[5px] overflow-hidden rounded-full"
+        style={{ background: 'color-mix(in srgb, var(--tcg-accent) 14%, #ffffff)' }}
+      >
+        {known ? (
+          <div
+            className={cn('h-full rounded-full', estimated && 'mi-est-stripes')}
+            style={{
+              width: `${Math.max(9, level * 100)}%`,
+              color: 'var(--tcg-accent)', // estimated stripes draw in currentColor
+              backgroundColor: estimated
+                ? 'color-mix(in srgb, var(--tcg-accent) 30%, #ffffff)'
+                : 'var(--tcg-accent)',
+            }}
+          />
+        ) : (
+          <div className="h-full w-full" title="Unknown — no credible figure found" />
+        )}
       </div>
     </div>
+  );
+}
+
+/** Rarity stamp: T-number + tier name, gold-foiled at the top of the ladder. */
+function TierStamp({ tier }: { tier: number }) {
+  const foil = tier >= 7;
+  return (
+    <span
+      className={cn(
+        'inline-flex shrink-0 items-baseline gap-1 rounded-[5px] px-1.5 py-0.5 font-display text-[9px] font-bold uppercase tracking-wide',
+        foil ? 'tcg-stamp-foil' : 'border border-border bg-surface-2 text-content/80',
+      )}
+      title={TIER_LABELS[tier as keyof typeof TIER_LABELS]}
+    >
+      <span className="tabular-nums">T{tier}</span>
+      <span className="opacity-80">{TIER_LABELS[tier as keyof typeof TIER_LABELS]}</span>
+    </span>
   );
 }
 
@@ -88,25 +138,68 @@ export interface GameCardProps {
 
 export function GameCard({ data, onOpen, className }: GameCardProps) {
   const { card, company, metrics } = data;
-  // Programmatic brand color from the real logo (audit: collectible card faces).
-  // Falls back to the researched brandTheme, then the default.
+  // Real logo color (extracted at runtime) outranks the researched palette.
   const [logoColor, setLogoColor] = useState<string | null>(null);
+  const triad = useMemo(
+    () => deriveTriad(company?.brandTheme ?? null, logoColor),
+    [company?.brandTheme, logoColor],
+  );
+  const material = tierMaterial(card.tier);
 
-  const shell =
-    'group relative flex w-full flex-col overflow-hidden rounded-xl2 border border-border bg-surface text-left shadow-card transition-all hover:-translate-y-1 hover:shadow-card-hover focus-visible:outline-none';
+  // Foil parallax: pointer-tracked tilt + sheen, skipped for reduced motion.
+  const frameRef = useRef<HTMLButtonElement>(null);
+  const reduced = useMemo(
+    () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
+    [],
+  );
+  const onMove = (e: MouseEvent<HTMLButtonElement>) => {
+    const el = frameRef.current;
+    if (!el || material !== 'foil' || reduced) return;
+    const r = el.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width;
+    const py = (e.clientY - r.top) / r.height;
+    el.style.setProperty('--mx', `${(px * 100).toFixed(1)}%`);
+    el.style.setProperty('--my', `${(py * 100).toFixed(1)}%`);
+    el.style.setProperty('--ry', `${((px - 0.5) * 7).toFixed(2)}deg`);
+    el.style.setProperty('--rx', `${((0.5 - py) * 7).toFixed(2)}deg`);
+  };
+  const onLeave = () => {
+    const el = frameRef.current;
+    if (!el) return;
+    el.style.setProperty('--rx', '0deg');
+    el.style.setProperty('--ry', '0deg');
+  };
 
-  // Barrier cards: not company-specific.
+  const TypeIcon = TYPE_ICON[card.cardType];
+
+  // ---- Barrier: market-level card, steel identity, no company hero ----------
   if (card.cardType === 'barrier' || !company) {
     return (
-      <button type="button" onClick={onOpen} className={cn(shell, className)} aria-label={`Barrier: ${card.title ?? ''}`}>
-        <div className="h-1 w-full" style={{ background: '#64748B' }} />
-        <div className="flex flex-1 flex-col p-4">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted">
-            {CARD_TYPE_LABELS.barrier}
+      <button
+        type="button"
+        onClick={onOpen}
+        data-material="matte"
+        className={cn('tcg-card group w-full', className)}
+        style={{ ['--tcg-primary' as string]: '#64748B', ['--tcg-accent' as string]: '#94A3B8' }}
+        aria-label={`Barrier: ${card.title ?? ''}`}
+      >
+        <span className="tcg-face">
+          <span className="flex items-center justify-between gap-2 px-3 py-2" style={{ background: '#64748B' }}>
+            <span className="truncate font-display text-[13px] font-bold text-white">
+              {CARD_TYPE_LABELS.barrier}
+            </span>
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-white/20 text-white">
+              <TypeIcon className="h-3.5 w-3.5" />
+            </span>
           </span>
-          <h3 className="mt-2 font-display text-base font-semibold leading-tight text-content">{card.title}</h3>
-          <p className="mt-2 line-clamp-5 text-xs leading-relaxed text-muted">{card.summary}</p>
-        </div>
+          <span className="tcg-hero mx-2.5 mt-2.5 grid h-24 shrink-0 place-items-center rounded-lg">
+            <Landmark className="h-10 w-10 text-slate-400" />
+          </span>
+          <span className="flex flex-1 flex-col px-3.5 pb-3 pt-2.5 text-left">
+            <span className="font-display text-[15px] font-bold leading-snug text-content">{card.title}</span>
+            <span className="mt-1.5 line-clamp-5 text-xs leading-relaxed text-muted">{card.summary}</span>
+          </span>
+        </span>
       </button>
     );
   }
@@ -117,79 +210,109 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
   const share = getMetric(metrics, 'market_share');
   const users = getMetric(metrics, 'users');
   const soft = metrics.some((m) => m.confidence !== 'verified' && m.confidence !== 'user_verified');
-  const brand = logoColor ?? company.brandTheme?.primary ?? '#F15A24';
-  const vars = {
-    ...brandVars(company.brandTheme),
-    ...(logoColor ? { ['--brand-primary' as string]: logoColor } : {}),
+
+  const vars: CSSProperties = {
+    ['--tcg-primary' as string]: triad.primary,
+    ['--tcg-secondary' as string]: triad.secondary,
+    ['--tcg-accent' as string]: triad.accent,
+    ['--tcg-ink' as string]: triad.headerInk,
   };
 
   return (
     <button
+      ref={frameRef}
       type="button"
       onClick={onOpen}
-      className={cn('game-card', shell, className)}
+      onMouseMove={onMove}
+      onMouseLeave={onLeave}
+      data-material={material}
+      className={cn('tcg-card group w-full', className)}
       style={vars}
       aria-label={`${company.name} — ${CARD_TYPE_LABELS[card.cardType]} card`}
     >
-      {/* Brand accent strip — extracted from the company's real logo. */}
-      <div className="h-1.5 w-full" style={{ background: brand }} />
-
-      <div className="flex flex-1 flex-col p-4">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted">
-            {CARD_TYPE_LABELS[card.cardType]}
+      <span className="tcg-face">
+        {/* 1 — Header band: identity + taxonomy emblem */}
+        <span
+          className="flex items-center justify-between gap-2 px-3 py-1.5"
+          style={{ background: 'var(--tcg-primary)', color: 'var(--tcg-ink)' }}
+        >
+          <span className="min-w-0">
+            <span className="block truncate font-display text-[13.5px] font-bold leading-tight">
+              {company.name}
+            </span>
+            {company.hqLocation && (
+              <span className="block truncate text-[9.5px] leading-tight opacity-80">
+                {company.hqLocation}
+              </span>
+            )}
           </span>
-          {card.tier != null && <TierBadge tier={card.tier} reason={card.tierReason} compact />}
-        </div>
+          <span
+            className="grid h-6 w-6 shrink-0 place-items-center rounded-md"
+            style={{
+              background: triad.lightHeader ? 'rgba(20,24,31,0.1)' : 'rgba(255,255,255,0.22)',
+            }}
+            title={`${CARD_TYPE_LABELS[card.cardType]} card`}
+          >
+            <TypeIcon className="h-3.5 w-3.5" />
+          </span>
+        </span>
 
-        {/* Hero */}
-        <div className="mt-3 flex items-center gap-3">
+        {/* 2 — Hero artwork window: the logo IS the card */}
+        <span className="tcg-hero mx-2.5 mt-2.5 grid shrink-0 place-items-center rounded-lg p-3" style={{ height: 118 }}>
           <Logo
             name={company.name}
             website={company.websiteUrl}
-            className="h-11 w-11"
             onColor={setLogoColor}
+            bare
+            className="h-full w-full max-w-[78%]"
           />
-          <div className="min-w-0">
-            <h3 className="truncate font-display text-[15px] font-semibold leading-tight text-content">
-              {company.name}
-            </h3>
-            {company.hqLocation && <p className="truncate text-[11px] text-muted">{company.hqLocation}</p>}
-          </div>
-        </div>
+        </span>
 
-        <p className="mt-2.5 line-clamp-2 text-xs leading-snug text-muted">{company.oneLiner}</p>
+        {/* 3 — One-liner ribbon */}
+        <span className="line-clamp-2 px-3.5 pb-1 pt-2 text-left text-[10.5px] leading-snug text-muted">
+          {company.oneLiner}
+        </span>
 
-        {/* Colored metric bars */}
-        <div className="mt-3 space-y-2">
-          <MetricBar type="market_share" label="Share" value={share?.value ?? null} confidence={share?.confidence} />
-          <MetricBar type="arr" label="ARR" value={arr?.value ?? null} confidence={arr?.confidence} />
-          <MetricBar
+        {/* 4 — Stat box (attack moves) */}
+        <span
+          className="mx-2.5 mb-2 mt-auto flex flex-col gap-[7px] rounded-lg border p-2.5"
+          style={{
+            background: 'color-mix(in srgb, var(--tcg-secondary) 7%, #ffffff)',
+            borderColor: 'color-mix(in srgb, var(--tcg-secondary) 22%, #ffffff)',
+          }}
+        >
+          <StatRow type="market_share" label="Share" value={share?.value ?? null} confidence={share?.confidence} />
+          <StatRow type="arr" label="ARR" value={arr?.value ?? null} confidence={arr?.confidence} />
+          <StatRow
             type={valMetric?.metricType ?? 'valuation'}
             label={valLabel}
             value={valMetric?.value ?? null}
             confidence={valMetric?.confidence}
           />
-          <MetricBar type="employees" label="Team" value={employees?.value ?? null} confidence={employees?.confidence} />
-        </div>
+          <StatRow type="employees" label="Team" value={employees?.value ?? null} confidence={employees?.confidence} />
+        </span>
 
-        {/* Footer */}
-        <div className="mt-auto space-y-1.5 pt-3">
-          {users?.value != null && (
-            <div className="text-[10px] text-faint">~{formatCount(users.value)} users ({users.confidence})</div>
-          )}
-          {card.cardType === 'vice' && (
-            <span className="chip border-rose-300 bg-rose-50 text-[10px] font-semibold uppercase text-rose-700">
-              ⚠ Sourced risk signal
-            </span>
-          )}
-          {card.cardType === 'culture' && card.summary && (
-            <p className="text-[10px] leading-snug text-emerald-700">{card.summary}</p>
-          )}
-          {soft && card.cardType !== 'vice' && <SoftDataDisclaimer />}
-        </div>
-      </div>
+        {/* 5 — Footer: provenance + rarity stamp */}
+        <span className="flex items-end justify-between gap-2 px-3 pb-2.5">
+          <span className="min-w-0 text-left">
+            {users?.value != null && (
+              <span className="block text-[9px] leading-tight text-faint">
+                ~{formatCount(users.value)} users ({users.confidence})
+              </span>
+            )}
+            {card.cardType === 'vice' && (
+              <span className="mt-0.5 inline-flex rounded-full border border-rose-300 bg-rose-50 px-1.5 py-px text-[8.5px] font-semibold uppercase tracking-wide text-rose-700">
+                ⚠ Sourced risk signal
+              </span>
+            )}
+            {card.cardType === 'culture' && card.summary && (
+              <span className="line-clamp-2 text-[9px] leading-snug text-emerald-700">{card.summary}</span>
+            )}
+            {soft && card.cardType !== 'vice' && <SoftDataDisclaimer compact />}
+          </span>
+          {card.tier != null && <TierStamp tier={card.tier} />}
+        </span>
+      </span>
     </button>
   );
 }

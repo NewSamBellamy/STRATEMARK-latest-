@@ -25,12 +25,15 @@ export function Logo({
   website,
   className,
   onColor,
+  bare = false,
 }: {
   name: string;
   website: string | null | undefined;
   className?: string;
   /** Fires with the logo's dominant color when extraction succeeds (CORS-permitting). */
   onColor?: (hex: string) => void;
+  /** Render without the chip chrome (used inside the card's hero window). */
+  bare?: boolean;
 }) {
   const sources = useMemo(() => {
     const domain = domainOf(website);
@@ -48,7 +51,8 @@ export function Logo({
   return (
     <div
       className={cn(
-        'game-card__logo grid shrink-0 place-items-center overflow-hidden rounded-xl font-display text-sm font-bold text-content',
+        'grid shrink-0 place-items-center overflow-hidden font-display font-bold text-content',
+        bare ? 'text-2xl' : 'game-card__logo rounded-xl text-sm',
         className,
       )}
     >
@@ -57,11 +61,17 @@ export function Logo({
           key={src}
           src={src}
           alt={`${name} logo`}
-          className="h-full w-full object-contain p-1.5"
+          className={cn('h-full w-full object-contain', bare ? 'p-1' : 'p-1.5')}
           referrerPolicy="no-referrer"
           loading="lazy"
           onError={() => setIdx((i) => i + 1)}
-          onLoad={() => {
+          onLoad={(e) => {
+            // Hero windows render the logo LARGE — a tiny favicon upscaled to that
+            // size is blurry mush. Prefer the next source / a crisp monogram.
+            if (bare && e.currentTarget.naturalWidth > 0 && e.currentTarget.naturalWidth < 48) {
+              setIdx((i) => i + 1);
+              return;
+            }
             if (!onColor) return;
             void import('@/lib/extractColor').then(({ extractDominantColor }) =>
               extractDominantColor(src).then((hex) => hex && onColor(hex)),
@@ -69,7 +79,12 @@ export function Logo({
           }}
         />
       ) : (
-        <span aria-label={`${name} monogram`}>{initials(name)}</span>
+        <span
+          aria-label={`${name} monogram`}
+          className={cn(bare && 'font-display text-4xl font-bold tracking-tight text-content/70')}
+        >
+          {initials(name)}
+        </span>
       )}
     </div>
   );
