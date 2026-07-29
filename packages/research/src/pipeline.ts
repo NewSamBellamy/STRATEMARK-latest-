@@ -31,6 +31,7 @@ import {
   discoveryOutSchema,
   enrichmentOutSchema,
   marketPlanOutSchema,
+  tierReviewBatchOutSchema,
   tierReviewOutSchema,
   type EnrichmentOut,
 } from './schemas';
@@ -43,6 +44,7 @@ import {
   structureDiscoveryPrompt,
   structureEnrichPrompt,
   structureMarketPrompt,
+  tierReviewBatchPrompt,
   tierReviewPrompt,
 } from './prompts';
 import type {
@@ -223,6 +225,40 @@ async function enrichOne(
   return { candidate, company, metrics: metricRows(enrich, grounded.citations, companyId), enrich, citations: grounded.citations };
 }
 
+/**
+ * Review the whole cohort's tiers in ONE call.
+ *
+ * Replaces one structure call per company (10 calls on a 10-company deck → 1).
+ * That matters against a 15 RPM free-tier ceiling, and it makes the ranking
+ * better: the model compares companies against each other rather than judging
+ * each in isolation. Falls back to "no nudges" on any failure — the
+ * deterministic base tier is always a valid answer.
+ */
+async function reviewTiersBatch(
+  client: LlmClient,
+  marketName: string,
+  rows: { name: string; baseTier: MaturityTier; evidence: string }[],
+  signal?: AbortSignal,
+): Promise<Map<string, { nudge: -1 | 0 | 1; reason: string | null }>> {
+  const out = new Map<string, { nudge: -1 | 0 | 1; reason: string | null }>();
+  if (rows.length === 0) return out;
+  try {
+    const res = await client.structure(
+      tierReviewBatchPrompt(marketName, rows),
+      tierReviewBatchOutSchema,
+      { system: STRUCTURE_SYSTEM, signal },
+    );
+    const byName = new Map(rows.map((r) => [r.name.trim().toLowerCase(), r.name]));
+    for (const r of res.reviews ?? []) {
+      const key = byName.get((r.name ?? '').trim().toLowerCase());
+      if (key) out.set(key, { nudge: r.nudge ?? 0, reason: r.reason ?? null });
+    }
+  } catch {
+    /* keep the deterministic tiers — a failed review must never fail the deck */
+  }
+  return out;
+}
+
 async function reviewTier(
   client: LlmClient,
   name: string,
@@ -382,7 +418,18 @@ export async function runDeckResearch(
   emit({ type: 'market', market: plan });
 
   emit({ type: 'status', step: 'discover', message: 'Discovering companies via grounded search…' });
-  const candidates = await discover(client, plan, target, signal);
+  const discovered = await discover(client, plan, target, signal);
+  // Discovery routinely over-returns (measured: 17 candidates for a target of 8),
+  // and every extra candidate costs a grounded enrichment call — the scarcest
+  // free-tier resource. Cap to the target, keeping company cards first so the
+  // deck's backbone survives the trim.
+  const candidates =
+    discovered.length > target
+      ? [
+          ...discovered.filter((c) => c.cardTypes.includes('company')),
+          ...discovered.filter((c) => !c.cardTypes.includes('company')),
+        ].slice(0, target)
+      : discovered;
   emit({ type: 'candidates', candidates });
 
   const marketSlug = slugify(plan.marketName);
@@ -428,18 +475,34 @@ export async function runDeckResearch(
     .map((m) => m.value as number);
 
   emit({ type: 'status', step: 'score', message: 'Scoring maturity tiers…' });
+
+  // Deterministic base tiers first, then ONE cohort-wide review pass.
+  const baseTiers = new Map<string, MaturityTier>();
+  const reviewRows: { name: string; baseTier: MaturityTier; evidence: string }[] = [];
+  for (const e of enriched) {
+    if (!e.candidate.cardTypes.includes('company')) continue;
+    const base = computeCms(buildCmsInput(e.metrics), { deckUserValues });
+    if (base.finalTier == null) continue;
+    baseTiers.set(e.company.id, base.finalTier);
+    reviewRows.push({
+      name: e.company.name,
+      baseTier: base.finalTier,
+      evidence: e.metrics
+        .map((m) => `${m.metricType}: ${m.value ?? 'unknown'} (${m.confidence})`)
+        .join('; '),
+    });
+  }
+  const reviews = await reviewTiersBatch(client, plan.marketName, reviewRows, signal);
+
   const cards: CardWithCompany[] = [];
   for (const e of enriched) {
     let tier: MaturityTier | null = null;
     let tierReason: string | null = null;
-    if (e.candidate.cardTypes.includes('company')) {
-      const base = computeCms(buildCmsInput(e.metrics), { deckUserValues });
-      if (base.finalTier != null) {
-        const review = await reviewTier(client, e.company.name, base.finalTier, e.metrics, signal);
-        const scored = computeCms(buildCmsInput(e.metrics), { deckUserValues }, { nudge: review.nudge });
-        tier = scored.finalTier;
-        tierReason = review.reason;
-      }
+    if (e.candidate.cardTypes.includes('company') && baseTiers.has(e.company.id)) {
+      const review = reviews.get(e.company.name) ?? { nudge: 0 as const, reason: null };
+      const scored = computeCms(buildCmsInput(e.metrics), { deckUserValues }, { nudge: review.nudge });
+      tier = scored.finalTier;
+      tierReason = review.reason;
     }
     for (const cardType of e.candidate.cardTypes) {
       const viceClaims: ViceClaim[] =

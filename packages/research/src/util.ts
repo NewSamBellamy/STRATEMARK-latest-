@@ -104,3 +104,52 @@ export function extractJson(text: string): unknown {
     throw new Error('No JSON found in model response');
   }
 }
+
+/**
+ * Proactive rate limiter (sliding window) — the difference between "rate limited
+ * right away" and a run that just works.
+ *
+ * The Gemini free tier caps requests per MINUTE (measured 2026-07: 15 RPM on the
+ * flash line, 30 on flash-lite) far more tightly than per day (1,500 RPD). A
+ * 10-company deck is ~27 calls, so daily volume is never the problem — bursting
+ * is. With fan-out concurrency we would fire a dozen calls in a second, eat a
+ * wall of 429s, and then sit in exponential backoff, which reads to the user as
+ * "slow and flaky".
+ *
+ * So we pace *before* sending rather than apologising afterwards. Reactive
+ * `withRetry` stays as the safety net for genuine spikes.
+ */
+export interface RateLimiter {
+  acquire(signal?: AbortSignal): Promise<void>;
+}
+
+export function createRateLimiter(requestsPerMinute: number): RateLimiter {
+  const windowMs = 60_000;
+  const limit = Math.max(1, requestsPerMinute);
+  const sent: number[] = [];
+  // Serialize waiters so N callers don't all wake and burst through together.
+  let chain: Promise<void> = Promise.resolve();
+
+  async function reserve(signal?: AbortSignal): Promise<void> {
+    for (;;) {
+      throwIfAborted(signal);
+      const now = Date.now();
+      while (sent.length && now - sent[0]! >= windowMs) sent.shift();
+      if (sent.length < limit) {
+        sent.push(now);
+        return;
+      }
+      // Wait until the oldest call leaves the window (+ a little slack).
+      await sleep(windowMs - (now - sent[0]!) + 60, signal);
+    }
+  }
+
+  return {
+    acquire(signal) {
+      const next = chain.then(() => reserve(signal));
+      // Keep the chain alive even if one waiter aborts.
+      chain = next.catch(() => undefined);
+      return next;
+    },
+  };
+}

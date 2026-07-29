@@ -79,6 +79,27 @@ export const tierReviewOutSchema = z.object({
   reason: z.string().nullable().default(null),
 });
 
+/**
+ * Batched tier review: ALL companies in one call.
+ *
+ * Two wins over reviewing each company separately. (1) Cost: a 10-company deck
+ * drops 9 requests, which matters against a 15 RPM free-tier ceiling. (2) Quality:
+ * the model sees the whole cohort at once, so "who deserves T8 vs T4" becomes a
+ * relative judgement instead of ten independent guesses — which is what makes the
+ * ranking defensible.
+ */
+export const tierReviewBatchOutSchema = z.object({
+  reviews: z
+    .array(
+      z.object({
+        name: z.string(),
+        nudge: z.union([z.literal(-1), z.literal(0), z.literal(1)]).default(0),
+        reason: z.string().nullable().default(null),
+      }),
+    )
+    .default([]),
+});
+
 export const factCheckOutSchema = z.object({
   verdict: z.enum(['supported', 'contradicted', 'unverified']).default('unverified'),
   rationale: z.string().default(''),

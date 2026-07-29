@@ -100,6 +100,29 @@ export function structureEnrichPrompt(candidate: CompanyCandidate, groundedText:
   ].join('\n');
 }
 
+/**
+ * Review every company's tier in ONE pass, as a cohort.
+ *
+ * The rules engine has already assigned a base tier from hard signals. This pass
+ * may only nudge by one step, and now does so with the whole market visible —
+ * so the tiers read as a coherent ranking rather than ten unrelated opinions.
+ */
+export function tierReviewBatchPrompt(
+  marketName: string,
+  rows: { name: string; baseTier: number; evidence: string }[],
+): string {
+  return [
+    `You are grading maturity tiers for companies in the "${marketName}" market on a 1-8 ladder, where 1 is a pre-product sandbox and 8 is a category-defining titan.`,
+    `A deterministic rules engine already assigned each company a BASE TIER from its hard metrics. Your job is a sanity check across the whole cohort: for each company decide whether to nudge its tier by -1, 0, or +1. You may NOT move a company further than one step.`,
+    `Judge them RELATIVE TO EACH OTHER — the point is a ranking that a analyst would defend, so a company should not sit above a clearly stronger peer.`,
+    `Only nudge where the evidence plainly justifies it (e.g. share collapsing despite scale, or an obvious leader under-ranked because a figure was unknown). Default to 0.`,
+    `Return JSON: { "reviews": [ { "name": string (copy it EXACTLY as given), "nudge": -1|0|1, "reason": string|null (one sentence) } ] }. Include every company exactly once.`,
+    ``,
+    `COHORT:`,
+    ...rows.map((r) => `- ${r.name} | base tier ${r.baseTier} (${TIER_LABELS[r.baseTier as 1]}) | ${r.evidence || 'no metrics found'}`),
+  ].join('\n');
+}
+
 export function tierReviewPrompt(name: string, baseTier: number, evidence: string): string {
   return [
     `A rules-based system scored "${name}" at maturity tier ${baseTier} (${TIER_LABELS[baseTier as 1]}) out of 8, where 1 is a pre-product sandbox and 8 is a category-defining titan.`,

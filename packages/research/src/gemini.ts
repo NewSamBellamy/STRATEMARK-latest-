@@ -9,7 +9,7 @@
  */
 import type { ZodType, ZodTypeDef } from 'zod';
 import type { Citation, LlmClient } from './types';
-import { extractJson, withRetry, type RetryableError } from './util';
+import { createRateLimiter, extractJson, withRetry, type RetryableError } from './util';
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
@@ -21,7 +21,21 @@ export interface GeminiClientConfig {
   structureModel?: string;
   /** Injectable for tests. */
   fetchImpl?: typeof fetch;
+  /**
+   * Proactive pacing, per model, to stay under the free tier's per-MINUTE cap.
+   * Measured 2026-07: 15 RPM on the flash line, 30 on flash-lite, 1,500 RPD.
+   * Defaults sit just under those so a fan-out deck run never triggers a 429
+   * storm. Set 0 to disable (tests).
+   */
+  groundedRpm?: number;
+  structureRpm?: number;
+  /** Observability hook — fires once per outbound request (powers the usage meter). */
+  onCall?: (info: { model: string; kind: 'ground' | 'structure' }) => void;
 }
+
+/** Conservative defaults: leave headroom under the documented free-tier caps. */
+export const DEFAULT_GROUNDED_RPM = 12;
+export const DEFAULT_STRUCTURE_RPM = 24;
 
 // Rolling aliases that always resolve to the current flash line — sunset-proof
 // (gemini-2.5-flash is already blocked for new accounts). Overridable in Settings.
@@ -71,11 +85,21 @@ export function createGeminiClient(config: GeminiClientConfig): LlmClient {
   // request is even sent. Callers sanitize too; never trust that they did.
   const apiKey = config.apiKey.replace(/[^\x20-\x7E]/g, '').trim();
 
+  // One bucket per model line — grounded calls are the scarce resource.
+  const groundedRpm = config.groundedRpm ?? DEFAULT_GROUNDED_RPM;
+  const structureRpm = config.structureRpm ?? DEFAULT_STRUCTURE_RPM;
+  const groundLimiter = groundedRpm > 0 ? createRateLimiter(groundedRpm) : null;
+  const structureLimiter = structureRpm > 0 ? createRateLimiter(structureRpm) : null;
+
   async function call(
     model: string,
     body: Record<string, unknown>,
     signal?: AbortSignal,
+    kind: 'ground' | 'structure' = 'ground',
   ): Promise<GeminiResponse> {
+    // Pace before sending; retry is only the safety net.
+    await (kind === 'ground' ? groundLimiter : structureLimiter)?.acquire(signal);
+    config.onCall?.({ model, kind });
     return withRetry(
       async () => {
         const res = await doFetch(`${BASE}/${model}:generateContent`, {
@@ -108,7 +132,7 @@ export function createGeminiClient(config: GeminiClientConfig): LlmClient {
         generationConfig: { temperature: 0.2 },
       };
       if (opts?.system) body.systemInstruction = { parts: [{ text: opts.system }] };
-      const data = await call(groundedModel, body, opts?.signal);
+      const data = await call(groundedModel, body, opts?.signal, 'ground');
       if (data.promptFeedback?.blockReason) {
         throw new Error(`Gemini blocked the request: ${data.promptFeedback.blockReason}`);
       }
@@ -128,7 +152,7 @@ export function createGeminiClient(config: GeminiClientConfig): LlmClient {
       let lastError: unknown;
       // One reparse retry: JSON-mode is reliable but not infallible.
       for (let attempt = 0; attempt < 2; attempt += 1) {
-        const data = await call(structureModel, body, opts?.signal);
+        const data = await call(structureModel, body, opts?.signal, 'structure');
         try {
           return schema.parse(extractJson(extractText(data)));
         } catch (err) {

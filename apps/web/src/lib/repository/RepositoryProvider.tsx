@@ -18,6 +18,7 @@ import { createLocalStore } from './localStore';
 import { useApiKey } from '@/lib/settings/apiKey';
 import { useBoosters } from '@/lib/settings/boosters';
 import { createClaudeElevator } from '@/lib/boosters/claudeElevator';
+import { recordCall } from '@/lib/usage';
 
 const RepositoryContext = createContext<MarketIntelRepository | null>(null);
 
@@ -44,6 +45,8 @@ export function selectRepository(
       store: createLocalStore(),
       targetCompanies,
       concurrency: 3,
+      // Count every request locally so the user can see their free-tier headroom.
+      onCall: ({ kind }) => recordCall(kind),
       // BYOK power-up: optional Claude writer pass on reports/deep-dives.
       // Fail-open inside the repository — can never break the free path.
       elevator: boosters?.anthropicKey
