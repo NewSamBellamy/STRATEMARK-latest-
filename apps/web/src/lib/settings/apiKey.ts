@@ -10,6 +10,27 @@ import { create } from 'zustand';
 const STORAGE_KEY = 'mi.geminiApiKey';
 const MODEL_KEY = 'mi.geminiModel';
 
+/**
+ * Strip characters that can't legally travel in an HTTP header.
+ *
+ * The key is sent as `x-goog-api-key`, and headers must be ISO-8859-1. Keys
+ * copied out of a web page routinely carry invisible passengers — zero-width
+ * spaces, non-breaking spaces, smart quotes, a trailing newline — and ANY of
+ * them makes `fetch` throw before the request leaves the browser:
+ *   "Failed to read the 'headers' property from 'RequestInit':
+ *    String contains non ISO-8859-1 code point"
+ * That surfaced as "your key doesn't work" on keys that were perfectly valid.
+ */
+export function sanitizeApiKey(raw: string): string {
+  // Keep printable ASCII only, then trim.
+  return raw.replace(/[^\x20-\x7E]/g, '').trim();
+}
+
+/** Google AI Studio keys are URL-safe alphanumerics. Used for a friendly warning only. */
+export function looksLikeGeminiKey(key: string): boolean {
+  return /^[A-Za-z0-9_-]{30,}$/.test(key);
+}
+
 function readLocal(key: string): string {
   try {
     return localStorage.getItem(key) ?? '';
@@ -41,7 +62,7 @@ export const useApiKey = create<ApiKeyState>((set) => ({
   model: readLocal(MODEL_KEY),
   hasKey: readLocal(STORAGE_KEY).length > 0,
   setApiKey: (key) => {
-    const trimmed = key.trim();
+    const trimmed = sanitizeApiKey(key);
     writeLocal(STORAGE_KEY, trimmed);
     // In the Electron shell, also persist to the OS keychain (safeStorage).
     void window.miSecure?.setApiKey(trimmed);

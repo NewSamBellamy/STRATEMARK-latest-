@@ -10,7 +10,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { createGeminiClient } from '@mi/research';
-import { useApiKey } from '@/lib/settings/apiKey';
+import { looksLikeGeminiKey, sanitizeApiKey, useApiKey } from '@/lib/settings/apiKey';
 import { DEFAULT_ANTHROPIC_MODEL, useBoosters } from '@/lib/settings/boosters';
 
 type TestState = { status: 'idle' | 'testing' | 'ok' | 'fail'; detail?: string };
@@ -29,7 +29,7 @@ export default function SettingsPage() {
 
   /** Real grounded round-trip so the user knows the key works before researching. */
   const testKey = async () => {
-    const key = draft.trim();
+    const key = sanitizeApiKey(draft);
     if (!key) return;
     setTest({ status: 'testing' });
     try {
@@ -47,11 +47,15 @@ export default function SettingsPage() {
         status: 'fail',
         detail: /404/.test(msg)
           ? 'That model isn’t available to your account. Clear the model override or try another.'
-          : /API key not valid|400|403/.test(msg)
-            ? 'Key rejected by Google. Check you copied it fully from AI Studio.'
-            : /429/.test(msg)
-              ? 'Rate limited (429). Your key works, but you’ve hit the free-tier quota.'
-              : msg.slice(0, 180),
+          : /ISO-8859-1|headers.*RequestInit/i.test(msg)
+            ? 'Your key contained an invisible character (a smart quote or non-breaking space picked up while copying). We’ve cleaned it — press Test key again.'
+            : /API key not valid|400|403/.test(msg)
+              ? 'Key rejected by Google. Check you copied it fully from AI Studio.'
+              : /429/.test(msg)
+                ? 'Rate limited (429). Your key works, but you’ve hit the free-tier quota.'
+                : /Failed to fetch|NetworkError/i.test(msg)
+                  ? 'Couldn’t reach Google. Check your connection, VPN, or ad-blocker.'
+                  : msg.slice(0, 180),
       });
     }
   };
@@ -82,9 +86,23 @@ export default function SettingsPage() {
             className="input font-mono"
             placeholder="AIza…"
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            // Sanitize as it arrives — a pasted key routinely carries invisible
+            // characters that would otherwise break the request silently.
+            onChange={(e) => setDraft(sanitizeApiKey(e.target.value))}
+            onPaste={(e) => {
+              e.preventDefault();
+              setDraft(sanitizeApiKey(e.clipboardData.getData('text')));
+            }}
             autoComplete="off"
+            spellCheck={false}
           />
+          {draft.length > 0 && !looksLikeGeminiKey(draft) && (
+            <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-700">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              That doesn’t look like a complete AI Studio key (they’re a long string of letters,
+              numbers, dashes and underscores). Try copying it again from AI Studio.
+            </p>
+          )}
           <p className="mt-2 text-xs text-muted">
             Get a free key at{' '}
             <a

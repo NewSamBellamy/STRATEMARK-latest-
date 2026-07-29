@@ -209,6 +209,16 @@
 .mi-overlay-in { animation: mi-fade-in 0.16s ease-out; }
 .mi-modal-in { animation: mi-modal-in 0.22s cubic-bezier(0.16, 1, 0.3, 1); }
 
+/* Market-brief carousel: cinematic cross-fade as cards advance. */
+@keyframes mi-brief-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.mi-brief-in { animation: mi-brief-in 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .mi-brief-in { animation: none; }
+}
+
 /* Print / PDF export: only the report content survives. */
 @media print {
   aside, header, .no-print { display: none !important; }

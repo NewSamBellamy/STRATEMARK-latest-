@@ -65,6 +65,11 @@ export function createGeminiClient(config: GeminiClientConfig): LlmClient {
   const groundedModel = config.model ?? DEFAULT_GROUNDED_MODEL;
   const structureModel = config.structureModel ?? DEFAULT_STRUCTURE_MODEL;
   const doFetch = config.fetchImpl ?? fetch;
+  // Defence in depth: the key rides in an HTTP header, and headers must be
+  // ISO-8859-1. Pasted keys often carry invisible characters (zero-width space,
+  // non-breaking space, trailing newline) which make fetch throw before the
+  // request is even sent. Callers sanitize too; never trust that they did.
+  const apiKey = config.apiKey.replace(/[^\x20-\x7E]/g, '').trim();
 
   async function call(
     model: string,
@@ -75,7 +80,7 @@ export function createGeminiClient(config: GeminiClientConfig): LlmClient {
       async () => {
         const res = await doFetch(`${BASE}/${model}:generateContent`, {
           method: 'POST',
-          headers: { 'x-goog-api-key': config.apiKey, 'Content-Type': 'application/json' },
+          headers: { 'x-goog-api-key': apiKey, 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
           signal,
         });

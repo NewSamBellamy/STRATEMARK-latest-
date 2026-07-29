@@ -1,45 +1,9 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Globe2, KeyRound, Loader2, Sparkles, Wand2 } from 'lucide-react';
+import { Globe2, KeyRound, Sparkles, Wand2 } from 'lucide-react';
 import { useRepository } from '@/lib/repository/RepositoryProvider';
+import { ResearchStage, type LogLine } from './ResearchStage';
 import { useApiKey } from '@/lib/settings/apiKey';
-
-interface LogLine {
-  message: string;
-  kind: 'step' | 'find' | 'warn';
-  at: number;
-}
-
-/** Glass-box terminal: the agent's real research steps, streamed live. */
-function ResearchTerminal({ lines }: { lines: LogLine[] }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    ref.current?.scrollTo({ top: ref.current.scrollHeight, behavior: 'smooth' });
-  }, [lines.length]);
-  const color = (k: LogLine['kind']) =>
-    k === 'find' ? 'text-emerald-300' : k === 'warn' ? 'text-amber-300' : 'text-sky-300';
-  const prefix = (k: LogLine['kind']) => (k === 'find' ? '✓' : k === 'warn' ? '!' : '▸');
-  return (
-    <div
-      ref={ref}
-      className="mt-4 h-56 overflow-y-auto rounded-xl bg-[#12141A] p-3.5 font-mono text-[12px] leading-relaxed"
-      aria-live="polite"
-      aria-label="Live research log"
-    >
-      {lines.map((l, i) => (
-        <div key={i} className="flex gap-2">
-          <span className={color(l.kind)}>{prefix(l.kind)}</span>
-          <span className={l.kind === 'find' ? 'text-neutral-100' : 'text-neutral-400'}>
-            {l.message}
-          </span>
-        </div>
-      ))}
-      <div className="mt-1 flex gap-2 text-neutral-500">
-        <span className="animate-pulse">▮</span>
-      </div>
-    </div>
-  );
-}
 
 const EXAMPLES = [
   'Christian apparel companies',
@@ -112,24 +76,7 @@ export default function NewDeckPage() {
       )}
 
       {running ? (
-        <div className="panel mt-6 p-6">
-          <div className="flex items-center gap-3">
-            <Loader2 className="h-5 w-5 animate-spin text-primary-ink" />
-            <span className="font-medium text-content">Researching your market…</span>
-          </div>
-          <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-surface-2">
-            <div
-              className="h-full rounded-full bg-primary transition-all duration-500"
-              style={{ width: `${Math.round(Math.min(1, progress.pct) * 100)}%` }}
-            />
-          </div>
-          <p className="mt-3 text-sm text-muted">{progress.message}</p>
-          <ResearchTerminal lines={log} />
-          <p className="mt-3 text-xs text-muted">
-            You’re watching the agent’s actual research steps — grounded Google searches, companies
-            found, and cards assembled. This typically takes a few minutes.
-          </p>
-        </div>
+        <ResearchStage lines={log} message={progress.message} pct={progress.pct} />
       ) : (
         <form onSubmit={onSubmit} className="panel mt-6 space-y-5 p-6">
           <div>
