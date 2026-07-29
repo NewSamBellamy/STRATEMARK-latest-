@@ -389,6 +389,17 @@ try {
   console.error('FATAL:', e.message);
   await shot('fatal');
 } finally {
+  // Export the full researched snapshot (markets, cards, metrics, dashboards,
+  // reports) — the raw material for baking a pre-seeded sample deck (P4).
+  try {
+    const snap = await p.evaluate(() => localStorage.getItem('mi.repo.v1'));
+    if (snap) {
+      fs.writeFileSync(`${OUT}/repo-snapshot.json`, snap);
+      console.log(`snapshot exported: ${OUT}/repo-snapshot.json (${(snap.length / 1024).toFixed(0)} KB)`);
+    }
+  } catch {
+    /* page already closed — snapshot only exports on clean runs */
+  }
   fs.writeFileSync(`${OUT}/marks.json`, JSON.stringify({ t0, totalMs: now(), live: LIVE, market: MARKET, marks }, null, 2));
   await ctx.close();
   await browser.close();
