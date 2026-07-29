@@ -85,6 +85,20 @@ async function liveWait(label, fn) {
     mark(label, 'wait-end');
   }
 }
+/** Wait until no loading spinner / loading text remains anywhere (async tab/thesis content resolved). */
+async function waitLoaded(ms) {
+  await p
+    .waitForFunction(
+      () => {
+        const spin = document.querySelector('.animate-spin');
+        const txt = document.body.innerText || '';
+        return !spin && !/Loading\.\.\.|Analyzing the whitespace|Researching /i.test(txt);
+      },
+      null,
+      { timeout: ms, polling: 300 },
+    )
+    .catch(() => {});
+}
 async function safe(label, fn) {
   try {
     await fn();
@@ -192,9 +206,11 @@ try {
   // 6 — Full dashboard, all 8 tabs (each researches live on first open)
   await p.click('button:has-text("Open full dashboard")');
   await liveWait('overview', async () => {
-    await p.waitForSelector('text=/What they do|Why it matters|Overview/i', { timeout: T(180000, 15000) });
+    await soak(400);
+    await waitLoaded(T(180000, 15000));
+    await p.waitForSelector('text=/What they do|Why it matters|At a glance/i', { timeout: T(30000, 6000) }).catch(() => {});
   });
-  await soak(2800);
+  await soak(3000);
   await slowScroll(900, 5, 750);
   await shot('tab-overview');
 
@@ -211,9 +227,11 @@ try {
     await safe(`tab:${label}`, async () => {
       await p.click(`a:has-text("${label}")`);
       await liveWait(`tab:${label}`, async () => {
-        await p.waitForSelector(`text=${sel}`, { timeout: T(120000, 9000) });
+        await soak(500);
+        await waitLoaded(T(120000, 9000));
+        await p.waitForSelector(`text=${sel}`, { timeout: T(20000, 5000) }).catch(() => {});
       });
-      await soak(2600);
+      await soak(3000);
       await slowScroll(950, 5, 720);
       await shot(file);
       await p.mouse.wheel(0, -1600);
@@ -255,13 +273,15 @@ try {
   await safe('override', async () => {
     await p.click('a:has-text("Metrics")');
     await soak(900);
-    const pencil = p.locator('button[aria-label^="Correct"]').first();
-    await pencil.click();
+    const pencil = p.locator('button[aria-label="Correct ARR"]').first();
+    await pencil.click().catch(async () => {
+      await p.locator('button[aria-label^="Correct"]').first().click();
+    });
     await p.waitForSelector('#ov-value', { timeout: 8000 });
     await soak(700);
     await p.fill('#ov-value', '');
-    await p.type('#ov-value', '250000000', { delay: 40 });
-    await p.type('#ov-note', 'Confirmed in the company’s latest disclosure', { delay: 20 });
+    await p.type('#ov-value', '20000000000', { delay: 22 });
+    await p.type('#ov-note', 'Corrected to the reported ~$20B annualized run-rate (mid-2026)', { delay: 12 });
     await soak(900);
     await shot('override-modal');
     await p.click('button:has-text("Save override")');
@@ -277,7 +297,8 @@ try {
     await soak(800);
     await p.click('button:has-text("Report")');
     await liveWait('report', async () => {
-      await p.waitForSelector('text=/Executive summary|Market landscape|Sources \\(/i', { timeout: T(300000, 20000) });
+      await p.waitForSelector('text=/Executive summary|Sources \\(/i', { timeout: T(300000, 20000) });
+      await waitLoaded(T(30000, 8000));
     });
     await soak(3000);
     await shot('report-top');
@@ -313,7 +334,9 @@ try {
     await soak(2600);
     await shot('opportunity-map');
     await liveWait('opportunity', async () => {
-      await p.waitForSelector('text=/Sources \\(|whitespace|gap/i', { timeout: T(180000, 12000) });
+      await soak(400);
+      await waitLoaded(T(180000, 12000));
+      await p.waitForSelector('text=/The whitespace|Positioning axes|Sources \\(/i', { timeout: T(20000, 6000) }).catch(() => {});
     });
     await soak(2800);
     await slowScroll(1200, 6, 780);

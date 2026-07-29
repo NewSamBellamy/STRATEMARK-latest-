@@ -11,3 +11,6 @@ storybook-static/
 .env
 .env.local
 *.tsbuildinfo
+
+# local visual-capture artifacts
+apps/web/shots/
