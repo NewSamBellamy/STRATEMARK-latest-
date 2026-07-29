@@ -1,5 +1,8 @@
 # Market Intel Deck Builder
 
+> 🏆 **Built with Gemini** — the entire intelligence engine runs on the Gemini API with Google
+> Search grounding, on a free Google AI Studio key. Full tooling proof: [docs/GOOGLE-TOOLS.md](docs/GOOGLE-TOOLS.md).
+
 **Open-source, local-first market research.** Describe any market in plain language and get a
 deck of game-card-styled competitive-intelligence cards — real companies with real logos,
 sourced metrics, maturity tiers, drill-down dashboards, fact-checking, and AI-composed

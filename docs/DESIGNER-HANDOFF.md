@@ -1,5 +1,20 @@
 # Designer Handoff — Stratemark (Market Intel Deck Builder)
 
+## ⚡ Fastest start (zero install)
+
+1. **See the real product in 10 seconds**: open `stratemark-demo.html` (single self-contained
+   file, shared alongside this doc) — double-click it, no install, no server, no API key. It
+   boots straight into the real pre-seeded Frontier AI deck. Click everything.
+2. **Design from real frames**: `stratemark-figma-frames` contains a full-app screenshot walk
+   (39 frames, real data) — drag them straight into Figma as reference frames.
+3. **Import to Tempo / Figma**:
+   - **Tempo** (tempo.new): connect GitHub → import `STRATEMARK` (you'll need repo access — ask
+     for a collaborator invite) → it opens `apps/web` as an editable React app. Styling lives in
+     Tailwind classes + `apps/web/src/index.css`.
+   - **Figma**: use the *html.to.design* plugin against the running app (`pnpm --filter @mi/web dev`,
+     then point the plugin at `http://localhost:5173`) — or start from the frame pack above.
+4. When you're ready to run the code itself, the 2-command setup is below.
+
 Welcome. This product is yours to elevate. This doc tells you **where everything lives, what's
 load-bearing, and what's an open canvas** — it deliberately does not tell you what things should
 look like. You have the reins.
