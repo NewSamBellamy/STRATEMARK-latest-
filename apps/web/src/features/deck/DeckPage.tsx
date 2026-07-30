@@ -1,15 +1,17 @@
-import { useMemo } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   ChevronRight,
-  FileText,
   Layers,
+  MessagesSquare,
   RefreshCw,
   Search,
   Settings,
   SlidersHorizontal,
+  SquareMousePointer,
   Target,
+  X,
 } from 'lucide-react';
 import {
   CARD_TYPE_DESCRIPTIONS,
@@ -26,10 +28,11 @@ import {
   useCards,
   useDeckByMarket,
   useExpandDeck,
-  useGenerateReport,
   useMarket,
   useRefreshDeck,
 } from '@/hooks/data';
+import { useDeepDive } from '@/features/deepdive/DeepDive';
+import { ReportButton, ThreadHistoryButton } from '@/features/research/ResearchControls';
 import { cn } from '@/lib/cn';
 import { useApiKey } from '@/lib/settings/apiKey';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
@@ -53,8 +56,31 @@ export default function DeckPage() {
   const deckId = deck.data?.id;
   const cards = useCards(deckId);
   const refreshDeck = useRefreshDeck();
-  const generateReport = useGenerateReport();
-  const navigate = useNavigate();
+  const { chat } = useDeepDive();
+
+  // Compare mode: select cards, then ask a grounded question about exactly
+  // that set. Selection is deck-page state — leaving the page clears it.
+  const [compare, setCompare] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const toggleSelected = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const exitCompare = () => {
+    setCompare(false);
+    setSelected(new Set());
+  };
+  const askSelected = () => {
+    if (!deckId || selected.size === 0) return;
+    chat(
+      { kind: 'cards', deckId, cardIds: [...selected] },
+      { placeholder: 'Compare these — who is really leading, and why?' },
+    );
+    exitCompare();
+  };
 
   const [params, setParams] = useSearchParams();
   const split = params.get('split'); // 'types' | 'company' | null
@@ -89,23 +115,36 @@ export default function DeckPage() {
           </h1>
           <Breadcrumbs split={split} typeParam={typeParam} onNavigate={setSplit} />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             className="btn-ghost"
-            disabled={generateReport.isPending || !deckId}
-            title="Compose an executive report from this deck's researched evidence"
+            disabled={!deckId}
+            title="Start a grounded conversation about this whole deck"
             onClick={() =>
               deckId &&
-              generateReport.mutate(
-                { kind: 'deck', subjectId: deckId },
-                { onSuccess: (r) => navigate(`/reports/${r.id}`) },
+              chat(
+                { kind: 'deck', deckId },
+                { placeholder: 'Ask about this market — who leads, what changed, where the gap is…' },
               )
             }
           >
-            <FileText className={`h-4 w-4 ${generateReport.isPending ? 'animate-pulse' : ''}`} />
-            {generateReport.isPending ? 'Composing…' : 'Report'}
+            <MessagesSquare className="h-4 w-4" />
+            Ask deck
           </button>
+          <button
+            type="button"
+            className={cn('btn-ghost', compare && 'border-primary/60 text-primary-ink')}
+            disabled={!deckId}
+            aria-pressed={compare}
+            title="Select cards, then ask a grounded question about exactly those"
+            onClick={() => (compare ? exitCompare() : setCompare(true))}
+          >
+            <SquareMousePointer className="h-4 w-4" />
+            {compare ? 'Cancel select' : 'Compare'}
+          </button>
+          <ThreadHistoryButton deckId={deckId} />
+          <ReportButton kind="deck" subjectId={deckId} />
           <button
             type="button"
             className="btn-ghost"
@@ -168,7 +207,7 @@ export default function DeckPage() {
                   {filtered.length === 1 ? '' : 's'}
                 </h2>
                 {filtered.length > 0 ? (
-                  <CardGrid cards={filtered} deckUserValues={userValues} />
+                  <CardGrid cards={filtered} deckUserValues={userValues} marketId={marketId} />
                 ) : (
                   <ExpandPrompt marketId={marketId} focus={{ cardType: typeParam }} label={`Hunt for ${CARD_TYPE_LABELS[typeParam].toLowerCase()} players in this market`} />
                 )}
@@ -219,7 +258,14 @@ export default function DeckPage() {
                 </button>
               </div>
               {filtered.length > 0 ? (
-                <CardGrid cards={filtered} deckUserValues={userValues} />
+                <CardGrid
+                  cards={filtered}
+                  deckUserValues={userValues}
+                  marketId={marketId}
+                  selectable={compare}
+                  selected={selected}
+                  onToggle={toggleSelected}
+                />
               ) : (
                 <ExpandPrompt
                   marketId={marketId}
@@ -235,6 +281,32 @@ export default function DeckPage() {
           );
         }}
       </QueryBoundary>
+
+      {/* Compare mode action bar */}
+      {compare && (
+        <div className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-full border border-border bg-surface px-4 py-2.5 shadow-card">
+          <span className="text-sm tabular-nums text-muted">
+            {selected.size} card{selected.size === 1 ? '' : 's'} selected
+          </span>
+          <button
+            type="button"
+            className="btn-primary px-3.5 py-1.5 text-sm"
+            disabled={selected.size === 0}
+            onClick={askSelected}
+          >
+            <MessagesSquare className="h-4 w-4" />
+            Ask about these
+          </button>
+          <button
+            type="button"
+            className="rounded-full p-1 text-muted hover:text-content"
+            onClick={exitCompare}
+            aria-label="Exit compare mode"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -340,6 +412,7 @@ function TypeNav({
 
   return (
     <nav
+      data-testid="type-nav"
       className="mb-5 flex gap-1 overflow-x-auto border-b border-border pb-px"
       aria-label="Filter deck by card type"
     >

@@ -4,12 +4,33 @@
  * assert a figure from training data. Structuring steps convert that grounded
  * text into JSON and must mark anything unsupported as Unknown/Estimated.
  */
-import { CARD_TYPE_LABELS, TIER_LABELS } from '@mi/contracts';
+import { CARD_TYPE_LABELS, TIER_LABELS, type CardType } from '@mi/contracts';
 import type { CompanyCandidate, MarketPlan } from './types';
 import type { Citation } from './types';
 
+/**
+ * Roles discovery may assign to a company. Barrier and Insight are market-level
+ * findings produced by their own grounded pass, so offering them here only
+ * invites discovery to mint a topic as if it were a business.
+ */
+const DISCOVERABLE_ROLES: readonly CardType[] = [
+  'company',
+  'infrastructure',
+  'distribution',
+  'culture',
+  'vice',
+];
+
 export const GROUNDED_SYSTEM =
   'You are a meticulous market-intelligence researcher. Use ONLY the Google Search results available to you via grounding — never state a company, figure, or claim from prior knowledge without a supporting search result. If the search results do not support something, say so explicitly rather than guessing. Prefer recent, primary sources (filings, company statements, reputable reporting). Always work from what the searches actually return.';
+
+/**
+ * The research-conversation contract. Chat is where trust erodes fastest —
+ * a model chatting freely will drift into training-data recall, which is the
+ * one thing this product promises never to do.
+ */
+export const CHAT_SYSTEM =
+  'You are the research copilot inside a competitive-intelligence deck. Answer using ONLY two sources: (1) the DECK DATA provided in the prompt — this deck\'s prior grounded research, whose confidence tags (verified / estimated / unknown) you must respect and repeat honestly — and (2) fresh Google Search results retrieved for this question. NEVER answer from prior or training knowledge: if neither the deck data nor the search results support a claim, say plainly that it is not established. Be direct and analytical, compare entities when asked, keep answers tight (a few short paragraphs or a list), and attribute figures to their source. You are talking to a sharp analyst — no filler, no hedging beyond what the evidence requires.';
 
 export const STRUCTURE_SYSTEM =
   'You convert researched notes into strict JSON. Output ONLY JSON — no prose, no code fences. Never invent values: if the notes do not support a field, use null and confidence "unknown". Use confidence "verified" only when a cited source states the figure directly, "estimated" when derived via a stated method, otherwise "unknown".';
@@ -38,7 +59,9 @@ export function discoverPrompt(plan: MarketPlan, target: number): string {
     `Market: ${plan.marketName} — ${plan.vertical}${plan.geography ? ` in ${plan.geography}` : ''}.`,
     `Search angles: ${plan.searchThemes.join('; ')}.`,
     ``,
-    `Using Google Search, identify the REAL companies and entities in this market. Find roughly ${target} operating companies spanning maturity from tiny startups to dominant incumbents, PLUS a few infrastructure/tooling providers, a few distribution/channel players, and any notable culture or controversy (vice) angles. For each, note its name, its website root domain, a one-line descriptor, and which category it belongs to (${Object.values(CARD_TYPE_LABELS).join(', ')}). Only include entities you can actually find in search results.`,
+    // Barrier and Insight are market-level and researched in their own pass, so
+    // they are deliberately absent from the roles offered here.
+    `Using Google Search, identify the REAL companies in this market. Find roughly ${target} operating companies spanning maturity from tiny startups to dominant incumbents, and make sure the set includes the infrastructure/tooling providers the market depends on and the distribution/channel players it sells through. Note any documented controversy or notable community signal attached to a company you already list. For each entity give its name, website root domain, a one-line descriptor, and the role(s) it plays: ${DISCOVERABLE_ROLES.map((r) => CARD_TYPE_LABELS[r]).join(', ')}. Only include entities you can actually find in search results.`,
     ``,
     `STRICT: include only actual operating companies/organizations. Government agencies, regulators, trade associations, events, and abstract concepts or debates are NOT companies — omit them entirely (do not force them into any category).`,
   ].join('\n');
@@ -46,8 +69,27 @@ export function discoverPrompt(plan: MarketPlan, target: number): string {
 
 export function structureDiscoveryPrompt(groundedText: string): string {
   return [
-    `From these research notes, output JSON: { "companies": [ { "name", "domain" (root domain or null), "descriptor", "cardTypes" (array of: company, infrastructure, distribution, culture, vice) } ] }.`,
+    `From these research notes, output JSON: { "companies": [ { "name", "domain" (root domain or null), "descriptor", "cardTypes" } ] }.`,
     `Deduplicate. Keep only real entities named in the notes.`,
+    ``,
+    // Without criteria the model labels everything "company" — measured on a live
+    // run: 10 of 10, including four pure infrastructure businesses, which left
+    // four of the seven card types invisible. The facets describe a company's
+    // ROLE in this market, so define each one and make clear they stack.
+    `"cardTypes" holds EXACTLY ONE primary role, plus any signals the notes actually report.`,
+    ``,
+    `Pick the one role that best describes how this entity relates to the market:`,
+    `  · company        — operates IN the market: sells its core product or service to the market's customers`,
+    `  · infrastructure — supplies TO the market: the compute, hardware, tooling, or platform others in it depend on`,
+    `  · distribution   — reaches the market's customers on others' behalf: channel, marketplace, reseller, integrator`,
+    ``,
+    `Choose by the entity's centre of gravity, not by everything it happens to do. A chip maker that also rents out some cloud capacity is "infrastructure". A frontier lab that also sells API access is "company". If two roles genuinely tie, prefer the more specific one over "company".`,
+    ``,
+    `Then add either or both of these ONLY when the notes report it — never to round out the set:`,
+    `  · culture — a notable community, ethos, or giving signal`,
+    `  · vice    — a documented controversy, lawsuit, regulatory action, or integrity problem`,
+    ``,
+    `Examples: a chip supplier → ["infrastructure"]. A lab facing a copyright suit → ["company","vice"]. A model marketplace known for its community → ["distribution","culture"].`,
     ``,
     `NOTES:`,
     groundedText,

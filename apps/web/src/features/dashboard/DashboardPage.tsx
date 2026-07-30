@@ -1,8 +1,12 @@
-import { useState, type FormEvent } from 'react';
-import { Link, NavLink, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, FileText, Sparkles } from 'lucide-react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { Link, NavLink, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, FileText, Shovel } from 'lucide-react';
 import { DASHBOARD_TABS, DASHBOARD_TAB_LABELS, type DashboardTab } from '@mi/contracts';
-import { useCompany, useGenerateReport, useReports, useRerunDashboardTab } from '@/hooks/data';
+import { useCompany, useReports, useRerunDashboardTab } from '@/hooks/data';
+import { useRepository } from '@/lib/repository/RepositoryProvider';
+import { qk } from '@/lib/query/keys';
+import { ReportButton, ThreadHistoryButton } from '@/features/research/ResearchControls';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { ContextRerun } from '@/components/ui/ContextRerun';
 import { cn } from '@/lib/cn';
@@ -25,19 +29,22 @@ import NotFoundPage from '@/features/NotFoundPage';
  * company's context. Opens the sourced deep-dive sheet with whatever you ask.
  */
 function ResearchComposer({ companyId, companyName }: { companyId: string; companyName: string }) {
-  const { open } = useDeepDive();
+  const { chat } = useDeepDive();
   const [q, setQ] = useState('');
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    const topic = q.trim();
-    if (!topic) return;
-    open({ topic, companyId, companyName, context: null });
+    const question = q.trim();
+    if (!question) return;
+    // A question here starts a CONVERSATION anchored to this company — the
+    // answer arrives in the Dig sheet, follow-ups continue the same thread,
+    // and the whole exchange lands in the company's research history.
+    chat({ kind: 'company', deckId: null, companyId, subject: companyName }, { seed: question });
     setQ('');
   };
   return (
     <form onSubmit={submit} className="flex min-w-0 flex-1 items-center gap-2">
       <div className="relative min-w-0 flex-1">
-        <Sparkles className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-faint" />
+        <Shovel className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-faint" />
         <input
           className="input py-2 pl-8 text-[13px]"
           value={q}
@@ -108,11 +115,38 @@ function TabView({ tab, companyId }: { tab: DashboardTab; companyId: string }) {
 export default function DashboardPage() {
   const { companyId, tab } = useParams();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const fromMarketId = params.get('deck');
   const company = useCompany(companyId);
-  const generateReport = useGenerateReport();
   const hasKey = useApiKey((s) => s.hasKey);
   const activeTab = tab as DashboardTab;
   const rerunTab = useRerunDashboardTab(companyId, activeTab);
+  const repo = useRepository();
+  const qc = useQueryClient();
+
+  // Warm EVERY tab the moment the dashboard opens (founder's audit: "as I'm
+  // reading the overview I want all the other tabs to start loading"). Runs
+  // sequentially so the free-tier rate limiter never sees a burst; each tab is
+  // cached in the snapshot, so revisits cost nothing.
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    void (async () => {
+      for (const t of DASHBOARD_TABS) {
+        if (cancelled) return;
+        await qc
+          .prefetchQuery({
+            queryKey: qk.dashboard(companyId, t),
+            queryFn: () => repo.getDashboardTab(companyId, t),
+            staleTime: Infinity,
+          })
+          .catch(() => {});
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId, qc, repo]);
 
   if (!companyId || !DASHBOARD_TABS.includes(activeTab)) return <NotFoundPage />;
 
@@ -120,7 +154,10 @@ export default function DashboardPage() {
     <div className="mx-auto max-w-6xl">
       <button
         type="button"
-        onClick={() => navigate(-1)}
+        // A real route back to the deck (audit: the back button "doesn't
+        // actually take you back to the deck"). History fallback only when the
+        // dashboard was reached without deck context.
+        onClick={() => (fromMarketId ? navigate(`/markets/${fromMarketId}`) : navigate(-1))}
         className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted hover:text-content"
       >
         <ArrowLeft className="h-4 w-4" />
@@ -136,27 +173,14 @@ export default function DashboardPage() {
                 <h1 className="font-display text-2xl font-semibold text-content">{c.name}</h1>
                 <p className="text-sm text-muted">{c.oneLiner}</p>
               </div>
-              <button
-                type="button"
-                className="btn-ghost shrink-0"
-                disabled={generateReport.isPending}
-                title="Compose an executive report on this company"
-                onClick={() =>
-                  generateReport.mutate(
-                    { kind: 'company', subjectId: c.id },
-                    { onSuccess: (r) => navigate(`/reports/${r.id}`) },
-                  )
-                }
-              >
-                <FileText className={`h-4 w-4 ${generateReport.isPending ? 'animate-pulse' : ''}`} />
-                {generateReport.isPending ? 'Composing…' : 'Report'}
-              </button>
+              <ThreadHistoryButton companyId={c.id} className="shrink-0" />
+              <ReportButton kind="company" subjectId={c.id} className="shrink-0" />
               <DigDeeper
                 topic="Recent developments & what to watch"
                 companyId={c.id}
                 companyName={c.name}
                 label="Dig deeper"
-                className="shrink-0 px-3 py-1.5 text-xs"
+                className="h-8 w-8 shrink-0"
               />
             </header>
 
@@ -174,7 +198,7 @@ export default function DashboardPage() {
               {DASHBOARD_TABS.map((t) => (
                 <NavLink
                   key={t}
-                  to={`/company/${companyId}/dashboard/${t}`}
+                  to={`/company/${companyId}/dashboard/${t}${fromMarketId ? `?deck=${fromMarketId}` : ''}`}
                   className={({ isActive }) =>
                     cn(
                       'whitespace-nowrap rounded-t-lg border-b-2 px-3.5 py-2 text-sm font-medium transition-colors',

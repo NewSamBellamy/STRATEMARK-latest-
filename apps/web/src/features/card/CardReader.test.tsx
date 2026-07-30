@@ -41,7 +41,11 @@ describe('CardReader', () => {
     const dialog = screen.getByRole('dialog');
     expect(within(dialog).getByText(/risk & controversy/i)).toBeInTheDocument();
     // Every claim renders a Source link.
-    const sources = within(dialog).getAllByRole('link', { name: /source/i });
+    // The link now NAMES the publisher (or admits "Publisher not recorded")
+    // instead of a generic "Source" label — the provenance rule for vice claims.
+    const sources = within(dialog)
+      .getAllByRole('link')
+      .filter((a) => a.getAttribute('href')?.startsWith('http'));
     expect(sources.length).toBeGreaterThan(0);
     expect(sources[0]).toHaveAttribute('href');
   });

@@ -110,6 +110,12 @@ export const cardSchema = z.object({
   // they carry their own evidence. Defaulted, so company cards and older stored
   // decks parse unchanged.
   citations: z.array(z.object({ title: z.string(), url: z.string() })).default([]),
+  /**
+   * For market-level cards (Insight, Barrier): the researched key points behind
+   * the headline — each one or two sentences, scannable. Empty for company
+   * cards and for decks baked before this field existed.
+   */
+  keyPoints: z.array(z.string()).default([]),
   createdAt: isoTimestamp,
 });
 
@@ -118,12 +124,41 @@ export const viceClaimSchema = z.object({
   cardId: z.string(),
   claimText: z.string().min(1),
   sourceUrl: z.string().min(1), // REQUIRED — every Vice claim must be sourced (spec §4, §6.4)
+  /**
+   * The publisher behind the source (grounding supplies a title with every
+   * URL). The URL alone is an opaque, expiring Google redirect — the publisher
+   * name is the durable half of the provenance, same rule as metric citations.
+   */
+  sourceTitle: z.string().nullable().default(null),
   capturedAt: isoTimestamp,
 });
 
 // Dashboard per-tab content contracts (spec §8) ----------------------------
+//
+// These are TOLERANT by design. A research pass returns what the sources
+// actually support, and an all-or-nothing schema turns one missing sub-field
+// into a completely blank tab: measured on a live bake, 21% of tabs were lost
+// because a single string (an `ethos`, a timeline `detail`) wasn't there.
+//
+// The product already treats "unknown" as a first-class state for figures. The
+// same rule belongs here: render what was found, leave the rest visibly empty.
+// Tolerance never invents anything — a dropped row is a gap, not a guess.
+
+/** Prose that may simply not exist in the sources. */
+const prose = () => z.string().catch('');
+
+/**
+ * An array that keeps the rows that parsed. A malformed row is discarded rather
+ * than taking its siblings down with it, and a non-array becomes empty.
+ */
+const rows = <T extends z.ZodTypeAny>(item: T) =>
+  z
+    .array(item.nullable().catch(null))
+    .catch([])
+    .transform((list) => list.filter((r): r is z.output<T> => r !== null));
+
 export const overviewContentSchema = z.object({
-  markdown: z.string(),
+  markdown: prose(),
 });
 
 export const liveIntelItemSchema = z.object({
@@ -137,73 +172,85 @@ export const liveIntelItemSchema = z.object({
   stale: z.boolean(),
 });
 export const liveIntelContentSchema = z.object({
-  items: z.array(liveIntelItemSchema),
-  lastRefreshedAt: isoTimestamp.nullable(),
-  cadence: refreshCadenceSchema,
+  items: rows(liveIntelItemSchema),
+  lastRefreshedAt: isoTimestamp.nullable().catch(null),
+  cadence: refreshCadenceSchema.catch('weekly'),
 });
 
 export const orgNodeSchema = z.object({
   id: z.string(),
   name: z.string(),
-  role: z.string(),
-  group: z.enum(['exec', 'ai', 'product', 'design', 'other']),
-  parentId: z.string().nullable(),
+  role: prose(),
+  // An unrecognised grouping is "other" — a real person in the wrong swimlane
+  // beats losing the whole org chart.
+  group: z.enum(['exec', 'ai', 'product', 'design', 'other']).catch('other'),
+  parentId: z.string().nullable().catch(null),
+  /** One-two sourced sentences about the person, when reporting exists. */
+  bio: prose(),
 });
 export const teamOrgContentSchema = z.object({
-  nodes: z.array(orgNodeSchema),
+  nodes: rows(orgNodeSchema),
 });
 
 export const liveLandingContentSchema = z.object({
   url: z.string(),
-  embeddable: z.boolean(),
-  screenshotUrl: z.string().nullable(),
+  embeddable: z.boolean().catch(false),
+  screenshotUrl: z.string().nullable().catch(null),
 });
 
 export const timePointSchema = z.object({ period: z.string(), value: z.number() });
 export const capTableSliceSchema = z.object({ holder: z.string(), pct: z.number() });
 export const metricsContentSchema = z.object({
-  revenue: z.array(timePointSchema),
-  users: z.array(timePointSchema),
-  churn: z.array(timePointSchema),
-  nps: z.array(timePointSchema),
-  capTable: z.array(capTableSliceSchema),
+  revenue: rows(timePointSchema),
+  users: rows(timePointSchema),
+  churn: rows(timePointSchema),
+  nps: rows(timePointSchema),
+  capTable: rows(capTableSliceSchema),
 });
 
-export const boardMemberSchema = z.object({ name: z.string(), affiliation: z.string() });
+export const boardMemberSchema = z.object({ name: z.string(), affiliation: prose() });
 export const missionGovernanceContentSchema = z.object({
-  mission: z.string(),
-  ethos: z.string(),
-  governanceStructure: z.string(),
-  board: z.array(boardMemberSchema),
-  positives: z.array(z.string()),
-  negatives: z.array(z.string()),
+  mission: prose(),
+  ethos: prose(),
+  governanceStructure: prose(),
+  board: rows(boardMemberSchema),
+  positives: rows(z.string()),
+  negatives: rows(z.string()),
 });
 
 export const timelineEventSchema = z.object({
-  date: z.string(),
+  date: prose(),
   title: z.string(),
-  detail: z.string(),
+  detail: prose(),
 });
-export const quoteSchema = z.object({ text: z.string(), attribution: z.string() });
+export const quoteSchema = z.object({ text: z.string(), attribution: prose() });
 export const historyContentSchema = z.object({
-  founderStory: z.string(),
-  timeline: z.array(timelineEventSchema),
-  quotes: z.array(quoteSchema),
+  founderStory: prose(),
+  timeline: rows(timelineEventSchema),
+  quotes: rows(quoteSchema),
 });
 
 export const productSchema = z.object({
   name: z.string(),
-  description: z.string(),
+  description: prose(),
+  /**
+   * What is publicly reported about this product's revenue contribution —
+   * honest prose ("~70% of revenue per 2025 10-K", "not disclosed"), never an
+   * invented figure. Ranking in the UI follows the researched order.
+   */
+  revenueNote: prose(),
+  // No neutral value exists here, so an unreadable status drops the row rather
+  // than asserting a lifecycle stage we did not find.
   status: z.enum(['live', 'beta', 'sunset']),
 });
 export const roadmapItemSchema = z.object({
   title: z.string(),
   horizon: z.enum(['now', 'next', 'later']),
-  detail: z.string(),
+  detail: prose(),
 });
 export const productsRoadmapContentSchema = z.object({
-  products: z.array(productSchema),
-  roadmap: z.array(roadmapItemSchema),
+  products: rows(productSchema),
+  roadmap: rows(roadmapItemSchema),
 });
 
 /** Tab → content schema. Used to validate `dashboard_data.content_json` per tab. */

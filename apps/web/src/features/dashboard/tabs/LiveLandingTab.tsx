@@ -1,9 +1,12 @@
-import { ExternalLink, ImageOff, MonitorPlay } from 'lucide-react';
-import { useDashboardTab } from '@/hooks/data';
+import { ClipboardCheck, ExternalLink, ImageOff, MonitorPlay } from 'lucide-react';
+import { useCompany, useDashboardTab } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
+import { useDeepDive } from '@/features/deepdive/DeepDive';
 
 export function LiveLandingTab({ companyId }: { companyId: string }) {
   const query = useDashboardTab(companyId, 'live_landing');
+  const name = useCompany(companyId).data?.name ?? 'this company';
+  const { chat } = useDeepDive();
   return (
     <QueryBoundary query={query}>
       {(result) => {
@@ -15,10 +18,28 @@ export function LiveLandingTab({ companyId }: { companyId: string }) {
                 The company’s live site. In the desktop shell this renders via Electron BrowserView;
                 on the web we embed via iframe with a fallback for sites that block embedding.
               </p>
-              <a href={url} target="_blank" rel="noopener noreferrer" className="btn-ghost">
-                <ExternalLink className="h-4 w-4" />
-                Open site
-              </a>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  title="Grounded audit of this landing page: positioning, message, conversion"
+                  onClick={() =>
+                    chat(
+                      { kind: 'datapoint', deckId: null, companyId, subject: `${name} landing page` },
+                      {
+                        seed: `Audit ${name}'s landing page (${url}) as a conversion-minded marketer: what is the positioning and promise, what's working, what's weak, and what would you test first? Ground observations in what search results and coverage actually say about the site and its messaging.`,
+                      },
+                    )
+                  }
+                >
+                  <ClipboardCheck className="h-4 w-4" />
+                  Audit this page
+                </button>
+                <a href={url} target="_blank" rel="noopener noreferrer" className="btn-ghost">
+                  <ExternalLink className="h-4 w-4" />
+                  Open site
+                </a>
+              </div>
             </div>
 
             {embeddable ? (

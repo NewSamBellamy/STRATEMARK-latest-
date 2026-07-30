@@ -32,6 +32,8 @@ import {
   type MarketIntelRepository,
   type RefreshCadence,
   type ResearchHandlers,
+  type AskResearchInput,
+  type ResearchThread,
   type Unsubscribe,
   type ViceClaim,
 } from '@mi/contracts';
@@ -440,6 +442,53 @@ export class MockRepository implements MarketIntelRepository {
       ].join('\n'),
       citations: [],
     });
+  }
+
+  // Research conversations ---------------------------------------------------
+  // The demo build has no key, so it cannot run a grounded conversation. It
+  // still implements the interface: threads persist, and the assistant reply is
+  // an honest statement of what's missing — never a fabricated research answer.
+  private threads: ResearchThread[] = [];
+
+  askResearch(input: AskResearchInput): Promise<ResearchThread> {
+    const now = new Date().toISOString();
+    const rid = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    let thread = input.threadId ? this.threads.find((t) => t.id === input.threadId) : undefined;
+    if (!thread) {
+      if (!input.scope) return Promise.reject(new Error('A new research thread needs a scope.'));
+      thread = {
+        id: `thr_${rid()}`,
+        scope: input.scope,
+        title: input.question.length > 76 ? `${input.question.slice(0, 76)}…` : input.question,
+        messages: [],
+        reportId: null,
+        createdAt: now,
+        updatedAt: now,
+      };
+      this.threads = [thread, ...this.threads];
+    }
+    thread.messages.push({ id: `msg_${rid()}`, role: 'user', text: input.question, citations: [], at: now });
+    thread.messages.push({
+      id: `msg_${rid()}`,
+      role: 'assistant',
+      text: 'Live research chat needs a Google AI Studio key. This demo deck is fixture data — connect a free key in Settings and every answer here will come from this deck\u2019s stored research plus a fresh, cited Google Search. Nothing is ever answered from training data.',
+      citations: [],
+      at: new Date().toISOString(),
+    });
+    thread.updatedAt = new Date().toISOString();
+    return this.delay({ ...thread, messages: [...thread.messages] });
+  }
+
+  listResearchThreads(filter?: { deckId?: string; companyId?: string }): Promise<ResearchThread[]> {
+    const out = this.threads
+      .filter((t) => (filter?.deckId ? t.scope.deckId === filter.deckId : true))
+      .filter((t) => (filter?.companyId ? t.scope.companyId === filter.companyId : true));
+    return this.delay(out.map((t) => ({ ...t, messages: [...t.messages] })));
+  }
+
+  getResearchThread(id: string): Promise<ResearchThread | null> {
+    const t = this.threads.find((x) => x.id === id);
+    return this.delay(t ? { ...t, messages: [...t.messages] } : null);
   }
 
   // Live refresh stream -----------------------------------------------------

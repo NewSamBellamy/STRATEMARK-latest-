@@ -27,20 +27,50 @@ export function ProductsRoadmapTab({ companyId }: { companyId: string }) {
           <div className="space-y-6">
             <section>
               <div className="mb-3 flex items-center justify-between gap-3">
-                <h3 className="font-display text-sm font-semibold text-content">Product lineup</h3>
+                <div>
+                  <h3 className="font-display text-sm font-semibold text-content">Product lineup</h3>
+                  <p className="text-xs text-muted">
+                    Ranked by reported revenue contribution — breadwinners first, loss-leaders last.
+                    Ranking follows what sources actually say; “not disclosed” stays honest.
+                  </p>
+                </div>
                 <DigDeeper topic="Product strategy & pricing" companyId={companyId} companyName={name} />
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {c.products.map((p) => (
-                  <div key={p.name} className="panel p-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <h4 className="font-medium text-content">{p.name}</h4>
-                      <span className={cn('chip capitalize', STATUS_STYLE[p.status])}>{p.status}</span>
+              <ol className="space-y-2.5">
+                {c.products.map((p, i) => (
+                  <li key={p.name} className="panel flex items-start gap-3.5 p-4">
+                    <span
+                      className={cn(
+                        'mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg font-display text-sm font-bold',
+                        i === 0
+                          ? 'bg-primary text-white'
+                          : 'border border-border bg-surface-2 text-muted',
+                      )}
+                    >
+                      {i + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h4 className="font-medium text-content">{p.name}</h4>
+                        <span className={cn('chip capitalize', STATUS_STYLE[p.status])}>{p.status}</span>
+                        {p.revenueNote && (
+                          <span className="chip border-border bg-surface-2 text-muted" title="What sources report about revenue contribution">
+                            {p.revenueNote}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-sm text-muted">{p.description}</p>
                     </div>
-                    <p className="mt-1.5 text-sm text-muted">{p.description}</p>
-                  </div>
+                    <DigDeeper
+                      topic={`Product: ${p.name}`}
+                      companyId={companyId}
+                      companyName={name}
+                      context={p.description || null}
+                      className="mt-1"
+                    />
+                  </li>
                 ))}
-              </div>
+              </ol>
             </section>
 
             <section>

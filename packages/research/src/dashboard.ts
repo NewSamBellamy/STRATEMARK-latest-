@@ -82,11 +82,11 @@ export async function researchDashboardTab<T extends DashboardTab>(
 
     case 'overview': {
       const g = await client.ground(
-        `Write a concise, sourced one-page overview of ${ctx(args)} — what it does, how it competes, why it matters. Ground every claim.`,
+        `Write a concise, sourced one-page overview of ${ctx(args)} — what it does, how it competes, why it matters, and WHO ITS TARGET CUSTOMER IS (the buyer it actually sells to, as specifically as the sources support). Ground every claim.`,
         system,
       );
       return client.structure(
-        `Convert to JSON { "markdown": string } using GitHub-flavored markdown with a short intro, a "## What they do" and a "## Why it matters" section.\n\nNOTES:\n${g.text}`,
+        `Convert to JSON { "markdown": string } using GitHub-flavored markdown with a short intro, then "## What they do", "## Who they sell to" (their target customer, from the notes), and "## Why it matters" sections.\n\nNOTES:\n${g.text}`,
         overviewContentSchema,
         structSys,
       ) as Promise<DashboardContentMap[T]>;
@@ -121,11 +121,11 @@ export async function researchDashboardTab<T extends DashboardTab>(
 
     case 'team_org': {
       const g = await client.ground(
-        `Identify the leadership and key org structure of ${ctx(args)} — founders, C-suite, and heads of product/AI/design where known. Note who reports to whom.`,
+        `Identify the leadership and key org structure of ${ctx(args)} — founders, C-suite, and heads of product/AI/design where known. Note who reports to whom, and for each person one or two sentences of reported background (prior roles, tenure, what they own) where the sources actually say it.`,
         system,
       );
       const out = await client.structure(
-        `Convert to JSON { "nodes": [ { "id" (short slug), "name", "role", "group": "exec"|"ai"|"product"|"design"|"other", "parentId" (id of manager or null) } ] }. The top leader has parentId null.\n\nNOTES:\n${g.text}`,
+        `Convert to JSON { "nodes": [ { "id" (short slug), "name", "role", "group": "exec"|"ai"|"product"|"design"|"other", "parentId" (id of manager or null), "bio" (1-2 reported sentences, or "" when the notes say nothing about the person) } ] }. The top leader has parentId null. Never invent a bio.\n\nNOTES:\n${g.text}`,
         teamOrgContentSchema,
         structSys,
       );
@@ -150,11 +150,11 @@ export async function researchDashboardTab<T extends DashboardTab>(
 
     case 'history': {
       const g = await client.ground(
-        `Research the founding story, key milestones/timeline, and notable quotes of ${ctx(args)}. Cite sources.`,
+        `Research the company story and timeline of ${ctx(args)}: the founding story written as a short readable narrative, then key dated milestones from inception to now — funding, launches, pivots, stumbles. For a company only a few years old prefer quarterly-level milestones; for an older company yearly is right. Include notable quotes. Cite sources.`,
         system,
       );
       return client.structure(
-        `Convert to JSON { "founderStory", "timeline": [ { "date", "title", "detail" } ], "quotes": [ { "text", "attribution" } ] }.\n\nNOTES:\n${g.text}`,
+        `Convert to JSON { "founderStory" (a well-written multi-paragraph narrative of where the company came from — the one-pager story), "timeline": [ { "date" (e.g. "2023 Q4" or "2019"), "title", "detail" (one or two lines) } ] in chronological order, "quotes": [ { "text", "attribution" } ] }.\n\nNOTES:\n${g.text}`,
         historyContentSchema,
         structSys,
       ) as Promise<DashboardContentMap[T]>;
@@ -162,11 +162,11 @@ export async function researchDashboardTab<T extends DashboardTab>(
 
     case 'products_roadmap': {
       const g = await client.ground(
-        `Research the current product lineup and any announced roadmap/expansion plans of ${ctx(args)}. Cite sources.`,
+        `Research the full product lineup of ${ctx(args)} — every distinct product/line, what each consists of, and anything REPORTED about how much revenue each drives (filings, earnings coverage, credible reporting). Then any announced roadmap/expansion plans and the direction they point. Cite sources.`,
         system,
       );
       return client.structure(
-        `Convert to JSON { "products": [ { "name", "description", "status": "live"|"beta"|"sunset" } ], "roadmap": [ { "title", "horizon": "now"|"next"|"later", "detail" } ] }.\n\nNOTES:\n${g.text}`,
+        `Convert to JSON { "products": [ { "name", "description", "status": "live"|"beta"|"sunset", "revenueNote" (what the notes REPORT about its revenue contribution, e.g. "~78% of FY25 revenue per 10-K" — or "" when nothing is reported; NEVER an invented figure) } ] ordered from biggest reported breadwinner to smallest/loss-leaders (keep unranked ones last), "roadmap": [ { "title", "horizon": "now"|"next"|"later", "detail" } ] }.\n\nNOTES:\n${g.text}`,
         productsRoadmapContentSchema,
         structSys,
       ) as Promise<DashboardContentMap[T]>;

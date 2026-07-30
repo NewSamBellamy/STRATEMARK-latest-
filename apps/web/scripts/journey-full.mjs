@@ -21,7 +21,8 @@ const VID = `${OUT}/video`;
 const SHOTS = `${OUT}/shots`;
 for (const d of [VID, SHOTS]) fs.mkdirSync(d, { recursive: true });
 // clean prior artifacts
-for (const d of [VID, SHOTS]) for (const f of fs.readdirSync(d)) fs.rmSync(`${d}/${f}`, { force: true });
+for (const d of [VID, SHOTS])
+  for (const f of fs.readdirSync(d)) fs.rmSync(`${d}/${f}`, { force: true });
 
 const browser = await chromium.launch();
 const ctx = await browser.newContext({
@@ -123,18 +124,28 @@ try {
     await shot('settings');
   });
 
-  // 2 — New deck: type the market, watch it populate LIVE
-  await p.goto(`${BASE}/#/markets/new`, { waitUntil: 'domcontentloaded' });
-  await p.waitForSelector('#prompt', { timeout: 12000 });
-  await soak(900);
-  await p.fill('#prompt', '');
-  await p.type('#prompt', MARKET, { delay: 45 });
-  await p.type('#region', REGION, { delay: 45 });
-  await soak(1000);
-  await shot('new-deck-typed');
-  await p.click('form button[type=submit]');
-  await soak(1600);
-  await shot('research-start');
+  // 2 — New deck: type the market, watch it populate LIVE.
+  //     MI_OPEN_DECK skips creation and opens an existing deck by name instead —
+  //     used to walk the pre-baked REAL deck without a key, since demo-mode
+  //     creation would otherwise hand us the fixture deck.
+  if (process.env.MI_OPEN_DECK) {
+    await p.goto(`${BASE}/#/`, { waitUntil: 'domcontentloaded' });
+    await p.waitForSelector('text=/Your decks/i', { timeout: 20000 });
+    await soak(1500);
+    await p.click(`text=${process.env.MI_OPEN_DECK}`);
+  } else {
+    await p.goto(`${BASE}/#/markets/new`, { waitUntil: 'domcontentloaded' });
+    await p.waitForSelector('#prompt', { timeout: 12000 });
+    await soak(900);
+    await p.fill('#prompt', '');
+    await p.type('#prompt', MARKET, { delay: 45 });
+    await p.type('#region', REGION, { delay: 45 });
+    await soak(1000);
+    await shot('new-deck-typed');
+    await p.click('form button[type=submit]');
+    await soak(1600);
+    await shot('research-start');
+  }
 
   // Poll for the deck while snapshotting the streaming terminal.
   await liveWait('research', async () => {
@@ -169,22 +180,40 @@ try {
     await shot('deck-hover');
   });
 
-  // 4 — Split by card type → the six sub-decks
-  await safe('split', async () => {
-    await p.click('button:has-text("Split by card type")');
-    await p.waitForSelector('text=/Barrier|Company|Vice|Culture/i', { timeout: 12000 });
+  // 4 — Card-type navigation: a persistent nav that filters the grid IN PLACE
+  //     (replaced the old drill-down "Split by card type" screen), then tiers.
+  await safe('type-nav', async () => {
+    const nav = p.locator('[data-testid=type-nav]');
+    await nav.waitFor({ timeout: 12000 }).catch(() => {});
+    await shot('type-nav');
+    for (const label of [
+      'Company',
+      'Infrastructure',
+      'Distribution',
+      'Culture',
+      'Vice',
+      'Insight',
+      'Barrier to Entry',
+    ]) {
+      const tab = nav.locator('button', { hasText: new RegExp(`^${label}`) }).first();
+      if (!(await tab.count())) continue; // type absent from this market — honest gap
+      await tab.click();
+      await soak(1900);
+      await shot(`type-${label.toLowerCase().replace(/[^a-z]+/g, '-')}`);
+    }
+    // Back to everything, then group the whole deck by maturity tier.
+    await nav
+      .locator('button', { hasText: /^All cards/ })
+      .first()
+      .click()
+      .catch(() => {});
+    await soak(1200);
+    await p.click('button:has-text("Group by tier")');
     await soak(2400);
-    await shot('split-types');
-    // drill into the Company sub-deck → the 8 maturity tiers
-    const companyTile = p.locator('a,button', { hasText: /Core entry|Company/i }).first();
-    await companyTile.click().catch(async () => {
-      await p.click('text=/Core entry for any company/i').catch(() => {});
-    });
-    await soak(2400);
-    await shot('company-tiers');
-    await slowScroll(1200, 6, 800);
-    await shot('company-tiers-scrolled');
-    await p.mouse.wheel(0, -2400);
+    await shot('grouped-by-tier');
+    await slowScroll(1400, 7, 800);
+    await shot('grouped-by-tier-scrolled');
+    await p.mouse.wheel(0, -2600);
     await soak(700);
   });
 
@@ -203,12 +232,35 @@ try {
     await shot('cms-breakdown');
   });
 
+  // 5b — PROVENANCE: click a confidence badge and read the actual receipts.
+  //      This is the trust claim made inspectable, so it gets its own beat.
+  await safe('provenance', async () => {
+    const badge = p
+      .locator(
+        '[role=dialog] button[aria-label^="Confidence: Verified"], button[aria-label^="Confidence: Verified"]',
+      )
+      .first();
+    await badge.scrollIntoViewIfNeeded().catch(() => {});
+    await soak(1200);
+    await shot('confidence-badges');
+    await badge.click();
+    await p.waitForSelector('[aria-label="Sources for this figure"]', { timeout: 10000 });
+    await soak(2600);
+    await shot('sources-panel');
+    await p.click('[aria-label="Close sources"]').catch(() => {});
+    await soak(800);
+  });
+
   // 6 — Full dashboard, all 8 tabs (each researches live on first open)
   await p.click('button:has-text("Open full dashboard")');
   await liveWait('overview', async () => {
     await soak(400);
     await waitLoaded(T(180000, 15000));
-    await p.waitForSelector('text=/What they do|Why it matters|At a glance/i', { timeout: T(30000, 6000) }).catch(() => {});
+    await p
+      .waitForSelector('text=/What they do|Why it matters|At a glance/i', {
+        timeout: T(30000, 6000),
+      })
+      .catch(() => {});
   });
   await soak(3000);
   await slowScroll(900, 5, 750);
@@ -241,7 +293,8 @@ try {
 
   // 7 — Dig deeper (grounded drill-down sheet)
   await safe('dig-deeper', async () => {
-    await p.click('header button:has-text("Dig deeper"), button:has-text("Dig deeper") >> nth=0');
+    // The dig affordance is now an icon-only shovel with an accessible name.
+    await p.click('header [aria-label="Dig deeper"], [aria-label="Dig deeper"] >> nth=0');
     await liveWait('dig-deeper', async () => {
       await p.waitForSelector('[aria-label="Deep dive"] .markdown', { timeout: T(150000, 12000) });
     });
@@ -263,7 +316,9 @@ try {
     const fc = p.locator('button:has-text("Fact-check")').first();
     await fc.click();
     await liveWait('fact-check', async () => {
-      await p.waitForSelector('text=/Supported|Contradicted|Unverified/', { timeout: T(150000, 12000) });
+      await p.waitForSelector('text=/Supported|Contradicted|Unverified/', {
+        timeout: T(150000, 12000),
+      });
     });
     await soak(2600);
     await shot('fact-check');
@@ -281,7 +336,9 @@ try {
     await soak(700);
     await p.fill('#ov-value', '');
     await p.type('#ov-value', '20000000000', { delay: 22 });
-    await p.type('#ov-note', 'Corrected to the reported ~$20B annualized run-rate (mid-2026)', { delay: 12 });
+    await p.type('#ov-note', 'Corrected to the reported ~$20B annualized run-rate (mid-2026)', {
+      delay: 12,
+    });
     await soak(900);
     await shot('override-modal');
     await p.click('button:has-text("Save override")');
@@ -297,7 +354,9 @@ try {
     await soak(800);
     await p.click('button:has-text("Report")');
     await liveWait('report', async () => {
-      await p.waitForSelector('text=/Executive summary|Sources \\(/i', { timeout: T(300000, 20000) });
+      await p.waitForSelector('text=/Executive summary|Sources \\(/i', {
+        timeout: T(300000, 20000),
+      });
       await waitLoaded(T(30000, 8000));
     });
     await soak(3000);
@@ -314,9 +373,12 @@ try {
     await shot('report-sources');
     // prove the export works (download the .pptx)
     await safe('pptx', async () => {
-      const dl = p.waitForEvent('download', { timeout: 30000 });
+      // Catch up front: if the click never triggers a download, the pending
+      // waitForEvent must not become an unhandled rejection that kills the take.
+      const dl = p.waitForEvent('download', { timeout: 30000 }).catch(() => null);
       await p.click('button:has-text("Export .pptx")');
       const file = await dl;
+      if (!file) throw new Error('no download event');
       const dest = `${OUT}/${file.suggestedFilename()}`;
       await file.saveAs(dest);
       console.log('pptx saved:', dest);
@@ -336,7 +398,11 @@ try {
     await liveWait('opportunity', async () => {
       await soak(400);
       await waitLoaded(T(180000, 12000));
-      await p.waitForSelector('text=/The whitespace|Positioning axes|Sources \\(/i', { timeout: T(20000, 6000) }).catch(() => {});
+      await p
+        .waitForSelector('text=/The whitespace|Positioning axes|Sources \\(/i', {
+          timeout: T(20000, 6000),
+        })
+        .catch(() => {});
     });
     await soak(2800);
     await slowScroll(1200, 6, 780);
@@ -347,10 +413,15 @@ try {
   await safe('hunt', async () => {
     await p.goto(deckUrl, { waitUntil: 'domcontentloaded' });
     await p.waitForSelector('[data-testid=card-grid]', { timeout: 20000 });
-    await p.click('button:has-text("Split by card type")');
+    // Filter to a type via the nav, then look for a gap the deck admits to.
+    const nav = p.locator('[data-testid=type-nav]');
+    await nav
+      .locator('button', { hasText: /^Company/ })
+      .first()
+      .click()
+      .catch(() => {});
     await soak(1200);
-    const companyTile = p.locator('a,button', { hasText: /Core entry|Company/i }).first();
-    await companyTile.click().catch(() => {});
+    await p.click('button:has-text("Group by tier")').catch(() => {});
     await soak(1500);
     const hunt = p.locator('button:has-text("Hunt for")').first();
     if (await hunt.count()) {
@@ -395,14 +466,26 @@ try {
     const snap = await p.evaluate(() => localStorage.getItem('mi.repo.v1'));
     if (snap) {
       fs.writeFileSync(`${OUT}/repo-snapshot.json`, snap);
-      console.log(`snapshot exported: ${OUT}/repo-snapshot.json (${(snap.length / 1024).toFixed(0)} KB)`);
+      console.log(
+        `snapshot exported: ${OUT}/repo-snapshot.json (${(snap.length / 1024).toFixed(0)} KB)`,
+      );
     }
   } catch {
     /* page already closed — snapshot only exports on clean runs */
   }
-  fs.writeFileSync(`${OUT}/marks.json`, JSON.stringify({ t0, totalMs: now(), live: LIVE, market: MARKET, marks }, null, 2));
+  fs.writeFileSync(
+    `${OUT}/marks.json`,
+    JSON.stringify({ t0, totalMs: now(), live: LIVE, market: MARKET, marks }, null, 2),
+  );
   await ctx.close();
   await browser.close();
   const webm = fs.readdirSync(VID).find((f) => f.endsWith('.webm'));
-  console.log('DONE. video:', webm ? `${VID}/${webm}` : '(none)', '| shots:', shotN, '| totalMs:', now());
+  console.log(
+    'DONE. video:',
+    webm ? `${VID}/${webm}` : '(none)',
+    '| shots:',
+    shotN,
+    '| totalMs:',
+    now(),
+  );
 }

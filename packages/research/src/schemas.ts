@@ -118,6 +118,8 @@ const marketClaimSchema = z.object({
   title: z.string(),
   summary: z.string(),
   sourceIndex: z.number().int().nullable().default(null),
+  /** The scannable substance behind the headline — 1-2 sentences each. */
+  keyPoints: z.array(z.string()).default([]),
 });
 
 export const marketCardsOutSchema = z.preprocess(

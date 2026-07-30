@@ -24,9 +24,9 @@
  * nothing: if a figure has no source, provenance enforcement demotes it, and this
  * script reports that rather than papering over it.
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { DASHBOARD_TABS, type DashboardTab } from '@mi/contracts';
+import { DASHBOARD_TABS, type DashboardTab, type Deck, type Market } from '@mi/contracts';
 import { GeminiRepository, type RepoSnapshot } from '../src/repository';
 
 const apiKey = (process.env.GEMINI_API_KEY ?? '').replace(/[^\x20-\x7E]/g, '').trim();
@@ -45,12 +45,38 @@ const outPath = resolve(
   process.env.MI_OUT ?? resolve(import.meta.dirname, '../../../apps/web/src/sample/frontier-snapshot.json'),
 );
 
+/**
+ * TOP-UP mode (MI_TOPUP=1): load the existing snapshot and research only what is
+ * missing — the dashboard tabs a previous run failed to structure. A full re-bake
+ * costs ~250 grounded calls and half an hour; repairing the gaps costs a few
+ * dozen. Same reason the pipeline caps candidates: the scarce resource is
+ * requests per minute, so don't spend them on work already done.
+ */
+const topUp = process.env.MI_TOPUP === '1';
+
 /** In-memory store; we persist once at the end. */
 let snapshot: RepoSnapshot | null = null;
+if (topUp) {
+  const existing = JSON.parse(readFileSync(outPath, 'utf8')) as RepoSnapshot;
+  snapshot = existing;
+  console.log(
+    `top-up mode: loaded ${existing.cards.length} cards, ${existing.companies.length} companies, ` +
+      `${Object.values(existing.dashboards).reduce((n, t) => n + Object.keys(t ?? {}).length, 0)} cached tabs`,
+  );
+}
+// Write THROUGH to disk on every mutation. Interrupted bakes used to lose the
+// whole run (the file wrote once, at the end); now any crash/kill leaves a
+// valid snapshot that MI_TOPUP=1 resumes from.
 const store = {
   read: () => snapshot,
   write: (s: RepoSnapshot) => {
     snapshot = s;
+    try {
+      mkdirSync(dirname(outPath), { recursive: true });
+      writeFileSync(outPath, `${JSON.stringify(s, null, 2)}\n`);
+    } catch {
+      /* disk hiccup — the end-of-run write still applies */
+    }
   },
 };
 
@@ -70,10 +96,20 @@ const mins = () => `${((Date.now() - t0) / 60000).toFixed(1)}m`;
 
 console.log(`\n=== Baking sample deck ===\nmarket: ${prompt.slice(0, 70)}…\ntarget: ${target} companies\n`);
 
-const { market, deck } = await repo.createResearchedDeck(
-  { prompt, region },
-  { onProgress: (p) => console.log(`  • [${mins()}] ${p.message}`) },
-);
+let market: Market;
+let deck: Deck;
+if (topUp) {
+  market = snapshot!.markets.at(-1)!;
+  deck = snapshot!.decks.find((d) => d.marketId === market.id)!;
+  console.log(`reusing deck for "${market.name}"`);
+} else {
+  const made = await repo.createResearchedDeck(
+    { prompt, region },
+    { onProgress: (p) => console.log(`  • [${mins()}] ${p.message}`) },
+  );
+  market = made.market;
+  deck = made.deck;
+}
 
 const cards = await repo.listCards(deck.id);
 console.log(`\ndeck: ${cards.length} cards in ${mins()} (${calls} API calls)`);
@@ -84,7 +120,13 @@ if (warmTabs) {
   console.log(`\nwarming ${DASHBOARD_TABS.length} tabs x ${companies.length} companies…`);
   for (const companyId of companies) {
     const name = cards.find((c) => c.company?.id === companyId)?.company?.name ?? companyId;
-    for (const tab of DASHBOARD_TABS as readonly DashboardTab[]) {
+    const cached = snapshot?.dashboards?.[companyId] ?? {};
+    const wanted = (DASHBOARD_TABS as readonly DashboardTab[]).filter((t) => !cached[t]);
+    if (wanted.length === 0) {
+      console.log(`  – [${mins()}] ${name} (all tabs already cached)`);
+      continue;
+    }
+    for (const tab of wanted) {
       try {
         await repo.getDashboardTab(companyId, tab);
       } catch (err) {
@@ -97,17 +139,25 @@ if (warmTabs) {
 }
 
 // ---- One report + the whitespace analysis, so those screens aren't empty ----
-try {
-  await repo.generateReport({ deckId: deck.id, kind: 'market_overview' });
-  console.log(`\nreport generated [${mins()}]`);
-} catch (err) {
-  console.log(`! report failed: ${err instanceof Error ? err.message.slice(0, 120) : err}`);
+if ((snapshot?.reports ?? []).length === 0) {
+  try {
+    await repo.generateReport({ kind: 'deck', subjectId: deck.id });
+    console.log(`\nreport generated [${mins()}]`);
+  } catch (err) {
+    console.log(`! report failed: ${err instanceof Error ? err.message.slice(0, 120) : err}`);
+  }
+} else {
+  console.log('\nreport already present — skipped');
 }
-try {
-  await repo.getMarketOpportunity(market.id);
-  console.log(`opportunity analysis generated [${mins()}]`);
-} catch (err) {
-  console.log(`! opportunity failed: ${err instanceof Error ? err.message.slice(0, 120) : err}`);
+if (!snapshot?.opportunity?.[market.id]) {
+  try {
+    await repo.getMarketOpportunity(market.id);
+    console.log(`opportunity analysis generated [${mins()}]`);
+  } catch (err) {
+    console.log(`! opportunity failed: ${err instanceof Error ? err.message.slice(0, 120) : err}`);
+  }
+} else {
+  console.log('opportunity analysis already present — skipped');
 }
 
 // ---- Honest audit of what we're about to ship ------------------------------

@@ -149,6 +149,7 @@ export function buildDataset(cadence: RefreshCadence = DEFAULT_CADENCE): Dataset
         tier,
         tierReason,
         citations: [],
+        keyPoints: [],
         createdAt: ts(30),
       };
       cards.push(card);
@@ -160,6 +161,8 @@ export function buildDataset(cadence: RefreshCadence = DEFAULT_CADENCE): Dataset
             cardId: card.id,
             claimText: vc.text,
             sourceUrl: vc.sourceUrl,
+            // Fixture sources are illustrative; the publisher is the hostname.
+            sourceTitle: null,
             capturedAt: ts(3),
           });
         });
@@ -196,6 +199,7 @@ export function buildDataset(cadence: RefreshCadence = DEFAULT_CADENCE): Dataset
       tier: null,
       tierReason: null,
       citations: [],
+      keyPoints: i.keyPoints,
       createdAt: ts(30),
     });
   }
@@ -212,6 +216,7 @@ export function buildDataset(cadence: RefreshCadence = DEFAULT_CADENCE): Dataset
       tier: null,
       tierReason: null,
       citations: [],
+      keyPoints: [],
       createdAt: ts(30),
     });
   }

@@ -36,13 +36,16 @@ import {
   type MarketIntelRepository,
   type RefreshCadence,
   type ResearchHandlers,
+  type AskResearchInput,
+  type ResearchScope,
+  type ResearchThread,
   type Unsubscribe,
   type ViceClaim,
 } from '@mi/contracts';
 import { createGeminiClient, type GeminiClientConfig } from './gemini';
 import { researchDashboardTab } from './dashboard';
 import { expandDeckResearch, runDeckResearch, type ResearchResult } from './pipeline';
-import { GROUNDED_SYSTEM, STRUCTURE_SYSTEM } from './prompts';
+import { CHAT_SYSTEM, GROUNDED_SYSTEM, STRUCTURE_SYSTEM } from './prompts';
 import { factCheckOutSchema } from './schemas';
 import type { LlmClient } from './types';
 
@@ -63,6 +66,13 @@ export interface RepoSnapshot {
   reports: Report[];
   /** marketId → cached whitespace analysis. */
   opportunity: Record<string, { markdown: string; citations: { title: string; url: string }[]; at: string }>;
+  /**
+   * Research conversations — the analyst's accumulated questions and grounded
+   * answers, anchored to decks/companies/cards. This is the "second brain":
+   * two people researching the same market end up with different decks because
+   * their threads differ.
+   */
+  threads: ResearchThread[];
 }
 
 export interface ResearchStore {
@@ -81,12 +91,13 @@ const empty = (): RepoSnapshot => ({
   companyMarket: {},
   reports: [],
   opportunity: {},
+  threads: [],
 });
 
 /** Migration-safe read: older persisted snapshots may lack newer fields. */
 function normalize(raw: RepoSnapshot | null): RepoSnapshot {
   if (!raw) return empty();
-  return { ...empty(), ...raw, reports: raw.reports ?? [], opportunity: raw.opportunity ?? {} };
+  return { ...empty(), ...raw, reports: raw.reports ?? [], opportunity: raw.opportunity ?? {}, threads: raw.threads ?? [] };
 }
 
 /**
@@ -396,16 +407,33 @@ export class GeminiRepository implements MarketIntelRepository {
       ].join('\n');
     }
 
+    const focus = (request.focus ?? '').trim();
+    const thread = request.threadId ? this.snap.threads.find((t) => t.id === request.threadId) : null;
+    const conversation = thread
+      ? thread.messages
+          .map((m) => `${m.role === 'user' ? 'ANALYST ASKED' : 'RESEARCH FOUND'}: ${m.text}`)
+          .join('\n')
+          .slice(0, 6000)
+      : '';
+
     const g = await this.client.ground(
       [
         `Write an executive-ready research report in GitHub-flavored markdown titled "${title}".`,
         `Base it on the EVIDENCE DIGEST below (already-researched, sourced data) plus a fresh Google Search pass for current context and outlook.`,
+        focus
+          ? `REPORT FOCUS — the analyst wants the report concentrated on: "${focus}". Steer structure and emphasis toward this; the evidence rules do not change.`
+          : '',
+        conversation
+          ? `CONVERSATION FINDINGS — the analyst already dug into this in a grounded research session. Weave the substance of these findings in (re-verify anything surprising):\n${conversation}`
+          : '',
         `Structure: ## Executive summary · ## Landscape · ## Key players & signals · ## Risks & barriers · ## Outlook & what to watch. Keep claims attributed; where the digest marks a figure estimated/unknown, say so — never upgrade confidence or invent numbers.`,
         `Style: prose plus standard markdown lists/tables ONLY — never ASCII-art diagrams or box drawings. Do not repeat the report title as a heading; start directly with "## Executive summary".`,
         ``,
         `EVIDENCE DIGEST:`,
         digest,
-      ].join('\n'),
+      ]
+        .filter(Boolean)
+        .join('\n'),
       { system: GROUNDED_SYSTEM },
     );
 
@@ -429,6 +457,153 @@ export class GeminiRepository implements MarketIntelRepository {
   }
   getReport(id: string): Promise<Report | null> {
     return Promise.resolve(this.snap.reports.find((r) => r.id === id) ?? null);
+  }
+
+  // Research conversations ---------------------------------------------------
+
+  /**
+   * Serialize everything the deck already KNOWS about a scope, compactly, with
+   * confidence tags and publishers intact. This is half of the grounding
+   * contract for chat: prior grounded research + a fresh search — never
+   * training data.
+   */
+  private scopeDigest(scope: ResearchScope): string {
+    const lines: string[] = [];
+    const push = (l: string) => lines.push(l);
+
+    const companyLines = (co: Company) => {
+      const tierCard = this.snap.cards.find((c) => c.companyId === co.id && c.tier != null);
+      const ms = this.snap.metrics.filter((m) => m.companyId === co.id);
+      const fmt = ms
+        .map(
+          (m) =>
+            `${m.metricType}=${m.value ?? 'unknown'} (${m.confidence}${m.citations?.[0]?.title ? ` per ${m.citations[0].title}` : ''})`,
+        )
+        .join(', ');
+      push(`COMPANY${tierCard?.tier ? ` [T${tierCard.tier}]` : ''} ${co.name} — ${co.oneLiner} ${fmt}`);
+      for (const vc of this.snap.viceClaims.filter((v) =>
+        this.snap.cards.some((c) => c.id === v.cardId && c.companyId === co.id),
+      )) {
+        push(`  RISK SIGNAL (sourced): ${vc.claimText}`);
+      }
+    };
+
+    const marketCardLine = (card: Card) => {
+      push(`${card.cardType.toUpperCase()}: ${card.title} — ${card.summary ?? ''}`);
+      for (const k of card.keyPoints ?? []) push(`  · ${k}`);
+    };
+
+    const deck = scope.deckId ? this.snap.decks.find((d) => d.id === scope.deckId) : null;
+    const market = deck ? this.snap.markets.find((m) => m.id === deck.marketId) : null;
+    if (market) push(`MARKET: ${market.name} (${market.scopeDefinition.vertical})`);
+
+    if (scope.kind === 'cards' && scope.cardIds?.length) {
+      for (const id of scope.cardIds) {
+        const card = this.snap.cards.find((c) => c.id === id);
+        if (!card) continue;
+        const co = card.companyId ? this.snap.companies.find((c) => c.id === card.companyId) : null;
+        if (co) companyLines(co);
+        else marketCardLine(card);
+      }
+    } else if (scope.companyId) {
+      const co = this.snap.companies.find((c) => c.id === scope.companyId);
+      if (co) companyLines(co);
+    } else if (deck) {
+      for (const card of this.snap.cards.filter((c) => c.deckId === deck.id && !c.companyId)) {
+        marketCardLine(card);
+      }
+      const companyIds = new Set(
+        this.snap.cards.filter((c) => c.deckId === deck.id && c.companyId).map((c) => c.companyId as string),
+      );
+      for (const id of companyIds) {
+        const co = this.snap.companies.find((c) => c.id === id);
+        if (co) companyLines(co);
+      }
+    }
+    // A digest is context, not a payload — cap it well under the model's window.
+    return lines.join('\n').slice(0, 9000);
+  }
+
+  async askResearch(input: AskResearchInput): Promise<ResearchThread> {
+    const now = new Date().toISOString();
+    const rid = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+
+    let thread = input.threadId ? this.snap.threads.find((t) => t.id === input.threadId) : undefined;
+    if (!thread) {
+      if (!input.scope) throw new Error('A new research thread needs a scope.');
+      thread = {
+        id: `thr_${rid()}`,
+        scope: input.scope,
+        title: input.question.length > 76 ? `${input.question.slice(0, 76)}…` : input.question,
+        messages: [],
+        reportId: null,
+        createdAt: now,
+        updatedAt: now,
+      };
+      this.snap.threads = [thread, ...this.snap.threads];
+    }
+
+    thread.messages.push({ id: `msg_${rid()}`, role: 'user', text: input.question, citations: [], at: now });
+    this.persist();
+
+    // Short conversational memory: the last few turns, so follow-ups read
+    // naturally. The full record stays on the thread either way.
+    const history = thread.messages
+      .slice(-7, -1)
+      .map((m) => `${m.role === 'user' ? 'ANALYST' : 'RESEARCHER'}: ${m.text.slice(0, 700)}`)
+      .join('\n');
+
+    const g = await this.client.ground(
+      [
+        `DECK DATA (this deck's prior grounded research — confidence tags and publishers are part of the record):`,
+        this.scopeDigest(thread.scope),
+        thread.scope.subject ? `\nTHE ANALYST IS FOCUSED ON: ${thread.scope.subject}` : '',
+        history ? `\nCONVERSATION SO FAR:\n${history}` : '',
+        ``,
+        `ANALYST'S QUESTION: ${input.question}`,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+      { system: CHAT_SYSTEM },
+    );
+
+    thread.messages.push({
+      id: `msg_${rid()}`,
+      role: 'assistant',
+      text: g.text,
+      citations: g.citations,
+      at: new Date().toISOString(),
+    });
+    thread.updatedAt = new Date().toISOString();
+    this.persist();
+    return { ...thread, messages: [...thread.messages] };
+  }
+
+  listResearchThreads(filter?: { deckId?: string; companyId?: string }): Promise<ResearchThread[]> {
+    const out = this.snap.threads
+      .filter((t) => (filter?.deckId ? t.scope.deckId === filter.deckId : true))
+      .filter((t) => (filter?.companyId ? t.scope.companyId === filter.companyId : true))
+      .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+    return Promise.resolve(out.map((t) => ({ ...t, messages: [...t.messages] })));
+  }
+
+  getResearchThread(id: string): Promise<ResearchThread | null> {
+    const t = this.snap.threads.find((x) => x.id === id);
+    return Promise.resolve(t ? { ...t, messages: [...t.messages] } : null);
+  }
+
+  async saveThreadAsReport(threadId: string, focus?: string | null): Promise<Report> {
+    const thread = this.snap.threads.find((t) => t.id === threadId);
+    if (!thread) throw new Error('Research thread not found.');
+    const request: ReportRequest =
+      thread.scope.companyId
+        ? { kind: 'company', subjectId: thread.scope.companyId, focus: focus ?? thread.title, threadId }
+        : { kind: 'deck', subjectId: thread.scope.deckId ?? '', focus: focus ?? thread.title, threadId };
+    const report = await this.generateReport(request);
+    thread.reportId = report.id;
+    thread.updatedAt = new Date().toISOString();
+    this.persist();
+    return report;
   }
 
   async expandDeck(

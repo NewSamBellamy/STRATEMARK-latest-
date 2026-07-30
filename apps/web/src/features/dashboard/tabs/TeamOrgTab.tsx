@@ -2,8 +2,9 @@ import { useMemo } from 'react';
 import { ReactFlow, Background, Controls, type Edge, type Node } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { OrgNode } from '@mi/contracts';
-import { useDashboardTab } from '@/hooks/data';
+import { useCompany, useDashboardTab } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
+import { useDeepDive } from '@/features/deepdive/DeepDive';
 
 const GROUP_COLOR: Record<OrgNode['group'], string> = {
   exec: '#6366f1',
@@ -37,7 +38,14 @@ function layout(nodes: OrgNode[]): { rfNodes: Node[]; rfEdges: Edge[] } {
     return {
       id: n.id,
       position: { x: col * 220 + (d % 2) * 40, y: d * 130 },
-      data: { label: `${n.name} · ${n.role}` },
+      // Hover → the sourced 1-2 sentence bio (native tooltip); click → research.
+      data: {
+        label: (
+          <span title={n.bio || `${n.name} — click to research this person`}>
+            {n.name} · {n.role}
+          </span>
+        ),
+      },
       style: {
         background: '#ffffff',
         color: '#18181B',
@@ -67,13 +75,16 @@ function layout(nodes: OrgNode[]): { rfNodes: Node[]; rfEdges: Edge[] } {
 export function TeamOrgTab({ companyId }: { companyId: string }) {
   const query = useDashboardTab(companyId, 'team_org');
   const graph = useMemo(() => layout(query.data?.content.nodes ?? []), [query.data]);
+  const name = useCompany(companyId).data?.name ?? 'this company';
+  const { chat } = useDeepDive();
 
   return (
     <QueryBoundary query={query} isEmpty={(r) => r.content.nodes.length === 0}>
-      {() => (
+      {(result) => (
         <div>
           <p className="mb-3 text-sm text-muted">
-            Exec, AI, product, and design leadership. Drag to explore; zoom with the controls.
+            Exec, AI, product, and design leadership. Hover a name for their reported background;
+            click to research the person. Drag to explore; zoom with the controls.
           </p>
           <div className="panel h-[520px] overflow-hidden">
             <ReactFlow
@@ -83,6 +94,16 @@ export function TeamOrgTab({ companyId }: { companyId: string }) {
               proOptions={{ hideAttribution: true }}
               nodesDraggable
               nodesConnectable={false}
+              onNodeClick={(_, node) => {
+                const person = result.content.nodes.find((n) => n.id === node.id);
+                if (!person) return;
+                chat(
+                  { kind: 'datapoint', deckId: null, companyId, subject: person.name },
+                  {
+                    seed: `Who is ${person.name} (${person.role} at ${name})? Background, track record, and anything notable — grounded and sourced.`,
+                  },
+                );
+              }}
             >
               <Background color="#E5E3DD" gap={20} />
               <Controls showInteractive={false} />

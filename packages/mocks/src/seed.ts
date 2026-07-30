@@ -477,6 +477,7 @@ export interface InsightSeed {
   slug: string;
   title: string;
   summary: string;
+  keyPoints: string[];
 }
 
 export const INSIGHT_SEEDS: InsightSeed[] = [
@@ -485,17 +486,32 @@ export const INSIGHT_SEEDS: InsightSeed[] = [
     title: 'Wholesale is quietly outgrowing DTC',
     summary:
       'The loudest brands in this market are direct-to-consumer, but the fastest revenue growth sits with the quieter labels selling through church bookstores and conference channels — a distribution advantage that does not show up in social following.',
+    keyPoints: [
+      'Fixture example: wholesale accounts reorder on a season calendar, which smooths revenue versus the spike-and-trough pattern of drop-based DTC.',
+      'Fixture example: conference and bookstore channels reach buyers who never see brand social content, so follower counts systematically undercount this segment.',
+      'Fixture example: the two fastest-growing labels in this sample both added a dedicated wholesale rep before adding any paid social spend.',
+    ],
   },
   {
     slug: 'youth-price-ceiling',
     title: 'The youth segment has a hard price ceiling',
     summary:
       'Brands targeting under-25 buyers cluster tightly under a $40 unit price regardless of margin structure, which caps how far premium positioning can travel down the age curve.',
+    keyPoints: [
+      'Fixture example: every under-25-focused label in this sample prices tees between $24 and $38 — none above $40.',
+      'Fixture example: the premium labels that do clear $50 skew their buyer base visibly older in community photos and event lineups.',
+      'Fixture example: bundle mechanics (2-for) appear almost exclusively in the youth segment, a margin-preserving answer to the ceiling.',
+    ],
   },
   {
     slug: 'giving-as-product',
     title: 'Giving programmes now function as product features',
     summary:
       'Explicit donation mechanics have shifted from brand marketing to a purchase driver buyers actively compare, which turns a soft differentiator into a line item competitors must answer.',
+    keyPoints: [
+      'Fixture example: donation percentages are now stated on product pages next to price, not on about pages — buyers comparison-shop them.',
+      'Fixture example: labels with named ministry partners convert the giving story into repeat purchases better than those citing a generic percentage.',
+      'Fixture example: two sample brands added giving trackers (meals, wells funded) to order-confirmation emails, treating impact as post-purchase UX.',
+    ],
   },
 ];

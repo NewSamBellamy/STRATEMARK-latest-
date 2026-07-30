@@ -112,16 +112,16 @@ function teamOrg(ctx: ContentContext): TeamOrgContent {
   const { seed, tier } = ctx;
   const big = (tier ?? 1) >= 6;
   const nodes: TeamOrgContent['nodes'] = [
-    { id: `${seed.slug}-ceo`, name: 'Jordan Rivera', role: 'Founder & CEO', group: 'exec', parentId: null },
-    { id: `${seed.slug}-coo`, name: 'Sam Okafor', role: 'COO', group: 'exec', parentId: `${seed.slug}-ceo` },
-    { id: `${seed.slug}-cpo`, name: 'Alex Nguyen', role: 'Head of Product', group: 'product', parentId: `${seed.slug}-ceo` },
-    { id: `${seed.slug}-design`, name: 'Riley Brooks', role: 'Creative Director', group: 'design', parentId: `${seed.slug}-cpo` },
+    { id: `${seed.slug}-ceo`, name: 'Jordan Rivera', role: 'Founder & CEO', group: 'exec', parentId: null, bio: 'Fixture bio: founded the label after a decade in apparel sourcing; the public face of the brand.' },
+    { id: `${seed.slug}-coo`, name: 'Sam Okafor', role: 'COO', group: 'exec', parentId: `${seed.slug}-ceo`, bio: 'Fixture bio: runs operations and the wholesale channel.' },
+    { id: `${seed.slug}-cpo`, name: 'Alex Nguyen', role: 'Head of Product', group: 'product', parentId: `${seed.slug}-ceo`, bio: 'Fixture bio: owns the product line and drop calendar.' },
+    { id: `${seed.slug}-design`, name: 'Riley Brooks', role: 'Creative Director', group: 'design', parentId: `${seed.slug}-cpo`, bio: '' },
   ];
   if (big) {
     nodes.push(
-      { id: `${seed.slug}-cto`, name: 'Priya Shah', role: 'CTO', group: 'exec', parentId: `${seed.slug}-ceo` },
-      { id: `${seed.slug}-ai`, name: 'Marcus Lee', role: 'Head of AI', group: 'ai', parentId: `${seed.slug}-cto` },
-      { id: `${seed.slug}-data`, name: 'Dana Cruz', role: 'ML Engineer', group: 'ai', parentId: `${seed.slug}-ai` },
+      { id: `${seed.slug}-cto`, name: 'Priya Shah', role: 'CTO', group: 'exec', parentId: `${seed.slug}-ceo`, bio: 'Fixture bio: leads e-commerce engineering.' },
+      { id: `${seed.slug}-ai`, name: 'Marcus Lee', role: 'Head of AI', group: 'ai', parentId: `${seed.slug}-cto`, bio: '' },
+      { id: `${seed.slug}-data`, name: 'Dana Cruz', role: 'ML Engineer', group: 'ai', parentId: `${seed.slug}-ai`, bio: '' },
     );
   }
   return { nodes };
@@ -202,10 +202,10 @@ function productsRoadmap(ctx: ContentContext): ProductsRoadmapContent {
   const { seed } = ctx;
   return {
     products: [
-      { name: 'Core Tees', description: 'Everyday scripture-graphic tees.', status: 'live' },
-      { name: 'Activewear Line', description: 'Performance apparel for faith communities.', status: 'live' },
-      { name: 'Limited Drops', description: 'Seasonal collaborations and capsule releases.', status: 'beta' },
-      { name: 'Legacy Hoodies v1', description: 'First-generation hoodie line.', status: 'sunset' },
+      { name: 'Core Tees', description: 'Everyday scripture-graphic tees.', status: 'live', revenueNote: 'Fixture: the volume line — majority of unit sales.' },
+      { name: 'Activewear Line', description: 'Performance apparel for faith communities.', status: 'live', revenueNote: 'Fixture: growing second line.' },
+      { name: 'Limited Drops', description: 'Seasonal collaborations and capsule releases.', status: 'beta', revenueNote: 'Fixture: not disclosed.' },
+      { name: 'Legacy Hoodies v1', description: 'First-generation hoodie line.', status: 'sunset', revenueNote: 'Fixture: wound down.' },
     ],
     roadmap: [
       { title: 'Loyalty & community app', horizon: 'now', detail: `${seed.name} is investing in a members app.` },

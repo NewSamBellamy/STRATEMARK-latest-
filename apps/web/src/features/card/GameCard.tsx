@@ -26,6 +26,7 @@ import { deriveTriad, tierMaterial } from '@/lib/brand';
 import { formatCount, formatMetricValue } from '@/lib/format';
 import { ContextRerun } from '@/components/ui/ContextRerun';
 import { Logo } from './Logo';
+import { MarketCardArt } from './MarketCardArt';
 import { SoftDataDisclaimer } from './CardDisclaimer';
 import { getMetric, valueMetric } from './metrics';
 
@@ -96,7 +97,7 @@ function StatRow({
         </span>
       </div>
       <div
-        className="mt-[3px] h-[5px] overflow-hidden rounded-full"
+        className="mt-[3px] h-[4px] overflow-hidden rounded-full"
         style={{ background: 'color-mix(in srgb, var(--tcg-accent) 14%, #ffffff)' }}
       >
         {known ? (
@@ -211,8 +212,8 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
               <TypeIcon className="h-3.5 w-3.5" />
             </span>
           </span>
-          <span className="tcg-hero mx-2.5 mt-2.5 grid h-24 shrink-0 place-items-center rounded-lg">
-            <TypeIcon className={cn('h-10 w-10', marketSkin.art)} />
+          <span className="tcg-hero mx-2.5 mt-2.5 block h-24 shrink-0 overflow-hidden rounded-lg">
+            <MarketCardArt type={card.cardType} seed={card.title ?? card.id} />
           </span>
           <span className="flex flex-1 flex-col px-3.5 pb-3 pt-2.5 text-left">
             <span className="font-display text-[15px] font-bold leading-snug text-content">
@@ -252,7 +253,7 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
           ink: '#9F1239',
           claims: data.viceClaims.slice(0, 2).map((v) => ({
             text: v.claimText,
-            publisher: publisherOf(v.sourceUrl),
+            publisher: publisherOf(v.sourceUrl, v.sourceTitle),
           })),
         }
       : {
@@ -311,6 +312,11 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
 
         {/* 2 — Hero artwork window: the logo IS the card. Sized to breathe
             inside the frame (never edge-to-edge); right-click → refetch. */}
+        {signal ? (
+          <span className="tcg-hero mx-auto mt-2.5 block aspect-square w-[66%] shrink-0 overflow-hidden rounded-xl">
+            <MarketCardArt type={card.cardType} seed={company.name} />
+          </span>
+        ) : (
         <ContextRerun
           asSpan
           label="company logo"
@@ -337,6 +343,7 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
             />
           </span>
         </ContextRerun>
+        )}
 
         {/* 3 — One-liner ribbon.
             The clamp MUST live on an inner element. `line-clamp` works by setting

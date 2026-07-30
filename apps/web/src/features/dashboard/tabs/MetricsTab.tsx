@@ -220,6 +220,49 @@ function UnknownSlot() {
   );
 }
 
+/**
+ * The KPI band — the founder's reference dashboards all open with one: the
+ * headline figures in a single strip before any chart. Confidence dots ride
+ * along; an unknown renders as an honest gap, not a zero.
+ */
+function KpiBand({ tiles }: { tiles: CompanyMetric[] }) {
+  const DOT: Record<string, string> = {
+    verified: '#16A34A',
+    estimated: '#CA8A04',
+    unknown: '#9A9AA1',
+    user_verified: '#0284C7',
+  };
+  return (
+    <div className="panel grid grid-cols-2 divide-border sm:grid-cols-3 sm:divide-x lg:grid-cols-5">
+      {tiles.map((m) => (
+        <div key={m.id} className="px-4 py-3.5">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted">
+              {METRIC_TYPE_LABELS[m.metricType]}
+            </span>
+            <span
+              className="h-1.5 w-1.5 rounded-full"
+              style={{ background: DOT[m.confidence] }}
+              title={`Confidence: ${m.confidence.replace('_', ' ')}`}
+            />
+          </div>
+          <div
+            className={
+              m.value != null && m.confidence !== 'unknown'
+                ? 'mt-1 font-display text-xl font-semibold tabular-nums text-content'
+                : 'mt-1 font-display text-xl font-semibold text-faint'
+            }
+          >
+            {m.value != null && m.confidence !== 'unknown'
+              ? formatMetricValue(m.metricType, m.value)
+              : '—'}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** Number + the right micro-visualization for the metric's semantic shape. */
 function MetricBody({ metric }: { metric: CompanyMetric }) {
   const color = METRIC_COLORS[metric.metricType];
@@ -276,6 +319,7 @@ export function MetricsTab({ companyId }: { companyId: string }) {
         const hasSeries = !!series && (series.revenue.length > 1 || series.users.length > 1);
         return (
           <div className="space-y-5">
+            <KpiBand tiles={tiles} />
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {tiles.map((m) => (
                 <MetricTile key={m.id} metric={m} companyId={companyId} companyName={companyName}>

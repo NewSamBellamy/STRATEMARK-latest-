@@ -16,9 +16,16 @@ export function Modal({
   title: string;
   description?: string;
   children: ReactNode;
-  size?: 'md' | 'lg' | 'xl';
+  size?: 'md' | 'lg' | 'xl' | '2xl';
 }) {
-  const width = size === 'xl' ? 'max-w-3xl' : size === 'lg' ? 'max-w-2xl' : 'max-w-lg';
+  const width =
+    size === '2xl'
+      ? 'max-w-6xl'
+      : size === 'xl'
+        ? 'max-w-3xl'
+        : size === 'lg'
+          ? 'max-w-2xl'
+          : 'max-w-lg';
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>

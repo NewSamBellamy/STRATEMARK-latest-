@@ -1,5 +1,5 @@
 import { ExternalLink } from 'lucide-react';
-import type { ViceClaim } from '@mi/contracts';
+import { publisherOf, type ViceClaim } from '@mi/contracts';
 import { ViceDisclaimer } from './CardDisclaimer';
 import { FactCheck } from '@/features/factcheck/FactCheck';
 
@@ -31,7 +31,7 @@ export function ViceClaims({
                 className="inline-flex items-center gap-1 text-xs text-primary-ink hover:underline"
               >
                 <ExternalLink className="h-3 w-3" />
-                Source
+                {publisherOf(claim.sourceUrl, claim.sourceTitle)}
               </a>
               <FactCheck claim={claim.claimText} companyName={companyName ?? null} />
             </div>

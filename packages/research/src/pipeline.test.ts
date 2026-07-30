@@ -34,6 +34,9 @@ function fakeClient(): LlmClient {
               descriptor: 'governance concerns',
               cardTypes: ['vice'],
             },
+            // A REAL business whose newsworthy angle is a controversy. Live data
+            // produced exactly this (Civitai): signal-only tag, real domain.
+            { name: 'Gamma Media', domain: 'gamma.com', descriptor: 'contested platform', cardTypes: ['vice'] },
           ],
         };
       } else if (prompt.includes('Convert the research notes on "Alpha Inc"')) {
@@ -50,6 +53,19 @@ function fakeClient(): LlmClient {
             market_share: { value: 45, confidence: 'verified', sourceIndex: 0, method: null },
           },
           viceClaims: [],
+          cultureNote: null,
+        };
+      } else if (prompt.includes('Convert the research notes on "Gamma Media"')) {
+        obj = {
+          oneLiner: 'Gamma hosts user models',
+          hqLocation: 'Austin, TX',
+          website: 'https://gamma.com',
+          brand: null,
+          metrics: {
+            valuation: { value: 40_000_000, confidence: 'estimated', sourceIndex: 0, method: 'press reports' },
+            employees: { value: 30, confidence: 'verified', sourceIndex: 0, method: null },
+          },
+          viceClaims: [{ text: 'Named in a 2026 copyright suit', sourceIndex: 0 }],
           cultureNote: null,
         };
       } else if (prompt.includes('Convert the research notes on "Beta LLC"')) {
@@ -98,8 +114,10 @@ describe('runDeckResearch (full orchestration, fake LLM)', () => {
     });
 
     expect(result.market.name).toBe('Test Market');
+    // Alpha, Beta, and Gamma Media (promoted from a signal-only tag because it
+    // has a real domain). The pseudo-entity with no domain is not among them.
     const companyCards = result.cards.filter((c) => c.card.cardType === 'company');
-    expect(companyCards).toHaveLength(2);
+    expect(companyCards).toHaveLength(3);
 
     // Alpha should score as a top-tier titan; Beta near the bottom.
     const alpha = companyCards.find((c) => c.company?.name === 'Alpha Inc')!;
@@ -149,6 +167,53 @@ describe('runDeckResearch (full orchestration, fake LLM)', () => {
     expect(names.some((n) => /Controversy Entity/.test(n))).toBe(false);
     expect(warnings.join(' ')).toMatch(/topic rather than a company/i);
     expect(warnings.join(' ')).toMatch(/Controversy Entity/);
+  });
+
+  it('keeps a real business that discovery tagged only as a controversy', async () => {
+    // "Controversial" and "not a company" are different things. A resolvable
+    // domain is evidence of an operating entity, so a signal-only tag on one is
+    // a mis-tag to correct, not a topic to discard. The first version of the
+    // entity rule conflated them and threw away a real company.
+    const result = await runDeckResearch({ prompt: 'test market', region: 'CA' }, fakeClient(), {
+      apiKey: '',
+    });
+    const gammaCards = result.cards.filter((c) => c.company?.name === 'Gamma Media');
+    expect(gammaCards.map((c) => c.card.cardType).sort()).toEqual(['company', 'vice']);
+    // Promotion must not smuggle figures onto the signal facet.
+    expect(gammaCards.find((c) => c.card.cardType === 'vice')!.metrics).toEqual([]);
+    // The company card is scored even though discovery never said "company".
+    expect(gammaCards.find((c) => c.card.cardType === 'company')!.card.tier).not.toBeNull();
+  });
+
+  it('mints one entity card per company, never one per role', async () => {
+    // Discovery legitimately reports several roles for one business. Emitting a
+    // card each printed the same four figures under three headings and padded a
+    // 17-card deck to 47 on live data.
+    const result = await runDeckResearch({ prompt: 'test market', region: 'CA' }, fakeClient(), {
+      apiKey: '',
+    });
+    for (const name of ['Alpha Inc', 'Beta LLC', 'Gamma Media']) {
+      const entityCards = result.cards.filter(
+        (c) => c.company?.name === name && c.metrics.length > 0,
+      );
+      expect(entityCards).toHaveLength(1);
+    }
+  });
+
+  it('does not mint a signal card that has no signal', async () => {
+    // Alpha has neither a sourced controversy nor a culture note, so it must not
+    // get an empty Vice or Culture card. On a live run every one of the ten
+    // companies was tagged culture or vice and every such card came back blank.
+    const result = await runDeckResearch({ prompt: 'test market', region: 'CA' }, fakeClient(), {
+      apiKey: '',
+    });
+    const alpha = result.cards.filter((c) => c.company?.name === 'Alpha Inc');
+    expect(alpha.map((c) => c.card.cardType)).toEqual(['company']);
+    // And no signal card anywhere in the deck is empty.
+    for (const c of result.cards) {
+      if (c.card.cardType === 'vice') expect(c.viceClaims.length).toBeGreaterThan(0);
+      if (c.card.cardType === 'culture') expect((c.card.summary ?? '').length).toBeGreaterThan(0);
+    }
   });
 
   it('never lends a company figure to a signal card', async () => {

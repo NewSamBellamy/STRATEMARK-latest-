@@ -180,28 +180,40 @@ async function discover(
     // Barriers are market-level and researched in their own pass; they are never
     // a company facet.
     const cardTypes = rawTypes.filter((t) => t !== 'barrier');
+    const domain = rootDomain(c.domain);
 
     // THE ENTITY RULE. Card types are *facets of a business*, not things in
-    // their own right. A candidate whose only facets are signals (vice /
-    // culture / insight) is a category error: discovery has handed us a topic
-    // dressed as a company. Enriching it mints a pseudo-company that then
-    // inherits a real company's figures with no evidence — exactly the
-    // "OpenAI / Safety / Governance Controversy Entity" defect in audit
-    // Finding 1.2. Reject it here, before it costs a grounded call.
+    // their own right. A candidate tagged only with signals (vice / culture /
+    // insight) is suspect: discovery may have handed us a topic dressed as a
+    // company. Enriching one mints a pseudo-company that then inherits a real
+    // company's figures with no evidence — the
+    // "OpenAI / Safety / Governance Controversy Entity" defect in audit 1.2.
     //
-    // A real company's own controversies still produce a Vice card: they come
-    // from that company's enrichment, which is where the evidence lives.
-    if (cardTypes.length > 0 && !cardTypes.some(isEntityCardType)) {
-      rejected.push(c.name.trim());
-      continue;
+    // But "controversial" and "not a company" are different things, and the
+    // first version of this rule conflated them: on live data it threw away
+    // Civitai, a real business whose newsworthy angle happens to be a
+    // controversy. A resolvable domain is concrete evidence of an operating
+    // entity, so treat a signal-only tag on something with a real web presence
+    // as a MIS-TAG and promote it. With no domain and no entity facet, there is
+    // nothing to stand a company card on — reject before it costs a grounded call.
+    //
+    // Either way a real company's own controversies still produce a Vice card:
+    // those come from the company's own enrichment, where the evidence lives.
+    let facets = cardTypes;
+    if (facets.length > 0 && !facets.some(isEntityCardType)) {
+      if (!domain) {
+        rejected.push(c.name.trim());
+        continue;
+      }
+      facets = ['company', ...facets];
     }
 
     candidates.push({
       name: c.name.trim(),
-      domain: rootDomain(c.domain),
+      domain,
       descriptor: c.descriptor ?? '',
       // An untyped candidate is assumed to be a plain company.
-      cardTypes: cardTypes.length ? cardTypes : ['company'],
+      cardTypes: facets.length ? facets : ['company'],
     });
   }
   return { candidates, rejected };
@@ -313,15 +325,16 @@ async function researchMarketCards(
     [
       `Using Google Search, research the market "${plan.marketName}" (${plan.vertical})${where} on two fronts:`,
       `1. BARRIERS — 2-4 structural barriers to entry: regulatory, capital intensity, network effects, brand trust, or supply chain.`,
-      `2. INSIGHTS — 2-3 non-obvious dynamics a smart operator would want to know: a shift underway, a counter-intuitive pattern, a mismatch between perception and reality.`,
+      `2. INSIGHTS — 2-4 non-obvious dynamics from roughly the last 3-6 months that a smart operator would want to know: a shift underway, a counter-intuitive pattern, a mismatch between perception and reality.`,
       `Ground every point in what you actually find. Do not speculate.`,
     ].join('\n'),
     { system: GROUNDED_SYSTEM, signal },
   );
   const out = await client.structure(
     [
-      `From the notes, output JSON { "barriers": [ { "title", "summary", "sourceIndex" } ], "insights": [ { "title", "summary", "sourceIndex" } ] }.`,
+      `From the notes, output JSON { "barriers": [ { "title", "summary", "sourceIndex", "keyPoints" } ], "insights": [ { "title", "summary", "sourceIndex", "keyPoints" } ] }.`,
       `"sourceIndex" is the 0-based index of the source that supports the point, or null if none of the listed sources do.`,
+      `"keyPoints" is 4-8 short entries (1-2 sentences each) carrying the substance behind the headline — concrete specifics drawn ONLY from the notes: figures, named companies, dates, mechanisms. No filler.`,
       ``,
       `SOURCES:`,
       grounded.citations.map((c, i) => `[${i}] ${c.title} — ${c.url}`).join('\n') || '(none)',
@@ -334,7 +347,7 @@ async function researchMarketCards(
   );
 
   const build = (
-    claim: { title: string; summary: string; sourceIndex: number | null },
+    claim: { title: string; summary: string; sourceIndex: number | null; keyPoints: string[] },
     cardType: 'barrier' | 'insight',
   ): CardWithCompany => {
     const cited = claim.sourceIndex != null ? grounded.citations[claim.sourceIndex] : undefined;
@@ -349,6 +362,7 @@ async function researchMarketCards(
         tier: null,
         tierReason: null,
         citations: cited ? [cited] : [],
+        keyPoints: claim.keyPoints ?? [],
         createdAt: now(),
       },
       company: null,
@@ -443,6 +457,7 @@ export async function expandDeckResearch(args: {
       tier,
       tierReason,
       citations: [],
+      keyPoints: [],
       createdAt: now(),
     };
     const cwc: CardWithCompany = { card, company: e.company, metrics: e.metrics, viceClaims: [] };
@@ -527,7 +542,7 @@ export async function runDeckResearch(
 
   // Score: relative user values need the whole deck first.
   const deckUserValues = enriched
-    .filter((e) => e.candidate.cardTypes.includes('company'))
+    .filter((e) => e.candidate.cardTypes.some(isEntityCardType))
     .flatMap((e) => e.metrics)
     .filter((m) => m.metricType === 'users' && m.confidence !== 'unknown' && m.value !== null)
     .map((m) => m.value as number);
@@ -548,7 +563,9 @@ export async function runDeckResearch(
   const baseTiers = new Map<string, MaturityTier>();
   const reviewRows: { name: string; baseTier: MaturityTier; evidence: string }[] = [];
   for (const e of enriched) {
-    if (!e.candidate.cardTypes.includes('company')) continue;
+    // Any company with an entity facet gets a maturity tier — a business whose
+    // primary role is "infrastructure" still has a size and a stage.
+    if (!e.candidate.cardTypes.some(isEntityCardType)) continue;
     const base = computeCms(buildCmsInput(e.metrics), { deckUserValues });
     if (base.finalTier == null) continue;
     baseTiers.set(e.company.id, base.finalTier);
@@ -566,39 +583,68 @@ export async function runDeckResearch(
   for (const e of enriched) {
     let tier: MaturityTier | null = null;
     let tierReason: string | null = null;
-    if (e.candidate.cardTypes.includes('company') && baseTiers.has(e.company.id)) {
+    if (e.candidate.cardTypes.some(isEntityCardType) && baseTiers.has(e.company.id)) {
       const review = reviews.get(e.company.name) ?? { nudge: 0 as const, reason: null };
       const scored = computeCms(buildCmsInput(e.metrics), { deckUserValues }, { nudge: review.nudge });
       tier = scored.finalTier;
       tierReason = review.reason;
     }
-    for (const cardType of e.candidate.cardTypes) {
-      const viceClaims: ViceClaim[] =
-        cardType === 'vice'
-          ? e.enrich.viceClaims
-              .map((vc, i) => {
-                const url = vc.sourceIndex != null ? e.citations[vc.sourceIndex]?.url : undefined;
-                if (!url) return null; // grounding discipline: drop unsourced vice claims
-                return {
-                  id: uid('vcl', `${e.company.id}-${i}`),
-                  cardId: '',
-                  claimText: vc.text,
-                  sourceUrl: url,
-                  capturedAt: now(),
-                };
-              })
-              .filter((x): x is ViceClaim => x !== null)
-          : [];
+    // Every sourced controversy this company actually has. Computed once, because
+    // it decides whether a Vice card is worth minting at all.
+    const sourcedViceClaims: ViceClaim[] = e.enrich.viceClaims
+      .map((vc, i) => {
+        const cite = vc.sourceIndex != null ? e.citations[vc.sourceIndex] : undefined;
+        if (!cite?.url) return null; // grounding discipline: drop unsourced vice claims
+        return {
+          id: uid('vcl', `${e.company.id}-${i}`),
+          cardId: '',
+          claimText: vc.text,
+          sourceUrl: cite.url,
+          sourceTitle: cite.title || null,
+          capturedAt: now(),
+        };
+      })
+      .filter((x): x is ViceClaim => x !== null);
+    const cultureNote = (e.enrich.cultureNote ?? '').trim();
+
+    // ONE entity card per company, plus a signal card only where a signal exists.
+    //
+    // Discovery legitimately reports several roles for one business — OpenAI sells
+    // models, rents inference, and distributes through a hyperscaler. But minting
+    // a card per role printed the SAME four figures three times under three
+    // headings, which is the duplication the entity rule was written to stop, and
+    // it padded a 17-card deck to 47. The deck is "one card per company"; the
+    // company's other roles are a property of that card, not extra cards.
+    //
+    // Signal facets are then emitted only when they carry content. A Vice card
+    // with no sourced claim, or a Culture card with no note, is an empty promise —
+    // measured on a live run: 10 of 10 companies were tagged culture or vice, and
+    // every one of those cards came back with nothing in it.
+    // Discovery is asked for exactly one role, so this is a tiebreak. Prefer the
+    // more specific supplier roles: "company" is the label a model reaches for by
+    // default, and letting it win would leave the Infrastructure and Distribution
+    // views permanently empty.
+    const primaryEntity =
+      (['infrastructure', 'distribution', 'company'] as const).find((t) =>
+        e.candidate.cardTypes.includes(t),
+      ) ?? 'company';
+    const emitted: CardType[] = [primaryEntity];
+    if (e.candidate.cardTypes.includes('vice') && sourcedViceClaims.length > 0) emitted.push('vice');
+    if (e.candidate.cardTypes.includes('culture') && cultureNote.length > 0) emitted.push('culture');
+
+    for (const cardType of emitted) {
+      const viceClaims: ViceClaim[] = cardType === 'vice' ? sourcedViceClaims : [];
       const card: Card = {
         id: uid('crd', `${slugify(e.company.name)}-${cardType}`),
         deckId: deck.id,
         companyId: e.company.id,
         cardType,
         title: null,
-        summary: cardType === 'culture' ? e.enrich.cultureNote : null,
-        tier: cardType === 'company' ? tier : null,
-        tierReason: cardType === 'company' ? tierReason : null,
+        summary: cardType === 'culture' ? cultureNote : null,
+        tier: cardType === primaryEntity ? tier : null,
+        tierReason: cardType === primaryEntity ? tierReason : null,
         citations: [],
+        keyPoints: [],
         createdAt: now(),
       };
       const stampedClaims = viceClaims.map((v) => ({ ...v, cardId: card.id }));

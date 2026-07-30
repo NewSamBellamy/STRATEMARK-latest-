@@ -90,6 +90,62 @@ export interface ReportRequest {
   kind: 'deck' | 'company';
   /** deckId when kind='deck'; companyId when kind='company'. */
   subjectId: string;
+  /**
+   * The user's framing for what the report should concentrate on
+   * ("who is winning enterprise", "risks to a new entrant"). The evidence rules
+   * don't change — focus steers emphasis, never sourcing.
+   */
+  focus?: string | null;
+  /** Fold a research conversation's findings into the report. */
+  threadId?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Research conversations — the "second brain" primitive.
+//
+// Every Dig starts (or continues) a thread: a grounded conversation anchored to
+// something concrete — a deck, a company, a set of selected cards, or a single
+// data point. Threads persist alongside the deck, so the questions an analyst
+// asked become part of the deck's accumulated intelligence, and any thread can
+// be distilled into a saved report.
+// ---------------------------------------------------------------------------
+
+export interface ResearchScope {
+  kind: 'deck' | 'company' | 'cards' | 'datapoint';
+  deckId: string | null;
+  companyId?: string | null;
+  /** Selected card ids for deck-level comparisons. */
+  cardIds?: string[];
+  /** Human label for what this thread is anchored to, e.g. "ARR", "GPT-5", "Jane Doe". */
+  subject?: string | null;
+}
+
+export interface ThreadMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  /** Grounded sources behind an assistant turn. Always [] for user turns. */
+  citations: Citation[];
+  at: string;
+}
+
+export interface ResearchThread {
+  id: string;
+  scope: ResearchScope;
+  title: string;
+  messages: ThreadMessage[];
+  /** Set when the thread has been distilled into a saved report. */
+  reportId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AskResearchInput {
+  /** Continue an existing thread… */
+  threadId?: string;
+  /** …or start a new one anchored to this scope. */
+  scope?: ResearchScope;
+  question: string;
 }
 
 export interface Report {
@@ -211,6 +267,17 @@ export interface MarketIntelRepository {
   generateReport(request: ReportRequest, handlers?: ResearchHandlers): Promise<Report>;
   listReports(): Promise<Report[]>;
   getReport(id: string): Promise<Report | null>;
+
+  // Research conversations. OPTIONAL so transports can adopt incrementally
+  // (the Electron IPC bridge wires these when the desktop back end lands);
+  // the UI feature-detects and hides chat affordances when absent.
+  /** Ask a grounded question in a new or existing research thread. */
+  askResearch?(input: AskResearchInput, handlers?: ResearchHandlers): Promise<ResearchThread>;
+  /** Threads anchored to a deck and/or company, newest first. */
+  listResearchThreads?(filter?: { deckId?: string; companyId?: string }): Promise<ResearchThread[]>;
+  getResearchThread?(id: string): Promise<ResearchThread | null>;
+  /** Distill a conversation into a saved report (kept in the library + thread link). */
+  saveThreadAsReport?(threadId: string, focus?: string | null): Promise<Report>;
 
   // Live refresh stream (spec §9). No-op-unsubscribe implementations are valid.
   subscribeDeckRefresh(listener: DeckRefreshListener): Unsubscribe;
