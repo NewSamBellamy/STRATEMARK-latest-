@@ -106,6 +106,10 @@ export const cardSchema = z.object({
   summary: z.string().nullable(),
   tier: maturityTierSchema.nullable(), // only Company cards carry a tier
   tierReason: z.string().nullable(), // LLM ±1 review reasoning (spec §6.3)
+  // Market-level cards (Barrier, Insight) state a claim rather than a figure, so
+  // they carry their own evidence. Defaulted, so company cards and older stored
+  // decks parse unchanged.
+  citations: z.array(z.object({ title: z.string(), url: z.string() })).default([]),
   createdAt: isoTimestamp,
 });
 

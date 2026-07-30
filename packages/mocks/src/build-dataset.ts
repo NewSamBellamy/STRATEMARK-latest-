@@ -17,7 +17,7 @@ import {
   type ViceClaim,
   enforceMetricsProvenance,
 } from '@mi/contracts';
-import { BARRIER_SEEDS, COMPANY_SEEDS, type CompanySeed } from './seed';
+import { BARRIER_SEEDS, COMPANY_SEEDS, INSIGHT_SEEDS, type CompanySeed } from './seed';
 import { generateDashboardContent } from './dashboard-content';
 import { id, ts } from './ids';
 
@@ -148,6 +148,7 @@ export function buildDataset(cadence: RefreshCadence = DEFAULT_CADENCE): Dataset
         summary,
         tier,
         tierReason,
+        citations: [],
         createdAt: ts(30),
       };
       cards.push(card);
@@ -183,6 +184,22 @@ export function buildDataset(cadence: RefreshCadence = DEFAULT_CADENCE): Dataset
     void companyTierReason; // retained above on the card; not needed further here
   }
 
+  // Insight cards: market-level findings, no company (same shape as barriers).
+  for (const i of INSIGHT_SEEDS) {
+    cards.push({
+      id: id.card(MARKET_SLUG, i.slug, 'insight'),
+      deckId: deck.id,
+      companyId: null,
+      cardType: 'insight',
+      title: i.title,
+      summary: i.summary,
+      tier: null,
+      tierReason: null,
+      citations: [],
+      createdAt: ts(30),
+    });
+  }
+
   // Barrier cards (not company-specific; spec §4).
   for (const b of BARRIER_SEEDS) {
     cards.push({
@@ -194,6 +211,7 @@ export function buildDataset(cadence: RefreshCadence = DEFAULT_CADENCE): Dataset
       summary: b.summary,
       tier: null,
       tierReason: null,
+      citations: [],
       createdAt: ts(30),
     });
   }

@@ -45,14 +45,35 @@ const CRISP_PX = 64;
 /** Hard ceiling on upscaling — past ~2x, raster marks turn to mush. */
 const MAX_UPSCALE = 2;
 
-function heroScale(naturalWidth: number): string {
-  if (naturalWidth >= 128) return '100%';
-  return '92%';
+/**
+ * How much of the square art window a 1:1 mark occupies. Everything else is
+ * fitted to the SAME optical area rather than the same bounding box.
+ *
+ * This is the part that makes a square window work. Real logos run from 1:1
+ * icons to 6:1 wordmarks, and fitting both to a shared box means one of them
+ * always loses: fit by width and the icon shrinks to a stamp, fit by height and
+ * the wordmark overruns. Equal *area* is how identity designers normalise a
+ * mixed logo set, and it's what keeps a deck reading as one printed set.
+ */
+const TARGET_FILL = 0.62;
+
+/** Box for a mark of the given proportions, as a share of the square window. */
+function fitToSquare(natural: { width: number; height: number }): {
+  width: string;
+  height: string;
+} {
+  const ratio = natural.width > 0 && natural.height > 0 ? natural.width / natural.height : 1;
+  const s = Math.sqrt(ratio);
+  return {
+    width: `${Math.min(100, TARGET_FILL * s * 100).toFixed(1)}%`,
+    height: `${Math.min(100, (TARGET_FILL / s) * 100).toFixed(1)}%`,
+  };
 }
 
 interface Candidate {
   src: string;
   width: number;
+  height: number;
   /** Vector art is sharp at ANY size, so resolution heuristics don't apply. */
   vector: boolean;
 }
@@ -65,7 +86,16 @@ function probe(src: string): Promise<Candidate | null> {
     const img = new Image();
     img.referrerPolicy = 'no-referrer';
     img.onload = () =>
-      resolve(img.naturalWidth > 0 ? { src, width: img.naturalWidth, vector: isSvg(src) } : null);
+      resolve(
+        img.naturalWidth > 0
+          ? {
+              src,
+              width: img.naturalWidth,
+              height: img.naturalHeight,
+              vector: isSvg(src),
+            }
+          : null,
+      );
     img.onerror = () => resolve(null);
     img.src = src;
   });
@@ -203,8 +233,11 @@ export function Logo({
           style={
             bare
               ? {
-                  width: usable.vector ? '100%' : heroScale(usable.width),
-                  height: usable.vector ? '100%' : heroScale(usable.width),
+                  ...fitToSquare(usable),
+                  // Raster art may not be upscaled past its honest resolution,
+                  // whichever constraint bites first.
+                  maxWidth: usable.vector ? undefined : usable.width * MAX_UPSCALE,
+                  maxHeight: usable.vector ? undefined : usable.height * MAX_UPSCALE,
                 }
               : undefined
           }

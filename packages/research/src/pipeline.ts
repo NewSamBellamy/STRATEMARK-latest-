@@ -25,9 +25,10 @@ import {
   type MetricType,
   type ViceClaim,
   enforceMetricsProvenance,
+  isEntityCardType,
 } from '@mi/contracts';
 import {
-  barrierOutSchema,
+  marketCardsOutSchema,
   discoveryOutSchema,
   enrichmentOutSchema,
   marketPlanOutSchema,
@@ -158,7 +159,7 @@ async function discover(
   plan: MarketPlan,
   target: number,
   signal?: AbortSignal,
-): Promise<CompanyCandidate[]> {
+): Promise<{ candidates: CompanyCandidate[]; rejected: string[] }> {
   const grounded = await client.ground(discoverPrompt(plan, target), {
     system: GROUNDED_SYSTEM,
     signal,
@@ -167,25 +168,43 @@ async function discover(
     system: STRUCTURE_SYSTEM,
     signal,
   });
-  // Dedupe by name; ensure at least a 'company' type.
+  // Dedupe by name, then enforce the entity rule below.
   const seen = new Set<string>();
   const candidates: CompanyCandidate[] = [];
+  const rejected: string[] = [];
   for (const c of out.companies ?? []) {
     const key = c.name.trim().toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
     const rawTypes = (c.cardTypes ?? []) as CardType[];
-    const cardTypes = (rawTypes.length ? rawTypes : (['company'] as CardType[])).filter(
-      (t) => t !== 'barrier',
-    );
+    // Barriers are market-level and researched in their own pass; they are never
+    // a company facet.
+    const cardTypes = rawTypes.filter((t) => t !== 'barrier');
+
+    // THE ENTITY RULE. Card types are *facets of a business*, not things in
+    // their own right. A candidate whose only facets are signals (vice /
+    // culture / insight) is a category error: discovery has handed us a topic
+    // dressed as a company. Enriching it mints a pseudo-company that then
+    // inherits a real company's figures with no evidence — exactly the
+    // "OpenAI / Safety / Governance Controversy Entity" defect in audit
+    // Finding 1.2. Reject it here, before it costs a grounded call.
+    //
+    // A real company's own controversies still produce a Vice card: they come
+    // from that company's enrichment, which is where the evidence lives.
+    if (cardTypes.length > 0 && !cardTypes.some(isEntityCardType)) {
+      rejected.push(c.name.trim());
+      continue;
+    }
+
     candidates.push({
       name: c.name.trim(),
       domain: rootDomain(c.domain),
       descriptor: c.descriptor ?? '',
+      // An untyped candidate is assumed to be a plain company.
       cardTypes: cardTypes.length ? cardTypes : ['company'],
     });
   }
-  return candidates;
+  return { candidates, rejected };
 }
 
 async function enrichOne(
@@ -275,37 +294,73 @@ async function reviewTier(
   }
 }
 
-async function researchBarriers(
+/**
+ * Market-level cards: structural barriers to entry AND the non-obvious dynamics
+ * worth remembering (Insight cards). One grounded call feeds both, so the second
+ * card type costs nothing extra against the per-minute free-tier ceiling.
+ *
+ * Neither type belongs to a company, so neither mints one — the same discipline
+ * the entity rule now enforces in discovery.
+ */
+async function researchMarketCards(
   client: LlmClient,
   plan: MarketPlan,
   deckId: string,
   signal?: AbortSignal,
 ): Promise<CardWithCompany[]> {
+  const where = plan.geography ? ` in ${plan.geography}` : '';
   const grounded = await client.ground(
-    `Using Google Search, identify 2-4 structural barriers to entry for the market "${plan.marketName}" (${plan.vertical})${plan.geography ? ` in ${plan.geography}` : ''} — regulatory, capital intensity, network effects, brand trust, or supply chain. Ground each in what you find.`,
+    [
+      `Using Google Search, research the market "${plan.marketName}" (${plan.vertical})${where} on two fronts:`,
+      `1. BARRIERS — 2-4 structural barriers to entry: regulatory, capital intensity, network effects, brand trust, or supply chain.`,
+      `2. INSIGHTS — 2-3 non-obvious dynamics a smart operator would want to know: a shift underway, a counter-intuitive pattern, a mismatch between perception and reality.`,
+      `Ground every point in what you actually find. Do not speculate.`,
+    ].join('\n'),
     { system: GROUNDED_SYSTEM, signal },
   );
   const out = await client.structure(
-    `From the notes, output JSON { "barriers": [ { "title", "summary" } ] }.\n\nNOTES:\n${grounded.text}`,
-    barrierOutSchema,
+    [
+      `From the notes, output JSON { "barriers": [ { "title", "summary", "sourceIndex" } ], "insights": [ { "title", "summary", "sourceIndex" } ] }.`,
+      `"sourceIndex" is the 0-based index of the source that supports the point, or null if none of the listed sources do.`,
+      ``,
+      `SOURCES:`,
+      grounded.citations.map((c, i) => `[${i}] ${c.title} — ${c.url}`).join('\n') || '(none)',
+      ``,
+      `NOTES:`,
+      grounded.text,
+    ].join('\n'),
+    marketCardsOutSchema,
     { system: STRUCTURE_SYSTEM, signal },
   );
-  return (out.barriers ?? []).map((b) => ({
-    card: {
-      id: uid('crd', `${slugify(b.title)}-barrier`),
-      deckId,
-      companyId: null,
-      cardType: 'barrier' as CardType,
-      title: b.title,
-      summary: b.summary,
-      tier: null,
-      tierReason: null,
-      createdAt: now(),
-    },
-    company: null,
-    metrics: [],
-    viceClaims: [],
-  }));
+
+  const build = (
+    claim: { title: string; summary: string; sourceIndex: number | null },
+    cardType: 'barrier' | 'insight',
+  ): CardWithCompany => {
+    const cited = claim.sourceIndex != null ? grounded.citations[claim.sourceIndex] : undefined;
+    return {
+      card: {
+        id: uid('crd', `${slugify(claim.title)}-${cardType}`),
+        deckId,
+        companyId: null,
+        cardType,
+        title: claim.title,
+        summary: claim.summary,
+        tier: null,
+        tierReason: null,
+        citations: cited ? [cited] : [],
+        createdAt: now(),
+      },
+      company: null,
+      metrics: [],
+      viceClaims: [],
+    };
+  };
+
+  return [
+    ...(out.barriers ?? []).map((b) => build(b, 'barrier')),
+    ...(out.insights ?? []).map((i) => build(i, 'insight')),
+  ];
 }
 
 /**
@@ -387,6 +442,7 @@ export async function expandDeckResearch(args: {
       summary: null,
       tier,
       tierReason,
+      citations: [],
       createdAt: now(),
     };
     const cwc: CardWithCompany = { card, company: e.company, metrics: e.metrics, viceClaims: [] };
@@ -412,7 +468,15 @@ export async function runDeckResearch(
   emit({ type: 'market', market: plan });
 
   emit({ type: 'status', step: 'discover', message: 'Discovering companies via grounded search…' });
-  const discovered = await discover(client, plan, target, signal);
+  const { candidates: discovered, rejected } = await discover(client, plan, target, signal);
+  // Say so out loud when discovery hands back a topic dressed as a company. This
+  // used to pass silently and mint a pseudo-company (audit Finding 1.2).
+  if (rejected.length > 0) {
+    emit({
+      type: 'warning',
+      message: `Skipped ${rejected.length} result${rejected.length === 1 ? '' : 's'} that ${rejected.length === 1 ? 'was' : 'were'} a topic rather than a company: ${rejected.join(', ')}.`,
+    });
+  }
   // Discovery routinely over-returns (measured: 17 candidates for a target of 8),
   // and every extra candidate costs a grounded enrichment call — the scarcest
   // free-tier resource. Cap to the target, keeping company cards first so the
@@ -534,13 +598,17 @@ export async function runDeckResearch(
         summary: cardType === 'culture' ? e.enrich.cultureNote : null,
         tier: cardType === 'company' ? tier : null,
         tierReason: cardType === 'company' ? tierReason : null,
+        citations: [],
         createdAt: now(),
       };
       const stampedClaims = viceClaims.map((v) => ({ ...v, cardId: card.id }));
       const cwc: CardWithCompany = {
         card,
         company: e.company,
-        metrics: e.metrics,
+        // Only a card that IS the business carries the business's figures. A
+        // signal card states a sourced claim; lending it a valuation would show
+        // the same number twice under two different provenance stories.
+        metrics: isEntityCardType(cardType) ? e.metrics : [],
         viceClaims: stampedClaims,
       };
       cards.push(cwc);
@@ -548,15 +616,15 @@ export async function runDeckResearch(
     }
   }
 
-  emit({ type: 'status', step: 'barriers', message: 'Identifying barriers to entry…' });
+  emit({ type: 'status', step: 'barriers', message: 'Identifying barriers and market insights…' });
   try {
-    const barriers = await researchBarriers(client, plan, deck.id, signal);
-    for (const b of barriers) {
+    const marketCards = await researchMarketCards(client, plan, deck.id, signal);
+    for (const b of marketCards) {
       cards.push(b);
       emit({ type: 'card', card: b });
     }
   } catch {
-    emit({ type: 'warning', message: 'Could not research barriers to entry.' });
+    emit({ type: 'warning', message: 'Could not research market-level barriers and insights.' });
   }
 
   emit({ type: 'done', total: cards.length });

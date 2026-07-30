@@ -26,6 +26,14 @@ function fakeClient(): LlmClient {
           companies: [
             { name: 'Alpha Inc', domain: 'alpha.com', descriptor: 'big co', cardTypes: ['company'] },
             { name: 'Beta LLC', domain: 'beta.com', descriptor: 'risky co', cardTypes: ['company', 'vice'] },
+            // The audit's defect, reproduced in shape: discovery hands back a
+            // TOPIC dressed as a company, tagged only as a signal.
+            {
+              name: 'Alpha Inc / Safety / Governance Controversy Entity',
+              domain: null,
+              descriptor: 'governance concerns',
+              cardTypes: ['vice'],
+            },
           ],
         };
       } else if (prompt.includes('Convert the research notes on "Alpha Inc"')) {
@@ -63,7 +71,10 @@ function fakeClient(): LlmClient {
           cultureNote: null,
         };
       } else if (prompt.includes('"barriers"')) {
-        obj = { barriers: [{ title: 'Capital intensity', summary: 'Expensive to enter.' }] };
+        obj = {
+          barriers: [{ title: 'Capital intensity', summary: 'Expensive to enter.', sourceIndex: 0 }],
+          insights: [{ title: 'Margins are shifting', summary: 'Compute costs falling fast.', sourceIndex: 1 }],
+        };
       } else if (prompt.includes('"markdown"')) {
         obj = { markdown: '# Overview\n\n## What they do\nStuff.\n\n## Why it matters\nReasons.' };
       } else if (prompt.includes('"verdict"')) {
@@ -113,8 +124,49 @@ describe('runDeckResearch (full orchestration, fake LLM)', () => {
     expect(barrier.company).toBeNull();
     expect(barrier.card.title).toBe('Capital intensity');
 
+    // Insight card rides along on the same market-level pass, with its source.
+    const insight = result.cards.find((c) => c.card.cardType === 'insight')!;
+    expect(insight.company).toBeNull();
+    expect(insight.card.citations[0]?.url).toBe('https://sec.example/b');
+    expect(barrier.card.citations[0]?.url).toBe('https://tc.example/a');
+
     expect(events).toContain('market');
     expect(events).toContain('done');
+  });
+
+  it('refuses to mint a company from a topic, and warns instead of failing silently', async () => {
+    const warnings: string[] = [];
+    const result = await runDeckResearch({ prompt: 'test market', region: 'CA' }, fakeClient(), {
+      apiKey: '',
+      onEvent: (e) => {
+        if (e.type === 'warning') warnings.push(e.message);
+      },
+    });
+
+    // Audit Finding 1.2: this pseudo-entity used to become a card AND inherit a
+    // real company's valuation/ARR/users as unsourced "verified" figures.
+    const names = result.cards.map((c) => c.company?.name ?? c.card.title ?? '');
+    expect(names.some((n) => /Controversy Entity/.test(n))).toBe(false);
+    expect(warnings.join(' ')).toMatch(/topic rather than a company/i);
+    expect(warnings.join(' ')).toMatch(/Controversy Entity/);
+  });
+
+  it('never lends a company figure to a signal card', async () => {
+    const result = await runDeckResearch({ prompt: 'test market', region: 'CA' }, fakeClient(), {
+      apiKey: '',
+    });
+
+    // Beta LLC is legitimately both a company and a vice facet. The company
+    // card owns the numbers; the vice card owns the sourced claim. If both
+    // carried metrics, one figure would appear twice under two provenance
+    // stories — which is how a wrong number becomes credible.
+    const betaCompany = result.cards.find(
+      (c) => c.card.cardType === 'company' && c.company?.name === 'Beta LLC',
+    )!;
+    const betaVice = result.cards.find((c) => c.card.cardType === 'vice')!;
+    expect(betaCompany.metrics.length).toBeGreaterThan(0);
+    expect(betaVice.metrics).toEqual([]);
+    expect(betaVice.viceClaims.length).toBeGreaterThan(0);
   });
 });
 

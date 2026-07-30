@@ -464,3 +464,38 @@ export const BARRIER_SEEDS: BarrierSeed[] = [
     category: 'supply_chain',
   },
 ];
+
+/**
+ * Market-level Insight seeds. In a live run these come from the same grounded
+ * pass as barriers; the demo fixture carries its own so the card type is
+ * exercised end-to-end (and so the demo deck isn't missing a whole tab).
+ *
+ * These are illustrative fixture copy for a fictional market, not researched
+ * claims — the same standing as every other value in this file.
+ */
+export interface InsightSeed {
+  slug: string;
+  title: string;
+  summary: string;
+}
+
+export const INSIGHT_SEEDS: InsightSeed[] = [
+  {
+    slug: 'wholesale-inversion',
+    title: 'Wholesale is quietly outgrowing DTC',
+    summary:
+      'The loudest brands in this market are direct-to-consumer, but the fastest revenue growth sits with the quieter labels selling through church bookstores and conference channels — a distribution advantage that does not show up in social following.',
+  },
+  {
+    slug: 'youth-price-ceiling',
+    title: 'The youth segment has a hard price ceiling',
+    summary:
+      'Brands targeting under-25 buyers cluster tightly under a $40 unit price regardless of margin structure, which caps how far premium positioning can travel down the age curve.',
+  },
+  {
+    slug: 'giving-as-product',
+    title: 'Giving programmes now function as product features',
+    summary:
+      'Explicit donation mechanics have shifted from brand marketing to a purchase driver buyers actively compare, which turns a soft differentiator into a line item competitors must answer.',
+  },
+];

@@ -13,7 +13,9 @@ import {
   CARD_TYPE_LABELS,
   SIGNAL_BANDS,
   TIER_LABELS,
+  isSignalCardType,
   mapValueToTier,
+  publisherOf,
   type CardType,
   type CardWithCompany,
   type Confidence,
@@ -177,32 +179,52 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
 
   const TypeIcon = TYPE_ICON[card.cardType];
 
-  // ---- Barrier: market-level card, steel identity, no company hero ----------
-  if (card.cardType === 'barrier' || !company) {
+  // ---- Market-level card (Barrier, Insight): a claim about the market, not a
+  // company. No hero, no stats — the claim and its source ARE the card. --------
+  if (!company) {
+    const marketSkin =
+      card.cardType === 'insight'
+        ? { band: '#4F46E5', accent: '#A5B4FC', art: 'text-indigo-400' }
+        : { band: '#64748B', accent: '#94A3B8', art: 'text-slate-400' };
+    const cited = card.citations?.[0];
     return (
       <button
         type="button"
         onClick={onOpen}
         data-material="matte"
         className={cn('tcg-card group w-full', className)}
-        style={{ ['--tcg-primary' as string]: '#64748B', ['--tcg-accent' as string]: '#94A3B8' }}
-        aria-label={`Barrier: ${card.title ?? ''}`}
+        style={{
+          ['--tcg-primary' as string]: marketSkin.band,
+          ['--tcg-accent' as string]: marketSkin.accent,
+        }}
+        aria-label={`${CARD_TYPE_LABELS[card.cardType]}: ${card.title ?? ''}`}
       >
         <span className="tcg-face">
-          <span className="flex items-center justify-between gap-2 px-3 py-2" style={{ background: '#64748B' }}>
+          <span
+            className="flex items-center justify-between gap-2 px-3 py-2"
+            style={{ background: marketSkin.band }}
+          >
             <span className="truncate font-display text-[13px] font-bold text-white">
-              {CARD_TYPE_LABELS.barrier}
+              {CARD_TYPE_LABELS[card.cardType]}
             </span>
             <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-white/20 text-white">
               <TypeIcon className="h-3.5 w-3.5" />
             </span>
           </span>
           <span className="tcg-hero mx-2.5 mt-2.5 grid h-24 shrink-0 place-items-center rounded-lg">
-            <Landmark className="h-10 w-10 text-slate-400" />
+            <TypeIcon className={cn('h-10 w-10', marketSkin.art)} />
           </span>
           <span className="flex flex-1 flex-col px-3.5 pb-3 pt-2.5 text-left">
-            <span className="font-display text-[15px] font-bold leading-snug text-content">{card.title}</span>
-            <span className="mt-1.5 line-clamp-5 text-xs leading-relaxed text-muted">{card.summary}</span>
+            <span className="font-display text-[15px] font-bold leading-snug text-content">
+              {card.title}
+            </span>
+            <span className="mt-1.5 line-clamp-5 text-xs leading-relaxed text-muted">
+              {card.summary}
+            </span>
+            {/* Market claims carry their own evidence, same rule as figures. */}
+            <span className="mt-auto pt-2 text-[9.5px] leading-tight text-muted">
+              {cited ? `Source: ${publisherOf(cited.url, cited.title)}` : 'No source recorded'}
+            </span>
           </span>
         </span>
       </button>
@@ -215,6 +237,31 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
   const share = getMetric(metrics, 'market_share');
   const users = getMetric(metrics, 'users');
   const soft = metrics.some((m) => m.confidence !== 'verified' && m.confidence !== 'user_verified');
+
+  /**
+   * A signal card annotates a company; it does not restate the company's
+   * accounts. Its payload is the claim plus who published it.
+   */
+  const signal = !isSignalCardType(card.cardType)
+    ? null
+    : card.cardType === 'vice'
+      ? {
+          heading: 'Sourced risk signal',
+          tint: '#FFF1F2',
+          edge: '#FDA4AF',
+          ink: '#9F1239',
+          claims: data.viceClaims.slice(0, 2).map((v) => ({
+            text: v.claimText,
+            publisher: publisherOf(v.sourceUrl),
+          })),
+        }
+      : {
+          heading: card.cardType === 'culture' ? 'Community signal' : 'Market insight',
+          tint: '#ECFDF5',
+          edge: '#6EE7B7',
+          ink: '#065F46',
+          claims: card.summary ? [{ text: card.summary, publisher: null }] : [],
+        };
 
   const vars: CSSProperties = {
     ['--tcg-primary' as string]: triad.primary,
@@ -273,7 +320,12 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
             setLogoNonce((n) => n + 1);
           }}
         >
-          <span className="tcg-hero grid place-items-center rounded-lg p-3" style={{ height: 118 }}>
+          {/* A SQUARE window, sized off the card's own width. Two reasons:
+              marks of any proportion now meet one uniform constraint (the Logo
+              fits them by equal optical area inside it), and it gives the card
+              the ~1:1.4 proportion of a real printed trading card instead of the
+              squat rectangle a short art window produced. */}
+          <span className="tcg-hero mx-auto grid aspect-square w-[66%] place-items-center rounded-xl p-3">
             <Logo
               name={company.name}
               website={company.websiteUrl}
@@ -281,53 +333,90 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
               onColor={setLogoColor}
               bare
               retryNonce={logoNonce}
-              className="h-[80%] w-full max-w-[72%]"
+              className="h-full w-full"
             />
           </span>
         </ContextRerun>
 
-        {/* 3 — One-liner ribbon (hard 2-line lock: clamp + explicit max height so
-            long researched blurbs can never collide with the stat box) */}
-        <span className="line-clamp-2 max-h-[2.9em] overflow-hidden px-3.5 pb-1 pt-2 text-left text-[10.5px] leading-snug text-muted">
-          {company.oneLiner}
+        {/* 3 — One-liner ribbon.
+            The clamp MUST live on an inner element. `line-clamp` works by setting
+            `display: -webkit-box`, and a direct child of this flex face gets that
+            value blockified away (measured: it computed to `flow-root`), which
+            left `overflow: hidden` slicing a third line through the middle of the
+            glyphs on every card. Nested one level in, it isn't a flex item, so the
+            clamp survives and truncates with an ellipsis as intended. */}
+        <span className="shrink-0 px-3.5 pb-1 pt-2 text-left">
+          <span className="line-clamp-2 text-[10.5px] leading-snug text-muted">
+            {company.oneLiner}
+          </span>
         </span>
 
-        {/* 4 — Stat box (attack moves) */}
-        <span
-          className="mx-2.5 mb-2 mt-auto flex flex-col gap-[7px] rounded-lg border p-2.5"
-          style={{
-            background: 'color-mix(in srgb, var(--tcg-secondary) 7%, #ffffff)',
-            borderColor: 'color-mix(in srgb, var(--tcg-secondary) 22%, #ffffff)',
-          }}
-        >
-          <StatRow type="market_share" label="Share" value={share?.value ?? null} confidence={share?.confidence} />
-          <StatRow type="arr" label="ARR" value={arr?.value ?? null} confidence={arr?.confidence} />
-          <StatRow
-            type={valMetric?.metricType ?? 'valuation'}
-            label={valLabel}
-            value={valMetric?.value ?? null}
-            confidence={valMetric?.confidence}
-          />
-          <StatRow type="employees" label="Team" value={employees?.value ?? null} confidence={employees?.confidence} />
-        </span>
+        {/* 4 — Payload. An entity card's payload is its numbers; a signal card's
+            payload is its sourced claim. A signal card deliberately shows NO
+            figures: borrowing the company's valuation would print the same
+            number twice under two different provenance stories (Finding 1.2). */}
+        {signal ? (
+          <span
+            className="mx-2.5 mb-2 mt-auto flex flex-col gap-1.5 rounded-lg border p-2.5"
+            style={{
+              background: signal.tint,
+              borderColor: signal.edge,
+            }}
+          >
+            <span
+              className="text-[9.5px] font-semibold uppercase tracking-[0.14em]"
+              style={{ color: signal.ink }}
+            >
+              {signal.heading}
+            </span>
+            {signal.claims.length > 0 ? (
+              signal.claims.map((c, i) => (
+                <span key={i} className="block text-[10.5px] leading-snug text-content">
+                  <span className="line-clamp-3">{c.text}</span>
+                  {c.publisher && (
+                    <span className="mt-0.5 block text-[9px] leading-tight text-muted">
+                      {c.publisher}
+                    </span>
+                  )}
+                </span>
+              ))
+            ) : (
+              <span className="block text-[10.5px] leading-snug text-muted">
+                Nothing sourced yet — open the card to research this signal.
+              </span>
+            )}
+          </span>
+        ) : (
+          <span
+            className="mx-2.5 mb-2 mt-auto flex flex-col gap-[7px] rounded-lg border p-2.5"
+            style={{
+              background: 'color-mix(in srgb, var(--tcg-secondary) 7%, #ffffff)',
+              borderColor: 'color-mix(in srgb, var(--tcg-secondary) 22%, #ffffff)',
+            }}
+          >
+            <StatRow type="market_share" label="Share" value={share?.value ?? null} confidence={share?.confidence} />
+            <StatRow type="arr" label="ARR" value={arr?.value ?? null} confidence={arr?.confidence} />
+            <StatRow
+              type={valMetric?.metricType ?? 'valuation'}
+              label={valLabel}
+              value={valMetric?.value ?? null}
+              confidence={valMetric?.confidence}
+            />
+            <StatRow type="employees" label="Team" value={employees?.value ?? null} confidence={employees?.confidence} />
+          </span>
+        )}
 
         {/* 5 — Footer: provenance + rarity stamp */}
         <span className="flex items-end justify-between gap-2 px-3 pb-2.5">
           <span className="min-w-0 text-left">
-            {users?.value != null && (
+            {/* Footer figures belong to entity cards only — a signal card's
+                footer must not smuggle back the numbers its body omits. */}
+            {!signal && users?.value != null && (
               <span className="block text-[9px] leading-tight text-faint">
                 ~{formatCount(users.value)} users ({users.confidence})
               </span>
             )}
-            {card.cardType === 'vice' && (
-              <span className="mt-0.5 inline-flex rounded-full border border-rose-300 bg-rose-50 px-1.5 py-px text-[8.5px] font-semibold uppercase tracking-wide text-rose-700">
-                ⚠ Sourced risk signal
-              </span>
-            )}
-            {card.cardType === 'culture' && card.summary && (
-              <span className="line-clamp-2 text-[9px] leading-snug text-emerald-700">{card.summary}</span>
-            )}
-            {soft && card.cardType !== 'vice' && <SoftDataDisclaimer compact />}
+            {!signal && soft && <SoftDataDisclaimer compact />}
           </span>
           {card.tier != null && <TierStamp tier={card.tier} />}
         </span>

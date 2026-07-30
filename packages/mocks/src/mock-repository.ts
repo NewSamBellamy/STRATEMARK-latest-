@@ -7,6 +7,7 @@ import {
   type Card,
   type CardFilter,
   type CardWithCompany,
+  isEntityCardType,
   type Company,
   type CompanyMetric,
   type CreateMarketInput,
@@ -279,9 +280,14 @@ export class MockRepository implements MarketIntelRepository {
     const company = card.companyId
       ? (this.companies.find((c) => c.id === card.companyId) ?? null)
       : null;
-    const metrics = card.companyId
-      ? this.metrics.filter((m) => m.companyId === card.companyId)
-      : [];
+    // Only a card that IS the business carries the business's figures. A signal
+    // card (vice / culture / insight) states a sourced claim — lending it a
+    // valuation would print the same number twice under two provenance stories
+    // (audit Finding 1.2).
+    const metrics =
+      card.companyId && isEntityCardType(card.cardType)
+        ? this.metrics.filter((m) => m.companyId === card.companyId)
+        : [];
     const viceClaims =
       card.cardType === 'vice' ? this.viceClaims.filter((v) => v.cardId === card.id) : [];
     return { card, company, metrics, viceClaims };

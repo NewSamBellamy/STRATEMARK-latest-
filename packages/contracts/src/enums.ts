@@ -41,6 +41,35 @@ export const CARD_TYPE_DESCRIPTIONS: Record<CardType, string> = {
   barrier: 'Structural barriers identified for the market (regulatory, capital, network effects).',
 };
 
+/**
+ * Card types that ARE a business entity, and therefore legitimately carry that
+ * entity's financial and scale metrics. NVIDIA can be both a company and an
+ * infrastructure provider — those are two facets of one real business.
+ */
+export const ENTITY_CARD_TYPES = ['company', 'infrastructure', 'distribution'] as const;
+
+/**
+ * Card types that ANNOTATE an entity or market with a sourced signal. A
+ * controversy is not a business: it has no valuation, no ARR, no headcount.
+ *
+ * This distinction is load-bearing, not cosmetic. Audit 2026-07-29 (Finding 1.2)
+ * found a Vice card that had minted a pseudo-company —
+ * "OpenAI / Safety / Governance Controversy Entity" — and inherited OpenAI's
+ * valuation, ARR and user count as *unsourced* "verified" figures. Signal cards
+ * must carry their claim and its sources, never borrowed numbers.
+ */
+export const SIGNAL_CARD_TYPES = ['culture', 'vice', 'insight'] as const;
+
+/** True when a card type describes a real business that can own metrics. */
+export function isEntityCardType(type: CardType): boolean {
+  return (ENTITY_CARD_TYPES as readonly CardType[]).includes(type);
+}
+
+/** True when a card type is a sourced observation rather than a business. */
+export function isSignalCardType(type: CardType): boolean {
+  return (SIGNAL_CARD_TYPES as readonly CardType[]).includes(type);
+}
+
 // The order card-type sub-decks are displayed in after a Level-1 split.
 export const CARD_TYPE_ORDER: readonly CardType[] = [
   'company',

@@ -105,9 +105,25 @@ export const factCheckOutSchema = z.object({
   rationale: z.string().default(''),
 });
 
-export const barrierOutSchema = z.preprocess(
+/**
+ * Market-level cards from ONE grounded pass: structural barriers to entry, plus
+ * the non-obvious dynamics worth remembering (Insight cards). Both are claims
+ * about the market rather than about a company, so they share a research call —
+ * two card types for the price of one against a 15 RPM free-tier ceiling.
+ *
+ * `sourceIndex` points into the grounded citation list so each claim keeps its
+ * evidence, the same discipline metrics and vice claims already follow.
+ */
+const marketClaimSchema = z.object({
+  title: z.string(),
+  summary: z.string(),
+  sourceIndex: z.number().int().nullable().default(null),
+});
+
+export const marketCardsOutSchema = z.preprocess(
   (v) => (Array.isArray(v) ? { barriers: v } : v),
   z.object({
-    barriers: z.array(z.object({ title: z.string(), summary: z.string() })).default([]),
+    barriers: z.array(marketClaimSchema).default([]),
+    insights: z.array(marketClaimSchema).default([]),
   }),
 );
