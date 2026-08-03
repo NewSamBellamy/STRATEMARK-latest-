@@ -189,6 +189,32 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      <div className="panel mt-6 space-y-4 p-6">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-5 w-5 text-primary-ink" />
+          <h2 className="font-display text-lg text-content">Stratemark License & Subscription</h2>
+        </div>
+        <p className="text-sm text-muted">
+          Manage your Stratemark Pro subscription powered by Paddle.
+        </p>
+        <div className="rounded-lg border border-border bg-surface-2 p-4 text-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="font-semibold text-content">License Status:</span>{' '}
+              <span className="text-emerald-700 font-medium">Free / Community Edition</span>
+            </div>
+            <a
+              href="https://stratemark.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-primary text-xs"
+            >
+              Upgrade via Paddle <ExternalLink className="h-3 w-3 ml-1" />
+            </a>
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 }
