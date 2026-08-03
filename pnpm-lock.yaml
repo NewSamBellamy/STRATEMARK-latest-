@@ -38,13 +38,7 @@ importers:
       '@mi/research':
         specifier: workspace:*
         version: link:../../packages/research
-      better-sqlite3:
-        specifier: ^13.0.2
-        version: 13.0.2
     devDependencies:
-      '@types/better-sqlite3':
-        specifier: ^9.6.0
-        version: 9.6.0
       '@types/node':
         specifier: ^20.17.0
         version: 20.19.43
@@ -1378,9 +1372,6 @@ packages:
   '@types/babel__traverse@7.28.0':
     resolution: {integrity: sha512-8PvcXf70gTDZBgt9ptxJ8elBeBjcLOAcOtoO/mPJjtji1+CdGbHgm77om1GrsPxsiE+uXIpNSK64UYaIwQXd4Q==}
 
-  '@types/better-sqlite3@9.6.0':
-    resolution: {integrity: sha512-ZEEwBSgMu7GYJOynoagg5X9JbxfL6dTJDsgViJIqh67jV44kyOr9RXfmFjLK5rzC4MWssP06t9hu/JwGDnUbCg==}
-
   '@types/cacheable-request@6.0.3':
     resolution: {integrity: sha512-IQ3EbTzGxIigb1I3qPZc1rWJnH0BmSKv5QYTalEwweFvyBDLSAe24zP0le/hyi7ecGfZVlIVAg4BZqb8WBwKqw==}
 
@@ -1788,10 +1779,6 @@ packages:
     resolution: {integrity: sha512-xJo6a6YZnwZfnyGmQKWMbVOcii7XRibjOskRh+WJ9UHQoX16xrQrcIgAMQOzfvs8XiLMx6ih/fsLPF73iY2D1A==}
     engines: {node: '>=6.0.0'}
     hasBin: true
-
-  better-sqlite3@13.0.2:
-    resolution: {integrity: sha512-jW6oufeDhXZaiX9Lw5A+oerVClx4iFrI6uDj1zu7SqUAjak9vbJvA0NEcKLNxHiQHb6kYCoFzzXYV0YOauhV3g==}
-    engines: {node: '>=22'}
 
   binary-extensions@2.3.0:
     resolution: {integrity: sha512-Ceh+7ox5qe7LJuLHoY0feh3pHuUDHAcRUeyL2VYghZwfpkNIy/+8Ocg0a3UuSoYzavmylwuLWQOf3hl0jjMMIw==}
@@ -3248,10 +3235,6 @@ packages:
 
   node-addon-api@1.7.2:
     resolution: {integrity: sha512-ibPK3iA+vaY1eEjESkQkM0BbCqFOaZMiXRTtdB0u7b4djtY6JnsjvPdUHVMg6xQt3B8fpTTWHI9A+ADjM9frzg==}
-
-  node-addon-api@8.9.1:
-    resolution: {integrity: sha512-4eUQWVPCUUUiBjLnHS3cXWeC6ryoPUc0U3rP7IuzapoGbzMqd/r6KKO0clr0b+snQhsrueFEhCZDdK+LK7hxKg==}
-    engines: {node: ^18 || ^20 || >= 21}
 
   node-api-version@0.2.1:
     resolution: {integrity: sha512-2xP/IGGMmmSQpI1+O/k72jF/ykvZ89JeuKX3TLJAYPDVLUalrshrLHkeVcCCZqG/eEa635cr8IBYzgnDvM2O8Q==}
@@ -5349,10 +5332,6 @@ snapshots:
     dependencies:
       '@babel/types': 7.29.7
 
-  '@types/better-sqlite3@9.6.0':
-    dependencies:
-      '@types/node': 20.19.43
-
   '@types/cacheable-request@6.0.3':
     dependencies:
       '@types/http-cache-semantics': 4.2.0
@@ -5864,10 +5843,6 @@ snapshots:
   base64-js@1.5.1: {}
 
   baseline-browser-mapping@2.11.5: {}
-
-  better-sqlite3@13.0.2:
-    dependencies:
-      node-addon-api: 8.9.1
 
   binary-extensions@2.3.0: {}
 
@@ -7703,8 +7678,6 @@ snapshots:
 
   node-addon-api@1.7.2:
     optional: true
-
-  node-addon-api@8.9.1: {}
 
   node-api-version@0.2.1:
     dependencies:
