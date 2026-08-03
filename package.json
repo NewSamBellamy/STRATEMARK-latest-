@@ -33,7 +33,7 @@
     "typescript-eslint": "^8.18.0"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild", "msw"]
+    "onlyBuiltDependencies": ["esbuild", "msw", "electron"]
   },
   "packageManager": "pnpm@10.34.3"
 }

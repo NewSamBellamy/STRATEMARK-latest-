@@ -39,7 +39,7 @@ jobs:
       - name: Build (web + desktop main/preload)
         run: |
           pnpm build
-          pnpm --filter @mi/desktop build:main
+          pnpm --filter @mi/desktop build
 
       - name: Install Playwright browser
         run: pnpm --filter @mi/web exec playwright install --with-deps chromium
