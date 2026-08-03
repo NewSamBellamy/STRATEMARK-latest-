@@ -41,6 +41,14 @@ export const IPC_CHANNELS = {
   expandDeck: 'mi:expandDeck',
   overrideMetric: 'mi:overrideMetric',
   getMarketOpportunity: 'mi:getMarketOpportunity',
+  askResearch: 'mi:askResearch',
+  listResearchThreads: 'mi:listResearchThreads',
+  getResearchThread: 'mi:getResearchThread',
+  saveThreadAsReport: 'mi:saveThreadAsReport',
+  attachLandingView: 'mi:attachLandingView',
+  detachLandingView: 'mi:detachLandingView',
+  exportBrain: 'mi:exportBrain',
+  importBrain: 'mi:importBrain',
   deckRefreshEvent: 'mi:deckRefreshEvent',
 } as const;
 

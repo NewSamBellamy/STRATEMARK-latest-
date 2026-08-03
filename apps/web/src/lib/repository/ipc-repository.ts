@@ -8,6 +8,7 @@
  * back end a zero-UI-change swap. It is intentionally a thin pass-through.
  */
 import type {
+  AskResearchInput,
   CardFilter,
   CardWithCompany,
   Company,
@@ -23,6 +24,7 @@ import type {
   OverrideMetricInput,
   Report,
   ReportRequest,
+  ResearchThread,
   Deck,
   DeckRefreshListener,
   DeckResearchBrief,
@@ -111,6 +113,31 @@ export class IpcRepository implements MarketIntelRepository {
   }
   getReport(id: string): Promise<Report | null> {
     return this.api.getReport(id);
+  }
+  askResearch(input: AskResearchInput, handlers?: ResearchHandlers): Promise<ResearchThread> {
+    if (!this.api.askResearch) throw new Error('askResearch not supported on this IPC bridge');
+    return this.api.askResearch(input, handlers);
+  }
+  listResearchThreads(filter?: { deckId?: string; companyId?: string }): Promise<ResearchThread[]> {
+    if (!this.api.listResearchThreads) return Promise.resolve([]);
+    return this.api.listResearchThreads(filter);
+  }
+  getResearchThread(id: string): Promise<ResearchThread | null> {
+    if (!this.api.getResearchThread) return Promise.resolve(null);
+    return this.api.getResearchThread(id);
+  }
+  saveThreadAsReport(threadId: string, focus?: string | null): Promise<Report> {
+    if (!this.api.saveThreadAsReport)
+      throw new Error('saveThreadAsReport not supported on this IPC bridge');
+    return this.api.saveThreadAsReport(threadId, focus);
+  }
+  exportBrain(): Promise<boolean> {
+    if (!this.api.exportBrain) return Promise.resolve(false);
+    return this.api.exportBrain();
+  }
+  importBrain(): Promise<boolean> {
+    if (!this.api.importBrain) return Promise.resolve(false);
+    return this.api.importBrain();
   }
   subscribeDeckRefresh(listener: DeckRefreshListener): Unsubscribe {
     return this.api.onDeckRefresh(listener);

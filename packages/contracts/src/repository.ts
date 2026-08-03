@@ -279,6 +279,10 @@ export interface MarketIntelRepository {
   /** Distill a conversation into a saved report (kept in the library + thread link). */
   saveThreadAsReport?(threadId: string, focus?: string | null): Promise<Report>;
 
+  // Brain export/import (the "brain-is-a-file" doctrine)
+  exportBrain?(): Promise<boolean>;
+  importBrain?(): Promise<boolean>;
+
   // Live refresh stream (spec §9). No-op-unsubscribe implementations are valid.
   subscribeDeckRefresh(listener: DeckRefreshListener): Unsubscribe;
 }
