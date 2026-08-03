@@ -34,8 +34,8 @@ export default function MarketSettingsPage() {
             <div className="panel p-5">
               <h2 className="font-display text-lg text-content">{m.name}</h2>
               <p className="mt-1 text-sm text-muted">
-                {m.scopeDefinition.vertical}
-                {m.scopeDefinition.geography ? ` · ${m.scopeDefinition.geography}` : ''}
+                {m.scopeDefinition?.vertical ?? ''}
+                {m.scopeDefinition?.geography ? ` · ${m.scopeDefinition.geography}` : ''}
               </p>
             </div>
 

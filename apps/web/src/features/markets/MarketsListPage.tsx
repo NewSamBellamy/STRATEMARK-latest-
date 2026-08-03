@@ -55,9 +55,9 @@ export default function MarketsListPage() {
                     <h2 className="font-display text-lg font-semibold text-content">{m.name}</h2>
                     <ArrowRight className="h-5 w-5 shrink-0 text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-content" />
                   </div>
-                  <p className="mt-1 text-sm text-muted">{m.scopeDefinition.vertical}</p>
+                  <p className="mt-1 text-sm text-muted">{m.scopeDefinition?.vertical ?? ''}</p>
                   <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted">
-                    {m.scopeDefinition.geography && (
+                    {m.scopeDefinition?.geography && (
                       <span className="chip border-border">
                         <MapPin className="h-3.5 w-3.5" />
                         {m.scopeDefinition.geography}
@@ -65,7 +65,7 @@ export default function MarketsListPage() {
                     )}
                     <span className="chip border-border">
                       <RefreshCw className="h-3.5 w-3.5" />
-                      {REFRESH_CADENCE_LABELS[m.refreshCadence]}
+                      {REFRESH_CADENCE_LABELS[m.refreshCadence] ?? m.refreshCadence}
                     </span>
                   </div>
                 </button>

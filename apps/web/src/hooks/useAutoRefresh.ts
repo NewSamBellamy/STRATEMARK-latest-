@@ -36,7 +36,8 @@ export function useAutoRefresh(): void {
         for (const market of markets) {
           const deck = await repo.getDeckByMarket(market.id);
           if (!deck) continue;
-          const due = nextDueAt(deck.lastRefreshedAt, REFRESH_CADENCE_HOURS[market.refreshCadence]);
+          const cadenceHours = REFRESH_CADENCE_HOURS[market.refreshCadence] ?? 168;
+          const due = nextDueAt(deck.lastRefreshedAt, cadenceHours);
           if (due !== null && now >= due) {
             await repo.refreshDeck(market.id); // events invalidate caches
             break; // one refresh per tick — protects free-tier quota
