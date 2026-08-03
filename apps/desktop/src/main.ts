@@ -256,8 +256,8 @@ function registerIpc(): void {
       const snapshot = JSON.parse(content) as RepoSnapshot;
       if (!snapshot || !Array.isArray(snapshot.markets)) return false;
 
-      const dbPath = path.join(app.getPath('userData'), 'research', 'brain.sqlite');
-      const store = createSqliteStore(dbPath);
+      const storeDir = path.join(app.getPath('userData'), 'research');
+      const store = createSqliteStore(storeDir);
       store.write(snapshot);
       swapRepository();
       return true;

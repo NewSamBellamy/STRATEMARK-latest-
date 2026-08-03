@@ -90,15 +90,24 @@ export async function saveToGoogleDrive({
   }
 
   if (!token) {
-    // If no token can be obtained, prompt for OAuth token or fallback cleanly
-    const promptToken = window.prompt(
-      'To save directly to your Google Drive, enter a Google OAuth Access Token (or obtain one from Google OAuth Playground):',
-    );
+    // If no token can be obtained, attempt prompt or fallback cleanly to local file download
+    let promptToken: string | null = null;
+    try {
+      if (typeof window !== 'undefined' && typeof window.prompt === 'function') {
+        promptToken = window.prompt(
+          'To save directly to your Google Drive, enter a Google OAuth Access Token (or obtain one from Google OAuth Playground):',
+        );
+      }
+    } catch {
+      // window.prompt is not supported in Electron renderers or restricted browsers
+      promptToken = null;
+    }
+
     if (promptToken && promptToken.trim()) {
       token = promptToken.trim();
       window.gapiAccessToken = token;
     } else {
-      // User cancelled or no token provided: download locally
+      // User cancelled, prompt unsupported, or no token provided: download locally
       const blob = new Blob([content], { type: mimeType });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');

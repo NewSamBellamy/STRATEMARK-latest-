@@ -224,7 +224,9 @@ export default function ReportViewerPage() {
                           title: r.title,
                           content: `# ${r.title}\n\n${r.markdown}`,
                         });
-                        if (res.webViewLink) {
+                        if (res.fileId === 'download-fallback') {
+                          setDriveState({ status: 'idle' });
+                        } else if (res.webViewLink) {
                           setDriveState({ status: 'saved', link: res.webViewLink });
                         } else {
                           setDriveState({ status: 'saved', link: 'https://drive.google.com/drive/my-drive' });
