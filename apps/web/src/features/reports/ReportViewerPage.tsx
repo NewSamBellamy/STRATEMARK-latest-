@@ -2,13 +2,14 @@ import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ArrowDown, ArrowLeft, ArrowUp, Download, ExternalLink, Presentation, Printer } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Cloud, Download, ExternalLink, Presentation, Printer } from 'lucide-react';
 import { TIER_LABELS, type CardWithCompany, type MaturityTier, type MetricType } from '@mi/contracts';
 import { useCards, useReport } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { formatMetricValue, formatRelative } from '@/lib/format';
 import { METRIC_COLORS, TIER_COLORS, tint } from '@/lib/theme';
 import { exportDeckPptx } from './pptx';
+import { saveToGoogleDrive } from './google-drive';
 
 type SortKey = 'name' | 'tier' | 'market_share' | 'arr' | 'value' | 'employees';
 
@@ -130,6 +131,11 @@ export default function ReportViewerPage() {
   const report = useReport(reportId);
   const deckCards = useCards(report.data?.kind === 'deck' ? report.data.subjectId : undefined);
   const [exporting, setExporting] = useState(false);
+  const [driveState, setDriveState] = useState<{
+    status: 'idle' | 'saving' | 'saved' | 'error';
+    link?: string;
+    message?: string;
+  }>({ status: 'idle' });
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -194,6 +200,46 @@ export default function ReportViewerPage() {
                   <Download className="h-4 w-4" />
                   .md
                 </button>
+                {driveState.status === 'saved' && driveState.link ? (
+                  <a
+                    href={driveState.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-ghost text-emerald-700"
+                    title="Open saved file in Google Drive"
+                  >
+                    <Cloud className="h-4 w-4" />
+                    Saved to Drive ↗
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    disabled={driveState.status === 'saving'}
+                    title="Save report to Google Drive"
+                    onClick={async () => {
+                      setDriveState({ status: 'saving' });
+                      try {
+                        const res = await saveToGoogleDrive({
+                          title: r.title,
+                          content: `# ${r.title}\n\n${r.markdown}`,
+                        });
+                        if (res.webViewLink) {
+                          setDriveState({ status: 'saved', link: res.webViewLink });
+                        } else {
+                          setDriveState({ status: 'saved', link: 'https://drive.google.com/drive/my-drive' });
+                        }
+                      } catch (err) {
+                        const msg = err instanceof Error ? err.message : String(err);
+                        setDriveState({ status: 'error', message: msg });
+                        alert(`Google Drive save error: ${msg}`);
+                      }
+                    }}
+                  >
+                    <Cloud className="h-4 w-4" />
+                    {driveState.status === 'saving' ? 'Saving…' : 'Drive'}
+                  </button>
+                )}
               </div>
             </header>
 
