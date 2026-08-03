@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "repository": "https://github.com/lYlarufAhmed/STRATEMARK.git",
   "main": "dist/main.mjs",
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -16,6 +17,11 @@
     "appId": "com.marketintel.deckbuilder",
     "productName": "Stratemark",
     "icon": "build/icon.png",
+    "publish": {
+      "provider": "github",
+      "owner": "lYlarufAhmed",
+      "repo": "STRATEMARK"
+    },
     "files": [
       "dist/**",
       "build/**"
