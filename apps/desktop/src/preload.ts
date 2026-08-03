@@ -41,6 +41,13 @@ const api: PreloadRepositoryApi = {
   overrideMetric: (input) => ipcRenderer.invoke(IPC_CHANNELS.overrideMetric, input),
   getMarketOpportunity: (marketId, force) =>
     ipcRenderer.invoke(IPC_CHANNELS.getMarketOpportunity, marketId, force),
+  askResearch: (input) => ipcRenderer.invoke(IPC_CHANNELS.askResearch, input),
+  listResearchThreads: (filter) => ipcRenderer.invoke(IPC_CHANNELS.listResearchThreads, filter),
+  getResearchThread: (id) => ipcRenderer.invoke(IPC_CHANNELS.getResearchThread, id),
+  saveThreadAsReport: (threadId, focus) =>
+    ipcRenderer.invoke(IPC_CHANNELS.saveThreadAsReport, threadId, focus),
+  exportBrain: () => ipcRenderer.invoke(IPC_CHANNELS.exportBrain),
+  importBrain: () => ipcRenderer.invoke(IPC_CHANNELS.importBrain),
   onDeckRefresh: (listener: DeckRefreshListener) => {
     const handler = (_event: unknown, evt: DeckRefreshEvent) => listener(evt);
     ipcRenderer.on(IPC_CHANNELS.deckRefreshEvent, handler);

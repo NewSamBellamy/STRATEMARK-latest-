@@ -8,9 +8,19 @@
  * persists to a JSON snapshot in userData. (SQLite/Drizzle remains the
  * documented upgrade path — same ResearchStore seam.)
  */
-import { app, BrowserWindow, ipcMain, net, protocol, safeStorage } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  WebContentsView,
+  ipcMain,
+  net,
+  protocol,
+  safeStorage,
+  session,
+} from 'electron';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import {
   IPC_CHANNELS,
@@ -31,20 +41,39 @@ protocol.registerSchemesAsPrivileged([
 
 // ---------------------------------------------------------------------------
 // Persistence + key management (main-process only)
+// Brain persistence replacing the 5MB localStorage cap
 // ---------------------------------------------------------------------------
-function createFileStore(file: string): ResearchStore {
+function createSqliteStore(storeDir: string): ResearchStore {
+  const jsonPath = path.join(storeDir, 'brain.json');
+  const legacyFile = path.join(storeDir, 'repo.json');
+  mkdirSync(storeDir, { recursive: true });
+
   return {
     read(): RepoSnapshot | null {
       try {
-        return existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as RepoSnapshot) : null;
-      } catch {
+        if (existsSync(jsonPath)) {
+          return JSON.parse(readFileSync(jsonPath, 'utf8')) as RepoSnapshot;
+        }
+        if (existsSync(legacyFile)) {
+          const snapshot = JSON.parse(readFileSync(legacyFile, 'utf8')) as RepoSnapshot;
+          if (snapshot) {
+            const tmpPath = jsonPath + '.tmp';
+            writeFileSync(tmpPath, JSON.stringify(snapshot, null, 2), 'utf8');
+            renameSync(tmpPath, jsonPath);
+            return snapshot;
+          }
+        }
+        return null;
+      } catch (err) {
+        console.error('Failed to read research snapshot:', err);
         return null;
       }
     },
     write(snapshot: RepoSnapshot): void {
       try {
-        mkdirSync(path.dirname(file), { recursive: true });
-        writeFileSync(file, JSON.stringify(snapshot));
+        const tmpPath = jsonPath + '.tmp';
+        writeFileSync(tmpPath, JSON.stringify(snapshot, null, 2), 'utf8');
+        renameSync(tmpPath, jsonPath);
       } catch (err) {
         console.error('Failed to persist research snapshot:', err);
       }
@@ -82,13 +111,25 @@ function saveApiKey(key: string): void {
 let repository: MarketIntelRepository;
 let unwireRefresh: (() => void) | null = null;
 let mainWin: BrowserWindow | null = null;
+let activeLandingView: WebContentsView | null = null;
+
+function detachLandingView(): void {
+  if (activeLandingView && mainWin && !mainWin.isDestroyed()) {
+    try {
+      mainWin.contentView.removeChildView(activeLandingView);
+    } catch {
+      // ignore if already removed
+    }
+  }
+  activeLandingView = null;
+}
 
 function makeRepository(): MarketIntelRepository {
   const apiKey = loadApiKey();
   if (!apiKey) return new MockRepository();
   return new GeminiRepository({
     apiKey,
-    store: createFileStore(path.join(app.getPath('userData'), 'research', 'repo.json')),
+    store: createSqliteStore(path.join(app.getPath('userData'), 'research')),
     targetCompanies: 10,
     concurrency: 3,
   });
@@ -154,6 +195,77 @@ function registerIpc(): void {
   ipcMain.handle(IPC_CHANNELS.getMarketOpportunity, (_e, marketId: string, force?: boolean) =>
     repository.getMarketOpportunity(marketId, force),
   );
+  ipcMain.handle(IPC_CHANNELS.askResearch, (_e, input) => repository.askResearch?.(input));
+  ipcMain.handle(IPC_CHANNELS.listResearchThreads, (_e, filter) =>
+    repository.listResearchThreads?.(filter),
+  );
+  ipcMain.handle(IPC_CHANNELS.getResearchThread, (_e, id: string) =>
+    repository.getResearchThread?.(id),
+  );
+  ipcMain.handle(IPC_CHANNELS.saveThreadAsReport, (_e, threadId: string, focus?: string | null) =>
+    repository.saveThreadAsReport?.(threadId, focus),
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.attachLandingView,
+    (_e, url: string, bounds: { x: number; y: number; width: number; height: number }) => {
+      detachLandingView();
+      if (!mainWin || mainWin.isDestroyed()) return;
+      activeLandingView = new WebContentsView();
+      mainWin.contentView.addChildView(activeLandingView);
+      activeLandingView.setBounds(bounds);
+      void activeLandingView.webContents.loadURL(url);
+    },
+  );
+
+  ipcMain.handle(IPC_CHANNELS.detachLandingView, () => {
+    detachLandingView();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.exportBrain, async (): Promise<boolean> => {
+    if (!mainWin || mainWin.isDestroyed()) return false;
+    const { filePath } = await dialog.showSaveDialog(mainWin, {
+      title: 'Export Brain Snapshot',
+      defaultPath: 'stratemark-brain.json',
+      filters: [{ name: 'Stratemark Brain Snapshot', extensions: ['json', 'stratemark'] }],
+    });
+    if (!filePath) return false;
+
+    const storeDir = path.join(app.getPath('userData'), 'research');
+    const store = createSqliteStore(storeDir);
+    const snapshot = store.read();
+    if (!snapshot) return false;
+
+    writeFileSync(filePath, JSON.stringify(snapshot, null, 2), 'utf8');
+    return true;
+  });
+
+  ipcMain.handle(IPC_CHANNELS.importBrain, async (): Promise<boolean> => {
+    if (!mainWin || mainWin.isDestroyed()) return false;
+    const { filePaths } = await dialog.showOpenDialog(mainWin, {
+      title: 'Import Brain Snapshot',
+      filters: [{ name: 'Stratemark Brain Snapshot', extensions: ['json', 'stratemark'] }],
+      properties: ['openFile'],
+    });
+    if (!filePaths || filePaths.length === 0) return false;
+
+    try {
+      const selectedFile = filePaths[0];
+      if (!selectedFile) return false;
+      const content = readFileSync(selectedFile, 'utf8');
+      const snapshot = JSON.parse(content) as RepoSnapshot;
+      if (!snapshot || !Array.isArray(snapshot.markets)) return false;
+
+      const dbPath = path.join(app.getPath('userData'), 'research', 'brain.sqlite');
+      const store = createSqliteStore(dbPath);
+      store.write(snapshot);
+      swapRepository();
+      return true;
+    } catch (err) {
+      console.error('Failed to import brain snapshot:', err);
+      return false;
+    }
+  });
 
   // Secure key storage — persists to the OS keychain and hot-swaps the backend.
   ipcMain.handle(SECURE_CHANNELS.getApiKey, (): string => loadApiKey());
@@ -167,6 +279,7 @@ function createWindow(): void {
   mainWin = new BrowserWindow({
     width: 1440,
     height: 900,
+    show: false,
     backgroundColor: '#EDECE8',
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
@@ -175,6 +288,16 @@ function createWindow(): void {
       sandbox: false, // required for an ESM preload; the bridge is still isolated
     },
   });
+
+  mainWin.once('ready-to-show', () => {
+    mainWin?.show();
+    mainWin?.focus();
+    if (process.platform === 'darwin') {
+      app.dock?.show();
+      app.focus({ steal: true });
+    }
+  });
+
   wireRefreshForwarding();
 
   const devUrl = process.env.VITE_DEV_SERVER_URL;
@@ -182,7 +305,25 @@ function createWindow(): void {
   else void mainWin.loadURL('app://bundle/index.html');
 }
 
+process.on('uncaughtException', (err) => {
+  console.error('[main] UNCAUGHT EXCEPTION:', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[main] UNHANDLED REJECTION:', reason);
+});
+
 void app.whenReady().then(() => {
+  // Strip frame-blocking headers for in-app browser embedding
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const responseHeaders = { ...details.responseHeaders };
+    delete responseHeaders['x-frame-options'];
+    delete responseHeaders['X-Frame-Options'];
+    delete responseHeaders['content-security-policy'];
+    delete responseHeaders['Content-Security-Policy'];
+    callback({ cancel: false, responseHeaders });
+  });
+
   // Serve the web build under app:// (raw file:// blocks ES modules).
   protocol.handle('app', (request) => {
     const { pathname } = new URL(request.url);
@@ -191,13 +332,20 @@ void app.whenReady().then(() => {
     return net.fetch(pathToFileURL(filePath).toString());
   });
 
-  repository = makeRepository();
+  try {
+    repository = makeRepository();
+  } catch (err) {
+    console.error('[main] Failed to create repository:', err);
+    repository = new MockRepository();
+  }
   registerIpc();
   createWindow();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+}).catch((err) => {
+  console.error('[main] Error in app.whenReady():', err);
 });
 
 app.on('window-all-closed', () => {
