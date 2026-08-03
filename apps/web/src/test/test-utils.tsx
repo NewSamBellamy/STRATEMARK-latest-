@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactElement } from 'react';
 import { render, type RenderResult } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -14,30 +14,11 @@ export function makeRepo(): MarketIntelRepository {
   return new MockRepository({ latencyMs: 0 });
 }
 
-function Providers({
-  children,
-  repository,
-}: {
-  children: ReactNode;
-  repository: MarketIntelRepository;
-}) {
-  return (
-    <RepositoryProvider repository={repository}>
-      <QueryClientProvider client={createQueryClient()}>
-        <AuthProvider>
-          <DeepDiveProvider>{children}</DeepDiveProvider>
-        </AuthProvider>
-      </QueryClientProvider>
-    </RepositoryProvider>
-  );
-}
-
 type RenderWithProvidersResult = RenderResult & {
   user: ReturnType<typeof userEvent.setup>;
   repository: MarketIntelRepository;
 };
 
-/** Render a component tree with all providers + a MemoryRouter. */
 export function renderWithProviders(
   ui: ReactElement,
   options: { route?: string; repository?: MarketIntelRepository } = {},
@@ -47,9 +28,15 @@ export function renderWithProviders(
     user: userEvent.setup(),
     repository,
     ...render(
-      <Providers repository={repository}>
-        <MemoryRouter initialEntries={[options.route ?? '/']}>{ui}</MemoryRouter>
-      </Providers>,
+      <RepositoryProvider repository={repository}>
+        <QueryClientProvider client={createQueryClient()}>
+          <AuthProvider>
+            <MemoryRouter initialEntries={[options.route ?? '/']}>
+              <DeepDiveProvider>{ui}</DeepDiveProvider>
+            </MemoryRouter>
+          </AuthProvider>
+        </QueryClientProvider>
+      </RepositoryProvider>,
     ),
   };
 }

@@ -18,11 +18,11 @@ function renderApp() {
       <RepositoryProvider repository={repository}>
         <QueryClientProvider client={createQueryClient()}>
           <AuthProvider>
-            <DeepDiveProvider>
-              <MemoryRouter initialEntries={['/']}>
+            <MemoryRouter initialEntries={['/']}>
+              <DeepDiveProvider>
                 <AppRoutes />
-              </MemoryRouter>
-            </DeepDiveProvider>
+              </DeepDiveProvider>
+            </MemoryRouter>
           </AuthProvider>
         </QueryClientProvider>
       </RepositoryProvider>,

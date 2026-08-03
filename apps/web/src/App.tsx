@@ -1,5 +1,6 @@
 import { HashRouter, MemoryRouter } from 'react-router-dom';
 import { AppRoutes } from './routes';
+import { DeepDiveProvider } from '@/features/deepdive/DeepDive';
 
 /**
  * Can this document support a URL-based router?
@@ -29,13 +30,17 @@ export function App() {
   if (!supportsUrlRouting()) {
     return (
       <MemoryRouter initialEntries={['/']}>
-        <AppRoutes />
+        <DeepDiveProvider>
+          <AppRoutes />
+        </DeepDiveProvider>
       </MemoryRouter>
     );
   }
   return (
     <HashRouter>
-      <AppRoutes />
+      <DeepDiveProvider>
+        <AppRoutes />
+      </DeepDiveProvider>
     </HashRouter>
   );
 }
