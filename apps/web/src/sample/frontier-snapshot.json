@@ -111,7 +111,7 @@
       "name": "Mistral AI",
       "oneLiner": "Mistral AI is a French artificial intelligence company that develops open-weight and proprietary large language models (LLMs), AI assistants (Le Chat), and enterprise generative AI solutions.",
       "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/e/e6/Mistral_AI_logo_%282025%E2%80%93%29.svg",
-      "hqLocation": "Paris, \u00cele-de-France, France",
+      "hqLocation": "Paris, Île-de-France, France",
       "websiteUrl": "https://mistral.ai",
       "brandTheme": {
         "primary": "#FA520F",
@@ -1080,7 +1080,7 @@
       "companyId": "cmp_mistral-ai_iubim",
       "cardType": "culture",
       "title": null,
-      "summary": "Mistral AI is widely recognized for pioneering a hybrid AI strategy\u2014releasing state-of-the-art open-weight models under permissive Apache 2.0 licenses to democratize access to advanced AI without vendor lock-in. It maintains a strong developer community through the Mistral AI Ambassador Program and emphasizes sustainability through energy-efficient European nuclear-powered grid infrastructure.",
+      "summary": "Mistral AI is widely recognized for pioneering a hybrid AI strategy—releasing state-of-the-art open-weight models under permissive Apache 2.0 licenses to democratize access to advanced AI without vendor lock-in. It maintains a strong developer community through the Mistral AI Ambassador Program and emphasizes sustainability through energy-efficient European nuclear-powered grid infrastructure.",
       "tier": null,
       "tierReason": null,
       "citations": [],
@@ -1292,97 +1292,97 @@
       "id": "vcl_cmp_nvidia-corporation_umowh-0_1fr4c",
       "cardId": "crd_nvidia-corporation-vice_4z9ym",
       "claimText": "The U.S. Department of Justice opened an antitrust probe and issued subpoenas to investigate potential anticompetitive conduct and market dominance in AI hardware.",
-      "sourceUrl": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFEyuVG7WTFrz4OtITivSlf4E0qQnfXXMhPnlIiTViJp6CcYLyXrct8xMBgdG4EmeePvkxk9yYCBM-dlWRuuagOGHl6r-b7H8lwWtSvBz_gVZk3SOXkqn2gyVPFjHu9o2vubD-FA_X_UrSCh9JrW1zx_BdEtFWl6jWY3MBU29diPE8JF8jkrA==",
+      "sourceUrl": "https://qz.com/nvidia-ai-chips-customers-google-microsoft-meta-amazon-1851653971",
       "capturedAt": "2026-07-30T15:12:45.446Z",
-      "sourceTitle": null
+      "sourceTitle": "qz.com"
     },
     {
       "id": "vcl_cmp_nvidia-corporation_umowh-1_e70l6",
       "cardId": "crd_nvidia-corporation-vice_4z9ym",
-      "claimText": "China\u2019s State Administration for Market Regulation (SAMR) launched anti-monopoly investigations into NVIDIA, issuing preliminary findings alleging antitrust violations.",
-      "sourceUrl": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFEyuVG7WTFrz4OtITivSlf4E0qQnfXXMhPnlIiTViJp6CcYLyXrct8xMBgdG4EmeePvkxk9yYCBM-dlWRuuagOGHl6r-b7H8lwWtSvBz_gVZk3SOXkqn2gyVPFjHu9o2vubD-FA_X_UrSCh9JrW1zx_BdEtFWl6jWY3MBU29diPE8JF8jkrA==",
+      "claimText": "China’s State Administration for Market Regulation (SAMR) launched anti-monopoly investigations into NVIDIA, issuing preliminary findings alleging antitrust violations.",
+      "sourceUrl": "https://qz.com/nvidia-ai-chips-customers-google-microsoft-meta-amazon-1851653971",
       "capturedAt": "2026-07-30T15:12:45.446Z",
-      "sourceTitle": null
+      "sourceTitle": "qz.com"
     },
     {
       "id": "vcl_cmp_nvidia-corporation_umowh-2_prc43",
       "cardId": "crd_nvidia-corporation-vice_4z9ym",
       "claimText": "The U.S. Supreme Court allowed an investor class-action lawsuit to proceed regarding allegations that NVIDIA misled investors about its dependence on volatile crypto-mining GPU sales.",
-      "sourceUrl": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQG0OUvLjFZiw8UhttUbxw5lZRU6AmGCQwBRl1CeFw16M_39LIrsNQom5pTMzcmPCCy3bsbZsgh6yBmzNtbNgxS3VvhYQ6PdLWs6cBik3X-uii4KfML-6mlfCEFg_kG0ZZ47ZoKSxco0YQSIFRffdWWcmgsQOR10W0s7SMfa_I57UAkB10PAiDX6HeFPesmOMdXuMsQ5Ein_kCTUag0t0Dv9qOWBK65vpRykr9ELmQ==",
+      "sourceUrl": "https://www.pbs.org/newshour/nation/class-action-lawsuit-against-microchip-company-nvidia-to-proceed-supreme-court-says",
       "capturedAt": "2026-07-30T15:12:45.446Z",
-      "sourceTitle": null
+      "sourceTitle": "pbs.org"
     },
     {
       "id": "vcl_cmp_nvidia-corporation_umowh-3_bt7eu",
       "cardId": "crd_nvidia-corporation-vice_4z9ym",
       "claimText": "Tech startup Xockets Inc. filed a lawsuit alleging NVIDIA infringed its Data Processing Unit (DPU) and Cloud Fabric patents to drive its data center architecture.",
-      "sourceUrl": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEBH7Hz1s8Xce4oD1RzajJXriBAZva2vcMWBvgbey8NYlz5PVv9OapP7SkxbrMK4xnLebUvzqsmOL0s9JzuHyNZ_yzEW5taGSaREWikzkZoYRDaDoTHQcIxnrIOMKMS8pw9wC4abgfVJJA-E3VlogSVt3M6AryHctcgt_f1KM5b1n75ZE2qrA0=",
+      "sourceUrl": "https://siliconanalysts.com/analysis/nvidia-ai-accelerator-market-share-2024-2026",
       "capturedAt": "2026-07-30T15:12:45.446Z",
-      "sourceTitle": null
+      "sourceTitle": "siliconanalysts.com"
     },
     {
       "id": "vcl_cmp_nvidia-corporation_umowh-4_xags1",
       "cardId": "crd_nvidia-corporation-vice_4z9ym",
       "claimText": "Market analysts and reports have highlighted risks over circular financing practices, where NVIDIA invests capital into frontier AI labs that in turn buy substantial volumes of NVIDIA hardware.",
-      "sourceUrl": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQE9LRvh5hUGzYLL5mitdL-cp29jFagSHE56kPC2Qwo0cDFri3CV8XTqgrJhUcKyl8q9P8e9Bw-My3miOZYvFsGFBR1yi2LwMIfN4dtWtU0K7LWUPr0QTBU9cnaUGLUNjRB6nNQp2_T5JQj_YlK1BTxLltJ9EB1XrbABXuJ_W_NKkwFaZlIXmwhK05JlC4OaQ4i4PeXSWzA-lA==",
+      "sourceUrl": "https://daily.dev/posts/nvidia-says-two-mystery-customers-accounted-for-39-of-q2-revenue-npjzuvl4o",
       "capturedAt": "2026-07-30T15:12:45.446Z",
-      "sourceTitle": null
+      "sourceTitle": "daily.dev"
     },
     {
       "id": "vcl_cmp_openai_5sz16-0_74141",
       "cardId": "crd_openai-vice_m7j3z",
       "claimText": "OpenAI faces consolidated class-action lawsuits and high-profile suits from media publishers and creators (e.g., The New York Times v. OpenAI and Microsoft, Concord Music Group) alleging unauthorized scraping and training on copyrighted articles, books, and creative works.",
-      "sourceUrl": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFir1z3gy8ogMK7MuILxiur7YSU5xSWRV_wLwKpofDyTRfmX-11gR3f0635jH-TUYqH7-oNFB_DDRb8UB_um57KHc2OKm956JX9Uk9EXPshdmNH9cFACw==",
+      "sourceUrl": "https://edelson.com/ai-lawsuits/",
       "capturedAt": "2026-07-30T15:12:45.446Z",
-      "sourceTitle": null
+      "sourceTitle": "edelson.com"
     },
     {
       "id": "vcl_cmp_openai_5sz16-1_rthy3",
       "cardId": "crd_openai-vice_m7j3z",
       "claimText": "Multiple civil lawsuits have been filed alleging product liability, psychological manipulation, and wrongful death regarding ChatGPT interactions and alleged failures in safety protocols.",
-      "sourceUrl": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFir1z3gy8ogMK7MuILxiur7YSU5xSWRV_wLwKpofDyTRfmX-11gR3f0635jH-TUYqH7-oNFB_DDRb8UB_um57KHc2OKm956JX9Uk9EXPshdmNH9cFACw==",
+      "sourceUrl": "https://edelson.com/ai-lawsuits/",
       "capturedAt": "2026-07-30T15:12:45.446Z",
-      "sourceTitle": null
+      "sourceTitle": "edelson.com"
     },
     {
       "id": "vcl_cmp_openai_5sz16-2_5zgvb",
       "cardId": "crd_openai-vice_m7j3z",
       "claimText": "Apple filed a lawsuit against OpenAI and former Apple executives (including OpenAI Chief Hardware Officer Tang Tan), alleging corporate espionage and theft of trade secrets to build OpenAI's hardware devices.",
-      "sourceUrl": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFir1z3gy8ogMK7MuILxiur7YSU5xSWRV_wLwKpofDyTRfmX-11gR3f0635jH-TUYqH7-oNFB_DDRb8UB_um57KHc2OKm956JX9Uk9EXPshdmNH9cFACw==",
+      "sourceUrl": "https://edelson.com/ai-lawsuits/",
       "capturedAt": "2026-07-30T15:12:45.446Z",
-      "sourceTitle": null
+      "sourceTitle": "edelson.com"
     },
     {
       "id": "vcl_cmp_openai_5sz16-3_tg401",
       "cardId": "crd_openai-vice_m7j3z",
       "claimText": "The Florida Attorney General launched a state-led lawsuit alleging OpenAI concealed safety risks regarding child interaction and user well-being while aggressively marketing ChatGPT.",
-      "sourceUrl": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFir1z3gy8ogMK7MuILxiur7YSU5xSWRV_wLwKpofDyTRfmX-11gR3f0635jH-TUYqH7-oNFB_DDRb8UB_um57KHc2OKm956JX9Uk9EXPshdmNH9cFACw==",
+      "sourceUrl": "https://edelson.com/ai-lawsuits/",
       "capturedAt": "2026-07-30T15:12:45.446Z",
-      "sourceTitle": null
+      "sourceTitle": "edelson.com"
     },
     {
       "id": "vcl_cmp_openai_5sz16-4_ok734",
       "cardId": "crd_openai-vice_m7j3z",
       "claimText": "Historical governance upheaval, including the November 2023 board removal and 5-day reinstatement of CEO Sam Altman, as well as ongoing scrutiny regarding its corporate transition from a non-profit-controlled entity to a public benefit corporation (PBC).",
-      "sourceUrl": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFhcgZRmeEwxqwZiYYPu84yfWpeVDKUw-5W60zbEek2w7nwCm4-kD684-HBqvJkOlJ3QNxZ5Zw-JhmtWJUgnI-G6E2Wc0vgTkKOrL0ZZUXanZNXNBPlTx3OgA==",
+      "sourceUrl": "https://en.wikipedia.org/wiki/OpenAI",
       "capturedAt": "2026-07-30T15:12:45.446Z",
-      "sourceTitle": null
+      "sourceTitle": "en.wikipedia.org"
     },
     {
       "id": "vcl_cmp_anthropic_1ydvf-0_g9tnn",
       "cardId": "crd_anthropic-vice_1wjpj",
       "claimText": "Faced a $1.5 billion copyright class-action settlement (Bartz v. Anthropic) for allegedly using pirated book datasets to train Claude without authorization or compensation.",
-      "sourceUrl": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHiz7d9RmWwi8khfqdoy9v3d8Y2_QSyf87PZBUB53kdKp7-w_tS1lzW2TB7UlEjxTWs7ccLrW9wUIRRauJezsC-er1bBsD5I0gjEnQLs5VTi4AVRWPknkTpIKCFqyS-vWP9pPxcnyoaLq8aSYH13sNZnc3HcDedp_1JNhL-g4Jzgq0w7TaeEKcZ7kj5RGo9zIi8iRDn4zM3JCi0C_Nd9V7Tlofd-ityyok1",
+      "sourceUrl": "https://authorsguild.org/advocacy/artificial-intelligence/what-authors-need-to-know-about-the-anthropic-settlement/",
       "capturedAt": "2026-07-30T15:12:45.446Z",
-      "sourceTitle": null
+      "sourceTitle": "authorsguild.org"
     },
     {
       "id": "vcl_cmp_coreweave_q8nfb-0_i9bji",
       "cardId": "crd_coreweave-vice_9hog0",
       "claimText": "CoreWeave made materially false and misleading statements during and after its IPO regarding its operational capacity to meet customer demand and concealed severe construction delays at a primary third-party data center site.",
-      "sourceUrl": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGL7p1JjvxcCOvqE59yuKlcc9SyV52psoLzwJyxKvbqqHNVa9ZKrrc-HBtXRZlT-rYvPqLU5AUEiYNZekXdSNy4DDRpyFsrHB9C0DlvFrZCUbUCb3MjXAtlUGaAUwceknEsE4c=",
+      "sourceUrl": "https://www.kaplanfox.com/case/coreweave-inc/",
       "capturedAt": "2026-07-30T15:12:45.446Z",
-      "sourceTitle": null
+      "sourceTitle": "kaplanfox.com"
     },
     {
       "id": "vcl_cmp_coreweave_q8nfb-1_znfjj",
@@ -1396,49 +1396,49 @@
       "id": "vcl_cmp_microsoft-corporation_gtmdz-0_w514n",
       "cardId": "crd_microsoft-corporation-vice_0gvs1",
       "claimText": "Shareholders filed class action lawsuits alleging executives made misleading statements regarding Copilot adoption, cloud metrics, and compute constraints.",
-      "sourceUrl": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQE4yaI_3gVbz3-3ZG7g96VowA23eALNlA-b_R_W_Lp9WPrhCPuqSMCCPKkdmgaEMYARCBGKBJEXQhBdkLgArKpKBwrYYLGHdrGULksMBbt4XyFeMm6tIn_CIpLHhop7kuIz-0VmFcOGbJV4ndlWxfc01cpeRjHqqFllUb5TMrQyF2fNr2jOWvVSUgsikY-LYaMNcmOxbhl-7Yb3euoP9efbaaI=",
+      "sourceUrl": "https://www.abajournal.com/news/article/big-tech-companies-facing-new-wave-of-lawsuits-over-copyright-and-AI",
       "capturedAt": "2026-07-30T15:12:45.446Z",
-      "sourceTitle": null
+      "sourceTitle": "abajournal.com"
     },
     {
       "id": "vcl_cmp_microsoft-corporation_gtmdz-1_mtrcl",
       "cardId": "crd_microsoft-corporation-vice_0gvs1",
       "claimText": "Microsoft faces copyright infringement lawsuits alleging unauthorized harvesting of copyrighted material for AI model training.",
-      "sourceUrl": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEIAOe7U1xFDHn3kM-z9_zb-yzswD2Ss_6gvYdtH6tOEQnLuMkKoOOvdtc7O7BGBk0u_UOIcROFqdZciiK2B1vBbQrhkQliNpzbnM1CzM-4jn9wvTDXummfOuojSg5WWm7t7xBU_nBw1w1WyMSbm4LSpXGkqzj8tw6RNiiULtqXgwv73IeSRClG1mcWXrAjGj_pot0QGDLZ_B3DVVKtEqabpccTBQ==",
+      "sourceUrl": "https://natlawreview.com/press-releases/msft-court-deadline-microsoft-investor-deadline-securities-fraud-class",
       "capturedAt": "2026-07-30T15:12:45.446Z",
-      "sourceTitle": null
+      "sourceTitle": "natlawreview.com"
     },
     {
       "id": "vcl_cmp_microsoft-corporation_gtmdz-2_sunh4",
       "cardId": "crd_microsoft-corporation-vice_0gvs1",
       "claimText": "The U.S. Federal Trade Commission expanded a broad investigation into Microsoft covering software bundling, cloud licensing restrictions, interoperability barriers, and its structural financial agreement with OpenAI.",
-      "sourceUrl": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEzmaHVF3cHioIXe0hMxKd19TCDyUYQ3EbF4c7EMo8h3crHNABHjqWvVXEzySmL-Js5uankJUQ5FlSI3DHgzJaz6TP5krnf9sdFwnq6nJovgvxCwNP6nH483gUN_WCc_PHSwY_dGS9pMDPmdNhZfXcu5cL3FjzaNzIn2FnFLsAXu_Fp9a-kp_RGoTJ_kIud2pAqC1JE8HBsrxXkOGisuN3-uPMQ0ELowFkxOYz0bPCJ6uZJA-YiwZ4PgSk366PifWZ5i8ZT62EeAD-YsRg501cq-tVHYcPdjGGm_JDqRuBuTAfoS-qRovOggcZsy8IOpz7gaz0Lp-wVdpBvDbjp4Ia3Hior",
+      "sourceUrl": "https://www.prnewswire.com/news-releases/msft-class-reminder-microsoft-investors-are-reminded-of-the-upcoming-august-11-deadline-in-the-filed-securities-fraud-class-action-to-recover-losses-302835965.html",
       "capturedAt": "2026-07-30T15:12:45.446Z",
-      "sourceTitle": null
+      "sourceTitle": "prnewswire.com"
     },
     {
       "id": "vcl_cmp_scale-ai_art8j-0_rn2fv",
       "cardId": "crd_scale-ai-vice_y03vu",
       "claimText": "Scale AI and its subsidiary Outlier misclassified workers as independent contractors, subjected them to uncompensated mandatory project training, monitored keystrokes, and enforced algorithmic pay reductions, leading to a $12.5 million class action settlement.",
-      "sourceUrl": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGqtRmHFfKULkst98fUShuPQmaADbGbIr7P8Emn4RtMteRkEE-oa7SfOqPYf7GP_mWNnXaUq638Xq35OinOdG9sg9pKBz0zkFAIlpR5qU3-ZzcFDj8YVLCIwMcNxPRZC14pesPLVeOm_ke3eTabqjsEnw==",
+      "sourceUrl": "https://clarksonlawfirm.com/scale-ai-misclassifies-workers/",
       "capturedAt": "2026-07-30T15:12:45.446Z",
-      "sourceTitle": null
+      "sourceTitle": "clarksonlawfirm.com"
     },
     {
       "id": "vcl_cmp_scale-ai_art8j-1_jt6so",
       "cardId": "crd_scale-ai-vice_y03vu",
       "claimText": "Taskers suffered severe psychological injuries including severe depression, PTSD, and moral injury after being required to review extreme, violent, and graphic material to train AI filters without adequate psychological support.",
-      "sourceUrl": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQE5BPnPzCnKD3KMvS2bUCOTzgkcVtq3BF7M1Bg39QF0iVHyQzmJiogPdj-MlcTrKwWkHDTxpJFOtxKUNTkE-QIfS0gAfyT8ljKbvn5MSJ9F3-WPlLA5GuyPwwHH7ol18AprUFr3piLmtrN7cHp8WPwOL6OFgHCZKERZ-4Jh",
+      "sourceUrl": "https://worksuite.com/resources/insights/ai-misclassification-lawsuits",
       "capturedAt": "2026-07-30T15:12:45.446Z",
-      "sourceTitle": null
+      "sourceTitle": "worksuite.com"
     },
     {
       "id": "vcl_cmp_scale-ai_art8j-2_goc1r",
       "cardId": "crd_scale-ai-vice_y03vu",
       "claimText": "The U.S. Department of Labor investigated Scale AI regarding Fair Labor Standards Act violations including unpaid overtime and worker misclassification.",
-      "sourceUrl": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFujOc-kGwijAzbQJL1TKY6sn_7xOg6r0MFHwc3tnitmCJg5pOLrOHoAH-C8eRvSKQHOoKBehwG36XGZom_YE9e5eStcI4Hk36aJuLhZb2kiZC2nbeaSHstpG1BZUpH1api1BwbHH1k-4zQyRz8vhRIgGjjNlubMvPaRH9GV8Tb1WH9__wjE76WC0IEoifj-3EXrWTnDcPVGP1AZttGW7yFXSbwjdTu-g_MdEFP-Q==",
+      "sourceUrl": "https://www.inc.com/sam-blum/labor-department-scraps-investigation-into-scale-ai-its-subpoena-wont-be-enforced/91166962",
       "capturedAt": "2026-07-30T15:12:45.446Z",
-      "sourceTitle": null
+      "sourceTitle": "inc.com"
     },
     {
       "id": "vcl_cmp_scale-ai_art8j-3_k89rm",
@@ -1452,16 +1452,16 @@
       "id": "vcl_cmp_scale-ai_art8j-4_ydajz",
       "cardId": "crd_scale-ai-vice_y03vu",
       "claimText": "Scale AI initiated litigation against rival platform Mercor alleging trade secret misappropriation and poaching.",
-      "sourceUrl": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGkpYXYJjvCJvP-yRSN5-PGMBPU7-2ukIr6uK8sAW2WD_56QYfpSPdCXa0sfQerQtAJBazJYpiJqVJtp7wWfOTUGSlsmpVpdovRVRqIu-0Jq9fN2L8CHrhbp3CMOw_wFU3iSRzJgf1xkmqCHvdTqU0EeoFGbT-SrPc6IEj0JBAI0NFx6SmhAUYoGmINhjYRa6tmjht1Pmr_U6QR4qOo0OB6m-vTai_Mr6nVZj1vu-FNeUNQCr4f",
+      "sourceUrl": "https://medium.com/@sugarfreehonesty411/scale-ais-desperate-lawsuit-when-a-29b-company-sues-its-way-out-of-trouble-28e9a41f709d",
       "capturedAt": "2026-07-30T15:12:45.446Z",
-      "sourceTitle": null
+      "sourceTitle": "medium.com"
     }
   ],
   "dashboards": {
     "cmp_nvidia-corporation_umowh": {
       "overview": {
         "content": {
-          "markdown": "NVIDIA Corporation stands at the epicenter of the modern technological landscape, serving as the primary hardware and software engine behind the generative AI revolution.\n\n## What they do\nNVIDIA Corporation functions as the primary platform and infrastructure provider for artificial intelligence, accelerated computing, and advanced graphics. Rather than operating solely as a chip maker, NVIDIA supplies a full-stack platform consisting of:\n- **Hardware Architectures:** Data center Graphics Processing Units (GPUs)\u2014such as the Hopper and Blackwell architectures\u2014alongside Central Processing Units (CPUs), Data Processing Units (DPUs), and high-speed networking fabrics (NVLink and Spectrum-X).\n- **Software Stack:** The CUDA parallel computing framework, deep learning acceleration libraries (cuDNN, TensorRT, NCCL), AI model orchestration platforms, and enterprise software microservices (NVIDIA NIMs and NeMo).\n- **Monetization & Delivery Models:** Beyond traditional hardware sales, NVIDIA offers usage-based revenue-sharing models (AI Compute Partnerships) with cloud providers and provides domain-specific platforms like Omniverse (digital twins/robotics), DRIVE (autonomous vehicles), and Jetson (edge/space computing).\n\n## Who they sell to\nNVIDIA segments its data center target customers into specific buyer categories:\n1. **Hyperscalers & Major Cloud Service Providers (CSPs):** Global technology leaders including Microsoft, Alphabet (Google), Amazon Web Services (AWS), and Meta. These buyers purchase tens to hundreds of thousands of GPUs per deployment to build foundation model clusters and host public AI cloud services. Hyperscalers account for approximately half of NVIDIA's Data Center revenue.\n2. **Frontier AI Model Developers:** Advanced AI labs and frontier model creators\u2014such as OpenAI and Anthropic\u2014that require vast computational capacity to train, fine-tune, and serve next-generation artificial intelligence models.\n3. **Specialized Cloud Providers (\"Neoclouds\"):** Regional or specialized AI cloud operators (e.g., SharonAI) that acquire NVIDIA hardware or enter revenue-sharing partnerships to rent high-performance GPU infrastructure to startups and specialized developers.\n4. **Enterprises & Industrial Organizations:** Global 2000 enterprises in sectors such as healthcare, automotive, finance, and manufacturing. These buyers purchase on-premise or hybrid \"AI factories\" to run domain-specific models, process private unstructured data, and power autonomous manufacturing or digital twins.\n5. **Sovereign Governments & Public Sector Entities:** Public sector organizations, national research laboratories, and defense agencies building national \"Sovereign AI\" infrastructure and high-performance supercomputing installations.\n\n## Why it matters\n- **Central Backbone of the AI Economy:** NVIDIA holds over 90% market share in AI training hardware and powers more than 75% of the world\u2019s TOP500 supercomputers.\n- **Primary Recipient of Global Infrastructure Spending:** As data centers transition from general-purpose CPUs to accelerated computing, NVIDIA\u2019s Data Center segment accounts for nearly 88%+ of its overall company revenue (e.g., $75.2 billion in Q1 FY27).\n- **Market Capitalization & Influence:** NVIDIA\u2019s platform serves as a foundational layer driving global artificial intelligence development, enterprise digital transformation, and stock market concentration."
+          "markdown": "NVIDIA Corporation stands at the epicenter of the modern technological landscape, serving as the primary hardware and software engine behind the generative AI revolution.\n\n## What they do\nNVIDIA Corporation functions as the primary platform and infrastructure provider for artificial intelligence, accelerated computing, and advanced graphics. Rather than operating solely as a chip maker, NVIDIA supplies a full-stack platform consisting of:\n- **Hardware Architectures:** Data center Graphics Processing Units (GPUs)—such as the Hopper and Blackwell architectures—alongside Central Processing Units (CPUs), Data Processing Units (DPUs), and high-speed networking fabrics (NVLink and Spectrum-X).\n- **Software Stack:** The CUDA parallel computing framework, deep learning acceleration libraries (cuDNN, TensorRT, NCCL), AI model orchestration platforms, and enterprise software microservices (NVIDIA NIMs and NeMo).\n- **Monetization & Delivery Models:** Beyond traditional hardware sales, NVIDIA offers usage-based revenue-sharing models (AI Compute Partnerships) with cloud providers and provides domain-specific platforms like Omniverse (digital twins/robotics), DRIVE (autonomous vehicles), and Jetson (edge/space computing).\n\n## Who they sell to\nNVIDIA segments its data center target customers into specific buyer categories:\n1. **Hyperscalers & Major Cloud Service Providers (CSPs):** Global technology leaders including Microsoft, Alphabet (Google), Amazon Web Services (AWS), and Meta. These buyers purchase tens to hundreds of thousands of GPUs per deployment to build foundation model clusters and host public AI cloud services. Hyperscalers account for approximately half of NVIDIA's Data Center revenue.\n2. **Frontier AI Model Developers:** Advanced AI labs and frontier model creators—such as OpenAI and Anthropic—that require vast computational capacity to train, fine-tune, and serve next-generation artificial intelligence models.\n3. **Specialized Cloud Providers (\"Neoclouds\"):** Regional or specialized AI cloud operators (e.g., SharonAI) that acquire NVIDIA hardware or enter revenue-sharing partnerships to rent high-performance GPU infrastructure to startups and specialized developers.\n4. **Enterprises & Industrial Organizations:** Global 2000 enterprises in sectors such as healthcare, automotive, finance, and manufacturing. These buyers purchase on-premise or hybrid \"AI factories\" to run domain-specific models, process private unstructured data, and power autonomous manufacturing or digital twins.\n5. **Sovereign Governments & Public Sector Entities:** Public sector organizations, national research laboratories, and defense agencies building national \"Sovereign AI\" infrastructure and high-performance supercomputing installations.\n\n## Why it matters\n- **Central Backbone of the AI Economy:** NVIDIA holds over 90% market share in AI training hardware and powers more than 75% of the world’s TOP500 supercomputers.\n- **Primary Recipient of Global Infrastructure Spending:** As data centers transition from general-purpose CPUs to accelerated computing, NVIDIA’s Data Center segment accounts for nearly 88%+ of its overall company revenue (e.g., $75.2 billion in Q1 FY27).\n- **Market Capitalization & Influence:** NVIDIA’s platform serves as a foundational layer driving global artificial intelligence development, enterprise digital transformation, and stock market concentration."
         },
         "lastRefreshedAt": "2026-07-30T15:13:36.744Z"
       },
@@ -1471,7 +1471,7 @@
             {
               "id": "cmp_nvidia-corporation_umowh-intel-0",
               "source": "x",
-              "title": "Jensen Huang\u2019s Debut Post on X Advocating for Open-Weight AI Models",
+              "title": "Jensen Huang’s Debut Post on X Advocating for Open-Weight AI Models",
               "url": "https://www.barchart.com/story/news/28954714/nvidia-ceo-jensen-huang-makes-first-ever-x-post-sharing-letter-to-congress",
               "summary": "NVIDIA CEO Jensen Huang made his first post on X sharing an open letter co-signed by leading tech companies urging U.S. policymakers to support open-weight AI models.",
               "sentiment": "positive",
@@ -1603,7 +1603,7 @@
               "source": "reddit",
               "title": "NVIDIA & others form the Open Secure AI Alliance",
               "url": "https://www.reddit.com/r/nvidia/comments/1e20033/nvidia_others_form_the_open_secure_ai_alliance/",
-              "summary": "Community members highlighted NVIDIA\u2019s involvement in launching the Open Secure AI Alliance to improve security and alignment standards for open AI models.",
+              "summary": "Community members highlighted NVIDIA’s involvement in launching the Open Secure AI Alliance to improve security and alignment standards for open AI models.",
               "sentiment": "positive",
               "publishedAt": "2026-07-30T15:14:26.261Z",
               "stale": false
@@ -1647,7 +1647,7 @@
               "role": "Executive Vice President and Chief Financial Officer",
               "group": "exec",
               "parentId": "jensen-huang",
-              "bio": "Joined NVIDIA in September 2013, overseeing corporate finance, strategy, internal audit, tax, and investor relations. She previously served as SVP and CFO of Cisco\u2019s Business Technology and Operations Finance division and spent 13 years at Microsoft."
+              "bio": "Joined NVIDIA in September 2013, overseeing corporate finance, strategy, internal audit, tax, and investor relations. She previously served as SVP and CFO of Cisco’s Business Technology and Operations Finance division and spent 13 years at Microsoft."
             },
             {
               "id": "debora-shoquist",
@@ -1695,7 +1695,7 @@
               "role": "Vice President and General Manager, Hyperscale and High-Performance Computing (HPC)",
               "group": "product",
               "parentId": "jensen-huang",
-              "bio": "Creator of the CUDA parallel computing platform based on his PhD research at Stanford, Buck joined NVIDIA in 2004. He leads NVIDIA\u2019s accelerated computing and data center business unit."
+              "bio": "Creator of the CUDA parallel computing platform based on his PhD research at Stanford, Buck joined NVIDIA in 2004. He leads NVIDIA’s accelerated computing and data center business unit."
             },
             {
               "id": "jonah-alben",
@@ -1727,7 +1727,7 @@
               "role": "Senior Vice President, GeForce",
               "group": "product",
               "parentId": "jensen-huang",
-              "bio": "Has served as head of NVIDIA's GeForce GPU business unit for consumer graphics and gaming. He originally started as NVIDIA\u2019s first salesperson after earlier sales roles at Adaptec and Weitek Corporation."
+              "bio": "Has served as head of NVIDIA's GeForce GPU business unit for consumer graphics and gaming. He originally started as NVIDIA’s first salesperson after earlier sales roles at Adaptec and Weitek Corporation."
             }
           ]
         },
@@ -1764,8 +1764,8 @@
       "mission_governance": {
         "content": {
           "mission": "To solve the world's most challenging computing problems that traditional computing cannot address, and to advance accelerated computing and bring \"superhuman capabilities to every human, in every industry\".",
-          "ethos": "Grounded in a \"Speed-of-Light\" philosophy\u2014approaching engineering problems from first principles limited only by the laws of physics to achieve zero waste, maximum performance, and extreme operational efficiency, operating under five core values: Innovation, Intellectual Honesty, Speed and Agility, Excellence and Determination, and One Team.",
-          "governanceStructure": "Headed by Co-Founder, President, and CEO Jensen Huang. The majority of the board members are independent, and all three standing board committees\u2014Audit, Compensation, and Nominating & Corporate Governance\u2014are composed entirely of independent directors. Directors stand for election annually, and governance utilizes a simple majority voting standard for amending governing corporate documents.",
+          "ethos": "Grounded in a \"Speed-of-Light\" philosophy—approaching engineering problems from first principles limited only by the laws of physics to achieve zero waste, maximum performance, and extreme operational efficiency, operating under five core values: Innovation, Intellectual Honesty, Speed and Agility, Excellence and Determination, and One Team.",
+          "governanceStructure": "Headed by Co-Founder, President, and CEO Jensen Huang. The majority of the board members are independent, and all three standing board committees—Audit, Compensation, and Nominating & Corporate Governance—are composed entirely of independent directors. Directors stand for election annually, and governance utilizes a simple majority voting standard for amending governing corporate documents.",
           "board": [
             {
               "name": "Jensen Huang",
@@ -1810,7 +1810,7 @@
       },
       "history": {
         "content": {
-          "founderStory": "In April 1993, three software and hardware engineers\u2014Jensen Huang, Chris Malachowsky, and Curtis Priem\u2014met at a 24-hour Denny\u2019s diner in San Jose, California. Fueled by endless cups of coffee and cheap meals, the trio debated the future of personal computing, believing that the next breakthrough would not come from general-purpose CPUs, but from hardware acceleration dedicated to complex 3D graphics for PC video games.\n\nThe company was initially unnamed, with files labeled \"NV\" for \"Next Version\" before incorporating as NVIDIA. Securing $2 million in early venture funding from Sequoia Capital and Sutter Hill Ventures, NVIDIA embarked on a high-stakes mission to build realistic 3D graphics chips. After surviving near-fatal engineering and market stumbles in its early years, the company executed radical pivots into general-purpose GPU computing with CUDA and made an early multi-billion dollar bet on deep learning long before the market understood it, ultimately transforming from a struggling gaming-card startup into the foundational compute engine of the global artificial intelligence economy.",
+          "founderStory": "In April 1993, three software and hardware engineers—Jensen Huang, Chris Malachowsky, and Curtis Priem—met at a 24-hour Denny’s diner in San Jose, California. Fueled by endless cups of coffee and cheap meals, the trio debated the future of personal computing, believing that the next breakthrough would not come from general-purpose CPUs, but from hardware acceleration dedicated to complex 3D graphics for PC video games.\n\nThe company was initially unnamed, with files labeled \"NV\" for \"Next Version\" before incorporating as NVIDIA. Securing $2 million in early venture funding from Sequoia Capital and Sutter Hill Ventures, NVIDIA embarked on a high-stakes mission to build realistic 3D graphics chips. After surviving near-fatal engineering and market stumbles in its early years, the company executed radical pivots into general-purpose GPU computing with CUDA and made an early multi-billion dollar bet on deep learning long before the market understood it, ultimately transforming from a struggling gaming-card startup into the foundational compute engine of the global artificial intelligence economy.",
           "timeline": [
             {
               "date": "April 1993",
@@ -2045,7 +2045,7 @@
               "source": "news",
               "title": "OpenAI Releases GPT-5.6 Sol, Terra, and Luna Publicly After Regulatory Delays",
               "url": "https://www.infoworld.com/article/3482915/openai-to-release-delayed-models-thursday-amidst-a-sea-of-regulatory-confusion.html",
-              "summary": "OpenAI expanded access to its GPT-5.6 frontier lineup\u2014comprising Sol, Terra, and Luna\u2014following clarification from U.S. regulators regarding model preview rules.",
+              "summary": "OpenAI expanded access to its GPT-5.6 frontier lineup—comprising Sol, Terra, and Luna—following clarification from U.S. regulators regarding model preview rules.",
               "sentiment": "neutral",
               "publishedAt": "2026-07-30T15:17:34.141Z",
               "stale": false
@@ -2073,9 +2073,9 @@
             {
               "id": "cmp_openai_5sz16-intel-6",
               "source": "news",
-              "title": "David V\u00e9lez and Robin Vince Join OpenAI Board of Directors",
+              "title": "David Vélez and Robin Vince Join OpenAI Board of Directors",
               "url": "https://openai.com/index/david-velez-and-robin-vince-join-openai-boards/",
-              "summary": "Nubank founder David V\u00e9lez and BNY Mellon CEO Robin Vince joined OpenAI's board to bolster governance across fintech and global operations.",
+              "summary": "Nubank founder David Vélez and BNY Mellon CEO Robin Vince joined OpenAI's board to bolster governance across fintech and global operations.",
               "sentiment": "positive",
               "publishedAt": "2026-07-30T15:17:34.141Z",
               "stale": false
@@ -2143,7 +2143,7 @@
             {
               "id": "cmp_openai_5sz16-intel-13",
               "source": "x",
-              "title": "\"OpenAI Rogue Agent Hit Four More Services \u2014 Pacing Talks Heat Up\"",
+              "title": "\"OpenAI Rogue Agent Hit Four More Services — Pacing Talks Heat Up\"",
               "url": "https://x.com/explainx_ai/status/1818290182910291012",
               "summary": "X commentators and security experts highlighted OpenAI's updated disclosure regarding the four compromised services, sparking broader chatter about government AI pacing proposals.",
               "sentiment": "negative",
@@ -2237,7 +2237,7 @@
               "role": "Vice President of AI for Science (former Chief Product Officer)",
               "group": "product",
               "parentId": "sam-altman",
-              "bio": "Previously served as OpenAI\u2019s Chief Product Officer before stepping into a role leading a dedicated group building AI-powered scientific discovery platforms."
+              "bio": "Previously served as OpenAI’s Chief Product Officer before stepping into a role leading a dedicated group building AI-powered scientific discovery platforms."
             },
             {
               "id": "vijaye-raji",
@@ -2305,7 +2305,7 @@
       },
       "mission_governance": {
         "content": {
-          "mission": "To ensure that artificial general intelligence (AGI)\u2014by which we mean highly autonomous systems that outperform humans at most economically valuable work\u2014benefits all of humanity.",
+          "mission": "To ensure that artificial general intelligence (AGI)—by which we mean highly autonomous systems that outperform humans at most economically valuable work—benefits all of humanity.",
           "ethos": "",
           "governanceStructure": "A hybrid corporate structure consisting of the non-profit OpenAI Foundation and its commercial operating unit, OpenAI Group PBC (a Public Benefit Corporation).",
           "board": [
@@ -2365,7 +2365,7 @@
       },
       "history": {
         "content": {
-          "founderStory": "In December 2015, a small group of Silicon Valley\u2019s top technologists and researchers gathered for dinner at Sam Altman\u2019s home in San Francisco. Present were Y Combinator president Sam Altman, Tesla CEO Elon Musk, former Stripe CTO Greg Brockman, top machine learning researcher Ilya Sutskever, and leading engineers including Wojciech Zaremba and John Schulman.\n\nTheir collective concern was existential: rapid breakthroughs in artificial intelligence were concentrated inside deep-pocketed corporate labs like Google. They feared that a single commercial entity might achieve Artificial General Intelligence (AGI)\u2014AI capable of matching or exceeding human capability across most economically valuable work\u2014behind closed doors for private profit.\n\nTheir counter-vision was radical: create a non-profit AI research lab funded by philanthropic donations that would build AGI safely and freely share its research, code, and patents with the world. Pledging more than $1 billion in financial commitments alongside tech luminaries like Reid Hoffman and Peter Thiel, OpenAI officially launched on December 8, 2015.\n\nHowever, as model scale demands skyrocketed, OpenAI discovered that non-profit philanthropy could not support the tens of billions of dollars needed for high-end compute infrastructure. What began as an idealistic, open-source non-profit research lab transformed through a series of unprecedented corporate pivots into the world\u2019s leading commercial frontier AI company.",
+          "founderStory": "In December 2015, a small group of Silicon Valley’s top technologists and researchers gathered for dinner at Sam Altman’s home in San Francisco. Present were Y Combinator president Sam Altman, Tesla CEO Elon Musk, former Stripe CTO Greg Brockman, top machine learning researcher Ilya Sutskever, and leading engineers including Wojciech Zaremba and John Schulman.\n\nTheir collective concern was existential: rapid breakthroughs in artificial intelligence were concentrated inside deep-pocketed corporate labs like Google. They feared that a single commercial entity might achieve Artificial General Intelligence (AGI)—AI capable of matching or exceeding human capability across most economically valuable work—behind closed doors for private profit.\n\nTheir counter-vision was radical: create a non-profit AI research lab funded by philanthropic donations that would build AGI safely and freely share its research, code, and patents with the world. Pledging more than $1 billion in financial commitments alongside tech luminaries like Reid Hoffman and Peter Thiel, OpenAI officially launched on December 8, 2015.\n\nHowever, as model scale demands skyrocketed, OpenAI discovered that non-profit philanthropy could not support the tens of billions of dollars needed for high-end compute infrastructure. What began as an idealistic, open-source non-profit research lab transformed through a series of unprecedented corporate pivots into the world’s leading commercial frontier AI company.",
           "timeline": [
             {
               "date": "December 8, 2015",
@@ -2414,8 +2414,8 @@
             },
             {
               "date": "January 2021",
-              "title": "DALL\u00b7E Introduced",
-              "detail": "Introduces DALL\u00b7E, a text-to-image neural network capable of rendering creative visuals."
+              "title": "DALL·E Introduced",
+              "detail": "Introduces DALL·E, a text-to-image neural network capable of rendering creative visuals."
             },
             {
               "date": "August 2021",
@@ -2424,8 +2424,8 @@
             },
             {
               "date": "April 2022",
-              "title": "DALL\u00b7E 2 Released",
-              "detail": "Releases DALL\u00b7E 2 offering higher-resolution image generation and realistic editing capabilities."
+              "title": "DALL·E 2 Released",
+              "detail": "Releases DALL·E 2 offering higher-resolution image generation and realistic editing capabilities."
             },
             {
               "date": "November 30, 2022",
@@ -2448,7 +2448,7 @@
               "detail": "Launches GPT-4 Turbo, the Assistants API, and Custom GPTs."
             },
             {
-              "date": "November 17\u201322, 2023",
+              "date": "November 17–22, 2023",
               "title": "Boardroom Crisis",
               "detail": "Sam Altman is fired by the board, employees threaten to quit, and Altman is reinstated as CEO."
             },
@@ -2530,19 +2530,19 @@
             {
               "name": "ChatGPT Subscriptions (Plus & Pro)",
               "description": "Premium consumer subscriptions offering higher usage limits, flagship frontier models, Advanced Voice mode, Canvas workspace, and power-user features like o-series Pro Mode, Deep Research, and Operator.",
-              "revenueNote": "55%\u201370% of total top-line revenue (~$17 billion ARR in 2026)",
+              "revenueNote": "55%–70% of total top-line revenue (~$17 billion ARR in 2026)",
               "status": "live"
             },
             {
               "name": "Enterprise Solutions (Enterprise, Team, Edu)",
               "description": "Enterprise-grade productivity suites offering SOC 2 compliance, SAML/SSO integration, admin governance controls, custom data connectors, and specialized educational/vertical tiers.",
-              "revenueNote": "25%\u201330% of total revenue (~$6.5 billion ARR)",
+              "revenueNote": "25%–30% of total revenue (~$6.5 billion ARR)",
               "status": "live"
             },
             {
               "name": "Developer API Platform",
               "description": "Cloud API infrastructure and frontier model engine portfolio supporting text, vision, reasoning, video (Sora), image generation, and audio capabilities.",
-              "revenueNote": "15%\u201325% of overall ARR (~$6.5 billion ARR in mid-2026 estimates)",
+              "revenueNote": "15%–25% of overall ARR (~$6.5 billion ARR in mid-2026 estimates)",
               "status": "live"
             },
             {
@@ -2910,7 +2910,7 @@
               "role": "Deputy Chief Information Security Officer",
               "group": "other",
               "parentId": "daniela-amodei",
-              "bio": "Jason Clinton joined in April 2023 as Anthropic\u2019s first CISO after a decade leading Chrome Infrastructure Security at Google, and now serves as Deputy CISO."
+              "bio": "Jason Clinton joined in April 2023 as Anthropic’s first CISO after a decade leading Chrome Infrastructure Security at Google, and now serves as Deputy CISO."
             }
           ]
         },
@@ -2987,7 +2987,7 @@
       },
       "history": {
         "content": {
-          "founderStory": "In late 2020, a faction of senior researchers and executives at OpenAI\u2014led by Vice President of Research Dario Amodei and Vice President of Safety and Policy Daniela Amodei\u2014faced a critical juncture. As OpenAI began steering more aggressively toward commercialization, enterprise partnerships, and consumer products, internal tensions grew regarding the organization's adherence to its original safety mission. The Amodei siblings and a core group of seven researchers believed that safety, steerability, and interpretability could not be retrofitted onto large language models as an afterthought; they needed to be architectural priorities built in from day one.\n\nIn January 2021, Dario and Daniela Amodei officially departed OpenAI, taking roughly a dozen senior colleagues with them. They incorporated Anthropic, PBC as a San Francisco\u2013based Public Benefit Corporation\u2014a legal structure chosen intentionally to balance commercial growth with a legal mandate to promote safe, beneficial AI. Daniela chose the name \"Anthropic\" to keep the focus explicitly centered on humans.\n\nRather than rushing early chatbot prototypes to market, Anthropic operated quietly in 2021 and 2022. By the summer of 2022, Anthropic had trained an early version of its flagship model, Claude, but chose to hold back its public release to conduct rigorous alignment safety testing\u2014a decision that allowed OpenAI to capture first-mover consumer momentum with ChatGPT in late 2022. However, Anthropic pioneered a novel training framework called Constitutional AI\u2014a process where models critique and align their own behavior against a set of explicit ethical principles (a \"constitution\") rather than relying solely on direct human reinforcement learning. This safety-first, context-heavy approach laid the technical moat that established Claude as a premier frontier AI model family for enterprise workflows and complex coding tasks.",
+          "founderStory": "In late 2020, a faction of senior researchers and executives at OpenAI—led by Vice President of Research Dario Amodei and Vice President of Safety and Policy Daniela Amodei—faced a critical juncture. As OpenAI began steering more aggressively toward commercialization, enterprise partnerships, and consumer products, internal tensions grew regarding the organization's adherence to its original safety mission. The Amodei siblings and a core group of seven researchers believed that safety, steerability, and interpretability could not be retrofitted onto large language models as an afterthought; they needed to be architectural priorities built in from day one.\n\nIn January 2021, Dario and Daniela Amodei officially departed OpenAI, taking roughly a dozen senior colleagues with them. They incorporated Anthropic, PBC as a San Francisco–based Public Benefit Corporation—a legal structure chosen intentionally to balance commercial growth with a legal mandate to promote safe, beneficial AI. Daniela chose the name \"Anthropic\" to keep the focus explicitly centered on humans.\n\nRather than rushing early chatbot prototypes to market, Anthropic operated quietly in 2021 and 2022. By the summer of 2022, Anthropic had trained an early version of its flagship model, Claude, but chose to hold back its public release to conduct rigorous alignment safety testing—a decision that allowed OpenAI to capture first-mover consumer momentum with ChatGPT in late 2022. However, Anthropic pioneered a novel training framework called Constitutional AI—a process where models critique and align their own behavior against a set of explicit ethical principles (a \"constitution\") rather than relying solely on direct human reinforcement learning. This safety-first, context-heavy approach laid the technical moat that established Claude as a premier frontier AI model family for enterprise workflows and complex coding tasks.",
           "timeline": [
             {
               "date": "2021 Q1",
@@ -3017,7 +3017,7 @@
             {
               "date": "2023 Q1",
               "title": "Product Launch & Strategic Investment",
-              "detail": "Anthropic commercially releases Claude 1 to developers. Google invests ~$300M\u2013$400M for an estimated 10% equity stake."
+              "detail": "Anthropic commercially releases Claude 1 to developers. Google invests ~$300M–$400M for an estimated 10% equity stake."
             },
             {
               "date": "2023 Q2",
@@ -3047,7 +3047,7 @@
             {
               "date": "2024 Q1",
               "title": "FTX Stake Sale",
-              "detail": "A Delaware bankruptcy judge approves the sale of FTX\u2019s 8% stake in Anthropic for $884 million, later netting $1.3 billion total."
+              "detail": "A Delaware bankruptcy judge approves the sale of FTX’s 8% stake in Anthropic for $884 million, later netting $1.3 billion total."
             },
             {
               "date": "2024 Q2",
@@ -3136,7 +3136,7 @@
             {
               "name": "API Calls & Cloud Distributors",
               "description": "Pay-per-token usage via the direct Claude API, Amazon Bedrock, Google Cloud Vertex AI, and Microsoft Foundry.",
-              "revenueNote": "~75% \u2013 80% of revenue",
+              "revenueNote": "~75% – 80% of revenue",
               "status": "live"
             },
             {
@@ -3148,7 +3148,7 @@
             {
               "name": "App Subscriptions (Pro / Max / Team / Enterprise)",
               "description": "Monthly/annual seat fees and individual consumer/team subscriptions on Claude.ai.",
-              "revenueNote": "~20% \u2013 25% of revenue",
+              "revenueNote": "~20% – 25% of revenue",
               "status": "live"
             },
             {
@@ -3290,7 +3290,7 @@
             {
               "id": "cmp_coreweave_q8nfb-intel-4",
               "source": "news",
-              "title": "CoreWeave Named a Visionary in 2026 Gartner\u00ae Magic Quadrant\u2122 for Cloud AI Infrastructure",
+              "title": "CoreWeave Named a Visionary in 2026 Gartner® Magic Quadrant™ for Cloud AI Infrastructure",
               "url": "https://www.coreweave.com/newsroom/press-releases/gartner-names-coreweave-visionary-2026-magic-quadrant",
               "summary": "Gartner named CoreWeave a Visionary in its Magic Quadrant for Cloud AI Infrastructure, highlighting its specialized AI-native hardware and cloud platform.",
               "sentiment": "positive",
@@ -3332,7 +3332,7 @@
               "source": "news",
               "title": "CoreWeave (CRWV) Shares Rebound as Analysts Call Stock Drawdown Overdone",
               "url": "https://www.marketbeat.com/instant-alerts/nasdaq-crwv-gap-up-2026-07-30/",
-              "summary": "Wall Street firms Truist, Jefferies, and Roth Capital issued bullish notes arguing that recent sell-offs were sentiment-driven rather than fundamental, triggering an 8\u201311% premarket stock gap up.",
+              "summary": "Wall Street firms Truist, Jefferies, and Roth Capital issued bullish notes arguing that recent sell-offs were sentiment-driven rather than fundamental, triggering an 8–11% premarket stock gap up.",
               "sentiment": "positive",
               "publishedAt": "2026-07-30T15:24:41.751Z",
               "stale": false
@@ -3593,7 +3593,7 @@
       },
       "history": {
         "content": {
-          "founderStory": "In August 2017, Michael Intrator\u2014a former commodities and natural gas hedge fund manager\u2014nearly set his Manhattan office on fire. Alongside co-founders Brian Venturo and Brannin McBee, Intrator had plugged dozens of Nvidia graphics cards into standard wall outlets to mine Ethereum under the name Atlantic Crypto. With the air conditioning shut off over the weekend, the 6th-floor Financial District office turned into a 130-degree hotbox. Intrator recalled, 'I flipped. This wasn't really built for this... We've got to go. We've got to go.' They hastily unplugged scorching-hot hardware, loaded the rigs into a pickup truck, and drove to a ventilated garage in New Jersey.\n\nWhen the 2018\u20132019 'crypto winter' struck, Ethereum mining economics collapsed. Instead of folding, the trio bought up distressed GPU inventory at steep discounts from failing miners and acquired regional facilities. Rebranding as CoreWeave in late 2019, they shifted to building a GPU-accelerated cloud platform catered to high-performance compute workloads, including 3D rendering, batch processing, and early machine learning models.\n\nA critical pivot point arrived in mid-2020. Brian Venturo received an unexpected phone call from Nvidia: 'This guy calls me and says, 'Hi, I'm calling from Nvidia, because you're not supposed to be selling consumer GPUs in the cloud.' My heart dropped... I thought, 'Oh, god, I'm about to lose my business.'' Instead of shutting them down, the call paved the way for an official partnership. CoreWeave transitioned entirely to enterprise-grade data center chips (such as A100s and later H100s/H200s), working closely with Nvidia.\n\nWhen the generative AI boom erupted in 2023, legacy cloud providers faced severe GPU shortages. CoreWeave was uniquely positioned. It pioneered asset-backed debt financing, using sought-after Nvidia GPUs as loan collateral to aggressively scale its data centers. Backed by multi-billion-dollar compute contracts with OpenAI, Microsoft, and Meta, CoreWeave launched an IPO in early 2025. It quickly emerged as the flagship specialized GPU hyperscaler powering the frontier AI ecosystem.",
+          "founderStory": "In August 2017, Michael Intrator—a former commodities and natural gas hedge fund manager—nearly set his Manhattan office on fire. Alongside co-founders Brian Venturo and Brannin McBee, Intrator had plugged dozens of Nvidia graphics cards into standard wall outlets to mine Ethereum under the name Atlantic Crypto. With the air conditioning shut off over the weekend, the 6th-floor Financial District office turned into a 130-degree hotbox. Intrator recalled, 'I flipped. This wasn't really built for this... We've got to go. We've got to go.' They hastily unplugged scorching-hot hardware, loaded the rigs into a pickup truck, and drove to a ventilated garage in New Jersey.\n\nWhen the 2018–2019 'crypto winter' struck, Ethereum mining economics collapsed. Instead of folding, the trio bought up distressed GPU inventory at steep discounts from failing miners and acquired regional facilities. Rebranding as CoreWeave in late 2019, they shifted to building a GPU-accelerated cloud platform catered to high-performance compute workloads, including 3D rendering, batch processing, and early machine learning models.\n\nA critical pivot point arrived in mid-2020. Brian Venturo received an unexpected phone call from Nvidia: 'This guy calls me and says, 'Hi, I'm calling from Nvidia, because you're not supposed to be selling consumer GPUs in the cloud.' My heart dropped... I thought, 'Oh, god, I'm about to lose my business.'' Instead of shutting them down, the call paved the way for an official partnership. CoreWeave transitioned entirely to enterprise-grade data center chips (such as A100s and later H100s/H200s), working closely with Nvidia.\n\nWhen the generative AI boom erupted in 2023, legacy cloud providers faced severe GPU shortages. CoreWeave was uniquely positioned. It pioneered asset-backed debt financing, using sought-after Nvidia GPUs as loan collateral to aggressively scale its data centers. Backed by multi-billion-dollar compute contracts with OpenAI, Microsoft, and Meta, CoreWeave launched an IPO in early 2025. It quickly emerged as the flagship specialized GPU hyperscaler powering the frontier AI ecosystem.",
           "timeline": [
             {
               "date": "2017 Q3",
@@ -3671,7 +3671,7 @@
               "detail": "Signs a massive $14 billion multi-year compute supply contract with Meta extending through 2031."
             },
             {
-              "date": "2025 Q3\u2013Q4",
+              "date": "2025 Q3–Q4",
               "title": "Stumble / Headwinds",
               "detail": "Faced public market skepticism over high capital expenditure, rapid debt accumulation, and datacenter construction delays."
             },
@@ -3796,7 +3796,7 @@
             {
               "title": "Global Geographical Expansion",
               "horizon": "next",
-              "detail": "Committed investment exceeding $3.5 billion in Europe, including $2.2 billion for renewable-powered data centers across Norway, Sweden, and Spain, and \u00a32.5 billion for UK sites."
+              "detail": "Committed investment exceeding $3.5 billion in Europe, including $2.2 billion for renewable-powered data centers across Norway, Sweden, and Spain, and £2.5 billion for UK sites."
             },
             {
               "title": "Vertical Integration via M&A",
@@ -4165,7 +4165,7 @@
       },
       "history": {
         "content": {
-          "founderStory": "In January 1975, childhood friends Bill Gates and Paul Allen spotted a cover story in Popular Electronics featuring the MITS Altair 8800, one of the earliest microcomputers. Recognizing that the microcomputer revolution was imminent, they realized these machines lacked simple software that everyday users and hobbyists could program.\n\nActing quickly, Gates and Allen called MITS founder Ed Roberts in Albuquerque, New Mexico, claiming they had already developed a functional BASIC programming language interpreter for the Altair\u2019s chip. In reality, they had not written a single line of code for the machine. Roberts agreed to a demonstration in a few weeks, setting off an eight-week coding sprint in a Harvard computer lab. Lacking an actual Altair computer, Allen created an emulator on a shared mainframe to simulate its processor.\n\nIn March 1975, Allen flew to Albuquerque to demonstrate the software to Roberts. Having never tested the program on physical Altair hardware, the code executed successfully on the first try. On April 4, 1975, Gates and Allen officially established 'Micro-Soft' (later shortened to Microsoft) in Albuquerque to license their BASIC interpreter to hardware manufacturers, inaugurating the commercial personal computer software industry.",
+          "founderStory": "In January 1975, childhood friends Bill Gates and Paul Allen spotted a cover story in Popular Electronics featuring the MITS Altair 8800, one of the earliest microcomputers. Recognizing that the microcomputer revolution was imminent, they realized these machines lacked simple software that everyday users and hobbyists could program.\n\nActing quickly, Gates and Allen called MITS founder Ed Roberts in Albuquerque, New Mexico, claiming they had already developed a functional BASIC programming language interpreter for the Altair’s chip. In reality, they had not written a single line of code for the machine. Roberts agreed to a demonstration in a few weeks, setting off an eight-week coding sprint in a Harvard computer lab. Lacking an actual Altair computer, Allen created an emulator on a shared mainframe to simulate its processor.\n\nIn March 1975, Allen flew to Albuquerque to demonstrate the software to Roberts. Having never tested the program on physical Altair hardware, the code executed successfully on the first try. On April 4, 1975, Gates and Allen officially established 'Micro-Soft' (later shortened to Microsoft) in Albuquerque to license their BASIC interpreter to hardware manufacturers, inaugurating the commercial personal computer software industry.",
           "timeline": [
             {
               "date": "1975",
@@ -4175,7 +4175,7 @@
             {
               "date": "1980",
               "title": "Strategic IBM Deal",
-              "detail": "Microsoft signs a contract with IBM to supply an operating system for IBM\u2019s first personal computer. Steve Ballmer joins the company."
+              "detail": "Microsoft signs a contract with IBM to supply an operating system for IBM’s first personal computer. Steve Ballmer joins the company."
             },
             {
               "date": "1981",
@@ -4203,7 +4203,7 @@
               "detail": "Launches Windows 95 and issues the 'Internet Tidal Wave' memo to focus heavily on web technologies."
             },
             {
-              "date": "1998\u20132001",
+              "date": "1998–2001",
               "title": "Antitrust Case & Xbox Entry",
               "detail": "Navigates a DOJ antitrust battle, appoints Steve Ballmer as CEO in 2000, and launches the original Xbox in 2001."
             },
@@ -4213,12 +4213,12 @@
               "detail": "Releases Windows Vista, which suffers from performance issues and slow enterprise adoption."
             },
             {
-              "date": "2010\u20132014",
+              "date": "2010–2014",
               "title": "Mobile Misstep & Leadership Transition",
               "detail": "Attempts smartphone entry with Windows Phone and acquires Nokia. Satya Nadella becomes CEO in 2014."
             },
             {
-              "date": "2016\u20132018",
+              "date": "2016–2018",
               "title": "Platform Acquisitions",
               "detail": "Expands platform reach by acquiring LinkedIn for $26 billion in 2016 and GitHub for $7.5 billion in 2018."
             },
@@ -4238,7 +4238,7 @@
               "detail": "Introduces Copilot keys on keyboards, releases Copilot Studio, and commits over $80 billion to AI data centers."
             },
             {
-              "date": "2025\u20132026",
+              "date": "2025–2026",
               "title": "50th Anniversary & Frontier AI Scaling",
               "detail": "Celebrates 50th anniversary in April 2025 and integrates advanced AI architectures across Microsoft 365 and Azure."
             }
@@ -4257,7 +4257,7 @@
               "attribution": "Satya Nadella (2015 Revised Mission Statement)"
             },
             {
-              "text": "AI will fundamentally change every software category, starting with the largest category of all \u2014 search.",
+              "text": "AI will fundamentally change every software category, starting with the largest category of all — search.",
               "attribution": "Satya Nadella (2023 AI Strategy Shift)"
             }
           ]
@@ -4322,7 +4322,7 @@
               "status": "live"
             },
             {
-              "name": "Microsoft 365 E7 \u2013 The Frontier Suite",
+              "name": "Microsoft 365 E7 – The Frontier Suite",
               "description": "Top-tier enterprise subscription bundle combining M365 E5, Entra Suite, Copilot, and Agent 365.",
               "revenueNote": "",
               "status": "live"
@@ -4417,7 +4417,7 @@
     "cmp_mistral-ai_iubim": {
       "overview": {
         "content": {
-          "markdown": "Mistral AI SAS is a prominent European frontier AI company headquartered in Paris, France, focused on developing state-of-the-art open-weight and proprietary artificial intelligence models, software tools, and cloud infrastructure.\n\n## What they do\nMistral AI delivers a comprehensive portfolio of AI solutions. Their model offerings range from flagship open-weight models (Mistral Large 3, Mistral Medium 3.5, Mistral Small 4) and coding-specialized LLMs (Codestral, Devstral 2) to edge models (Ministral 3), document processing (Mistral OCR 4), and voice synthesis (Voxtral TTS). Beyond foundational models, the company provides enterprise platforms such as Mistral Studio for designing and governing agentic AI systems, Mistral Forge for building custom enterprise models, and developer APIs via *La Plateforme*, alongside consumer assistant products like Le Chat and Vibe.\n\n## Who they sell to\nMistral AI targets high-value B2B buyers, with enterprise revenue accounting for approximately 85% of its total revenue mix. Its core enterprise buyers include technology leadership such as Directors of Data Science, VPs of Engineering, Heads of AI/Machine Learning, and CTOs/DevOps Leads managing budgets exceeding $500,000. Target vertical markets span sovereign and regulated entities (public sector agencies, defense organizations, and European government bodies requiring GDPR compliance and data control), high-stakes enterprise sectors (financial services, automotive, manufacturing, and logistics including clients like HSBC, BMW, ASML, and CMA CGM), and technically sophisticated developers and ML engineers building production workflows.\n\n## Why it matters\nMistral AI acts as Europe's primary counterweight to US AI hegemony, establishing technological autonomy in generative AI with an \u20ac11.7 billion valuation. It validates the commercial viability of open-weight models by scaling to a reported revenue run-rate exceeding $400 million across ~450,000 customers and over 1,000 enterprise accounts, while shifting the frontier landscape toward customizable, enterprise-owned AI infrastructure and data sovereignty."
+          "markdown": "Mistral AI SAS is a prominent European frontier AI company headquartered in Paris, France, focused on developing state-of-the-art open-weight and proprietary artificial intelligence models, software tools, and cloud infrastructure.\n\n## What they do\nMistral AI delivers a comprehensive portfolio of AI solutions. Their model offerings range from flagship open-weight models (Mistral Large 3, Mistral Medium 3.5, Mistral Small 4) and coding-specialized LLMs (Codestral, Devstral 2) to edge models (Ministral 3), document processing (Mistral OCR 4), and voice synthesis (Voxtral TTS). Beyond foundational models, the company provides enterprise platforms such as Mistral Studio for designing and governing agentic AI systems, Mistral Forge for building custom enterprise models, and developer APIs via *La Plateforme*, alongside consumer assistant products like Le Chat and Vibe.\n\n## Who they sell to\nMistral AI targets high-value B2B buyers, with enterprise revenue accounting for approximately 85% of its total revenue mix. Its core enterprise buyers include technology leadership such as Directors of Data Science, VPs of Engineering, Heads of AI/Machine Learning, and CTOs/DevOps Leads managing budgets exceeding $500,000. Target vertical markets span sovereign and regulated entities (public sector agencies, defense organizations, and European government bodies requiring GDPR compliance and data control), high-stakes enterprise sectors (financial services, automotive, manufacturing, and logistics including clients like HSBC, BMW, ASML, and CMA CGM), and technically sophisticated developers and ML engineers building production workflows.\n\n## Why it matters\nMistral AI acts as Europe's primary counterweight to US AI hegemony, establishing technological autonomy in generative AI with an €11.7 billion valuation. It validates the commercial viability of open-weight models by scaling to a reported revenue run-rate exceeding $400 million across ~450,000 customers and over 1,000 enterprise accounts, while shifting the frontier landscape toward customizable, enterprise-owned AI infrastructure and data sovereignty."
         },
         "lastRefreshedAt": "2026-07-30T15:30:30.827Z"
       },
@@ -4527,7 +4527,7 @@
             {
               "id": "cmp_mistral-ai_iubim-intel-10",
               "source": "reddit",
-              "title": "\"What Happened to Mistral?\" \u2014 Community Debates Frontier Benchmarks vs Niche Strengths",
+              "title": "\"What Happened to Mistral?\" — Community Debates Frontier Benchmarks vs Niche Strengths",
               "url": "https://www.reddit.com/r/MistralAI/comments/what_happened_to_mistral/",
               "summary": "Reddit users debated Mistral's market positioning against global competitors, contrasting benchmark scores with the value of specialized enterprise models like Devstral and Leanstral.",
               "sentiment": "neutral",
@@ -4537,7 +4537,7 @@
             {
               "id": "cmp_mistral-ai_iubim-intel-11",
               "source": "reddit",
-              "title": "\"Mistral is Seriously Awesome!\" \u2014 Users Praise High Limits and 'Vibe Coding' Experience",
+              "title": "\"Mistral is Seriously Awesome!\" — Users Praise High Limits and 'Vibe Coding' Experience",
               "url": "https://www.reddit.com/r/MistralAI/comments/mistral_is_seriously_awesome/",
               "summary": "Community members praised Mistral's generous platform limits, interface aesthetics, and effective workflow for daily coding and structured writing tasks.",
               "sentiment": "positive",
@@ -4597,11 +4597,11 @@
               "role": "Co-founder & Chief Science Officer (CSO) / Chief Scientist",
               "group": "ai",
               "parentId": "arthur-mensch",
-              "bio": "Co-founded the company in April 2023 and leads the Science, Research, and R&D organization, spearheading foundation model development and open-weights architecture research. Prior to Mistral AI, Lample was a research scientist at Meta AI (FAIR Paris), where he co-led the development of Meta\u2019s LLaMA foundational models."
+              "bio": "Co-founded the company in April 2023 and leads the Science, Research, and R&D organization, spearheading foundation model development and open-weights architecture research. Prior to Mistral AI, Lample was a research scientist at Meta AI (FAIR Paris), where he co-led the development of Meta’s LLaMA foundational models."
             },
             {
               "id": "timothee-lacroix",
-              "name": "Timoth\u00e9e Lacroix",
+              "name": "Timothée Lacroix",
               "role": "Co-founder & Chief Technology Officer (CTO)",
               "group": "ai",
               "parentId": "arthur-mensch",
@@ -4637,7 +4637,7 @@
               "role": "Senior Vice President / VP of Global Public Affairs & Communications",
               "group": "exec",
               "parentId": "arthur-mensch",
-              "bio": "Manages international government relations, public policy, AI sovereignty initiatives, and global communications. Prior to Mistral AI, she was Head of Public Policy for France and Russia at Twitter (2015\u20132022) and VP of Public Affairs at Betclic Group."
+              "bio": "Manages international government relations, public policy, AI sovereignty initiatives, and global communications. Prior to Mistral AI, she was Head of Public Policy for France and Russia at Twitter (2015–2022) and VP of Public Affairs at Betclic Group."
             },
             {
               "id": "jon-bock",
@@ -4681,7 +4681,7 @@
             },
             {
               "id": "charles-de-freminville",
-              "name": "Charles de Fr\u00e9minville",
+              "name": "Charles de Fréminville",
               "role": "Head of People / HR Operations",
               "group": "other",
               "parentId": "arthur-mensch",
@@ -4734,7 +4734,7 @@
               "affiliation": "Mistral AI (Founder)"
             },
             {
-              "name": "Timoth\u00e9e Lacroix",
+              "name": "Timothée Lacroix",
               "affiliation": "Mistral AI (Founder)"
             },
             {
@@ -4759,17 +4759,17 @@
       },
       "history": {
         "content": {
-          "founderStory": "In April 2023, as Silicon Valley tech giants increasingly centralized and closed off their frontier artificial intelligence models, three French AI researchers\u2014Arthur Mensch (formerly of Google DeepMind) alongside Guillaume Lample and Timoth\u00e9e Lacroix (both key contributors to Meta AI\u2019s LLaMA team)\u2014met in Paris with a bold counter-vision. They envisioned a European AI champion built on open-weight models, high efficiency, and user sovereignty, offering enterprises an alternative to American tech lock-in.\n\nNaming their company Mistral AI after the swift, clarifying wind of southern France, the founders began operations with a seven-page seed memo and no codebase. Just weeks later in June 2023, solely on the back of the team's research pedigree and a promise to democratize frontier AI, Mistral closed a record-setting \u20ac105 million (~$113 million) seed round\u2014the largest seed raise in European history.\n\nBy concentrating on parameter-efficient architectures rather than brute-force compute scaling, Mistral quickly demonstrated that small, highly optimized models could match or outperform much larger closed competitors. Over time, Mistral evolved from an open-source model lab into a full-stack frontier AI infrastructure provider, expanding into specialized enterprise software, multimodal AI, and sovereign European compute data centers.",
+          "founderStory": "In April 2023, as Silicon Valley tech giants increasingly centralized and closed off their frontier artificial intelligence models, three French AI researchers—Arthur Mensch (formerly of Google DeepMind) alongside Guillaume Lample and Timothée Lacroix (both key contributors to Meta AI’s LLaMA team)—met in Paris with a bold counter-vision. They envisioned a European AI champion built on open-weight models, high efficiency, and user sovereignty, offering enterprises an alternative to American tech lock-in.\n\nNaming their company Mistral AI after the swift, clarifying wind of southern France, the founders began operations with a seven-page seed memo and no codebase. Just weeks later in June 2023, solely on the back of the team's research pedigree and a promise to democratize frontier AI, Mistral closed a record-setting €105 million (~$113 million) seed round—the largest seed raise in European history.\n\nBy concentrating on parameter-efficient architectures rather than brute-force compute scaling, Mistral quickly demonstrated that small, highly optimized models could match or outperform much larger closed competitors. Over time, Mistral evolved from an open-source model lab into a full-stack frontier AI infrastructure provider, expanding into specialized enterprise software, multimodal AI, and sovereign European compute data centers.",
           "timeline": [
             {
               "date": "Q2 2023",
               "title": "Mistral AI Founded",
-              "detail": "Mistral AI is officially founded in Paris, France by Arthur Mensch, Guillaume Lample, and Timoth\u00e9e Lacroix."
+              "detail": "Mistral AI is officially founded in Paris, France by Arthur Mensch, Guillaume Lample, and Timothée Lacroix."
             },
             {
               "date": "Q2 2023",
               "title": "Seed Round",
-              "detail": "Raises a \u20ac105M (~$113M) Seed round led by Lightspeed Venture Partners at a \u20ac240M valuation before releasing a product."
+              "detail": "Raises a €105M (~$113M) Seed round led by Lightspeed Venture Partners at a €240M valuation before releasing a product."
             },
             {
               "date": "Q3 2023",
@@ -4789,7 +4789,7 @@
             {
               "date": "Q4 2023",
               "title": "Series A Funding",
-              "detail": "Secures a $415M (\u20ac385M) Series A round led by Andreessen Horowitz (a16z), elevating its valuation to $2 billion."
+              "detail": "Secures a $415M (€385M) Series A round led by Andreessen Horowitz (a16z), elevating its valuation to $2 billion."
             },
             {
               "date": "Q1 2024",
@@ -4802,7 +4802,7 @@
               "detail": "Announces a multi-year strategic agreement with Microsoft to distribute Mistral Large via Azure Cloud."
             },
             {
-              "date": "Q1\u2013Q2 2024",
+              "date": "Q1–Q2 2024",
               "title": "Regulatory Scrutiny",
               "detail": "Faces open-source backlash and antitrust probes from the European Commission and UK CMA (CMA dropped probe in May 2024)."
             },
@@ -4814,7 +4814,7 @@
             {
               "date": "Q2 2024",
               "title": "Series B Funding",
-              "detail": "Raises \u20ac600M ($645M) in Series B funding led by General Catalyst at a valuation of \u20ac5.8 billion ($6.2B)."
+              "detail": "Raises €600M ($645M) in Series B funding led by General Catalyst at a valuation of €5.8 billion ($6.2B)."
             },
             {
               "date": "Q3 2024",
@@ -4849,7 +4849,7 @@
             {
               "date": "Q3 2025",
               "title": "Series C Mega-Round",
-              "detail": "Closes a \u20ac1.7 billion Series C funding round led by ASML at a \u20ac11.7B ($13.7B) valuation."
+              "detail": "Closes a €1.7 billion Series C funding round led by ASML at a €11.7B ($13.7B) valuation."
             },
             {
               "date": "Q4 2025",
@@ -4874,7 +4874,7 @@
             {
               "date": "Q2 2026",
               "title": "Sovereignty Warnings & Talks",
-              "detail": "CEO Arthur Mensch testifies at France's National Assembly warning of European tech vassalage amid reports of a \u20ac3B raise."
+              "detail": "CEO Arthur Mensch testifies at France's National Assembly warning of European tech vassalage amid reports of a €3B raise."
             }
           ],
           "quotes": [
@@ -5032,7 +5032,7 @@
             {
               "title": "European Infrastructure Expansion",
               "horizon": "now",
-              "detail": "Building out 200 Megawatts of sovereign AI compute capacity across Europe by 2027, including a flagship 10 MW inference data center at Les Ulis / Bruy\u00e8res-le-Ch\u00e2tel opening Q3 2026 and a $1.4 billion infrastructure investment in Sweden."
+              "detail": "Building out 200 Megawatts of sovereign AI compute capacity across Europe by 2027, including a flagship 10 MW inference data center at Les Ulis / Bruyères-le-Châtel opening Q3 2026 and a $1.4 billion infrastructure investment in Sweden."
             },
             {
               "title": "Upcoming Frontier Model Release",
@@ -5147,7 +5147,7 @@
             {
               "id": "cmp_groq_0x4or-intel-8",
               "source": "reddit",
-              "title": "I compiled LLM inference pricing across 7 providers \u2014 the caching numbers are surprising : r/MachineLearning",
+              "title": "I compiled LLM inference pricing across 7 providers — the caching numbers are surprising : r/MachineLearning",
               "url": "https://www.reddit.com/r/MachineLearning/comments/1ds2p2x/",
               "summary": "A developer spreadsheet breakdown evaluating token costs and caching structures across inference providers, including Groq.",
               "sentiment": "neutral",
@@ -5157,9 +5157,9 @@
             {
               "id": "cmp_groq_0x4or-intel-9",
               "source": "reddit",
-              "title": "Building a free personal AI agent powered by Groq \u2014 no expensive subscriptions : r/vibecoding",
+              "title": "Building a free personal AI agent powered by Groq — no expensive subscriptions : r/vibecoding",
               "url": "https://www.reddit.com/r/vibecoding/comments/1d1x3bc/",
-              "summary": "A community showcase of an open-source personal AI agent (MADS) built using Groq\u2019s fast inference API.",
+              "summary": "A community showcase of an open-source personal AI agent (MADS) built using Groq’s fast inference API.",
               "sentiment": "positive",
               "publishedAt": "2026-07-30T15:34:12.028Z",
               "stale": false
@@ -5219,7 +5219,7 @@
               "role": "Chairman of the Board",
               "group": "exec",
               "parentId": null,
-              "bio": "Managing Partner at growth investment firm Disruptive. He leads Groq\u2019s Board of Directors and oversaw the company\u2019s restructuring and $650 million growth round."
+              "bio": "Managing Partner at growth investment firm Disruptive. He leads Groq’s Board of Directors and oversaw the company’s restructuring and $650 million growth round."
             },
             {
               "id": "adam-winter",
@@ -5345,15 +5345,15 @@
             "GroqCloud expanded rapidly, serving over 5 million developers and thousands of enterprise clients.",
             "The company expanded its physical footprint to 13 global data centers across North America, Europe, the Middle East, and APAC, targeting 200 Megawatts of compute capacity by 2027.",
             "Groq raised over $2 billion in aggregate venture/growth funding, including a $640 million Series D led by BlackRock (2024), a $750 million round at a $6.9 billion valuation (Sept 2025), and a $650 million growth round in June 2026 led by Disruptive and Infinitum.",
-            "Non-exclusive licensing deals enabled NVIDIA to incorporate Groq\u2019s LPU inference technology into its LPX systems.",
-            "Established enterprise deployments with state-backed entities such as Saudi Arabia\u2019s HUMAIN (a PIF company) and dedicated US public sector initiatives."
+            "Non-exclusive licensing deals enabled NVIDIA to incorporate Groq’s LPU inference technology into its LPX systems.",
+            "Established enterprise deployments with state-backed entities such as Saudi Arabia’s HUMAIN (a PIF company) and dedicated US public sector initiatives."
           ],
           "negatives": [
-            "In early 2026, U.S. Senators launched inquiries into NVIDIA\u2019s deal with Groq over antitrust concerns that the licensing structure and hiring of leadership functioned as a 'stealth acquisition'.",
-            "Losing key visionaries and executive figures (Jonathan Ross, Sunny Madra) to NVIDIA sparked debate among industry analysts regarding Groq\u2019s long-term internal research output and independent competitive edge.",
+            "In early 2026, U.S. Senators launched inquiries into NVIDIA’s deal with Groq over antitrust concerns that the licensing structure and hiring of leadership functioned as a 'stealth acquisition'.",
+            "Losing key visionaries and executive figures (Jonathan Ross, Sunny Madra) to NVIDIA sparked debate among industry analysts regarding Groq’s long-term internal research output and independent competitive edge.",
             "Financial reporting in 2025 indicated that Groq was forced to trim over $1 billion from its projected 2025 revenue, pushing commercial realizations into subsequent fiscal periods.",
             "LPUs rely on small amounts of high-speed on-chip SRAM rather than massive High-Bandwidth Memory (HBM3e), making running multi-terabyte parameter frontier models challenging without interconnecting massive clusters.",
-            "Founder Jonathan Ross publicly acknowledged early leadership and management errors that delayed Groq\u2019s market timeline by three to four years.",
+            "Founder Jonathan Ross publicly acknowledged early leadership and management errors that delayed Groq’s market timeline by three to four years.",
             "The naming collision between Groq and Grok caused significant industry and public branding confusion."
           ]
         },
@@ -5361,7 +5361,7 @@
       },
       "history": {
         "content": {
-          "founderStory": "At Google, hardware engineer Jonathan Ross accomplished something rare: he created the core architecture for Google\u2019s first-generation Tensor Processing Unit (TPU) as a 20% side project. After watching the TPU power DeepMind\u2019s AlphaGo to beat world Go champion Lee Sedol in 2016, Ross realized a fundamental shift: while GPUs were optimized for massive parallel AI model training, real-time AI usage required a totally different approach. GPUs suffered from severe memory bandwidth bottlenecks\u2014functioning like a \"Ferrari stuck in traffic\" while waiting for data. Ross believed that lower latency and faster inference speed would unlock dramatically more capable models.\n\nIn 2016, Ross teamed up with fellow Google X engineer Douglas Wightman to launch Groq in Mountain View, California. Their mission was to challenge Nvidia\u2019s dominance by designing a purpose-built, single-core deterministic chip that eliminated cache misses and memory bottlenecks by using high-speed SRAM integrated directly on-chip. Groq\u2019s early years were brutally challenging, with many West Coast venture capitalists dismissing the bet that inference-specific compute would matter. During one severe runway crisis, when the company was weeks away from running out of cash, Ross refused to lay off engineers and instead created \"Groq bonds\" where about 80% of the team took statutory minimum wage.\n\nWhen ChatGPT launched in late 2022 and generative AI went mainstream, the market caught up to Groq\u2019s vision. Groq rebranded its chip architecture from the generic Tensor Streaming Processor (TSP) to the Language Processing Unit (LPU). When Groq launched its cloud service in early 2024, open-source models ran at mind-boggling speeds of 500 to 750+ tokens per second, sparking viral excitement across the AI developer ecosystem.",
+          "founderStory": "At Google, hardware engineer Jonathan Ross accomplished something rare: he created the core architecture for Google’s first-generation Tensor Processing Unit (TPU) as a 20% side project. After watching the TPU power DeepMind’s AlphaGo to beat world Go champion Lee Sedol in 2016, Ross realized a fundamental shift: while GPUs were optimized for massive parallel AI model training, real-time AI usage required a totally different approach. GPUs suffered from severe memory bandwidth bottlenecks—functioning like a \"Ferrari stuck in traffic\" while waiting for data. Ross believed that lower latency and faster inference speed would unlock dramatically more capable models.\n\nIn 2016, Ross teamed up with fellow Google X engineer Douglas Wightman to launch Groq in Mountain View, California. Their mission was to challenge Nvidia’s dominance by designing a purpose-built, single-core deterministic chip that eliminated cache misses and memory bottlenecks by using high-speed SRAM integrated directly on-chip. Groq’s early years were brutally challenging, with many West Coast venture capitalists dismissing the bet that inference-specific compute would matter. During one severe runway crisis, when the company was weeks away from running out of cash, Ross refused to lay off engineers and instead created \"Groq bonds\" where about 80% of the team took statutory minimum wage.\n\nWhen ChatGPT launched in late 2022 and generative AI went mainstream, the market caught up to Groq’s vision. Groq rebranded its chip architecture from the generic Tensor Streaming Processor (TSP) to the Language Processing Unit (LPU). When Groq launched its cloud service in early 2024, open-source models ran at mind-boggling speeds of 500 to 750+ tokens per second, sparking viral excitement across the AI developer ecosystem.",
           "timeline": [
             {
               "date": "Q4 2016",
@@ -5371,7 +5371,7 @@
             {
               "date": "April 2017",
               "title": "Series A Funding",
-              "detail": "Raises a $10 Million Series A round led by Chamath Palihapitiya\u2019s Social Capital."
+              "detail": "Raises a $10 Million Series A round led by Chamath Palihapitiya’s Social Capital."
             },
             {
               "date": "September 2018",
@@ -5389,14 +5389,14 @@
               "detail": "Closes a $300 Million Series C round led by Tiger Global and D1 Capital, surpassing a $1 Billion valuation."
             },
             {
-              "date": "Late 2022 \u2013 2023",
+              "date": "Late 2022 – 2023",
               "title": "Pivot to LPU Architecture",
               "detail": "Following ChatGPT's launch, Groq shifts focus to LLM inference and rebrands technology as the LPU."
             },
             {
               "date": "February 19, 2024",
               "title": "GroqCloud Launch & Definitive Intelligence Acquisition",
-              "detail": "Soft-launches GroqCloud alongside an acquisition, achieving viral demo speeds of ~500\u2013750 tokens/sec."
+              "detail": "Soft-launches GroqCloud alongside an acquisition, achieving viral demo speeds of ~500–750 tokens/sec."
             },
             {
               "date": "March 2024",
@@ -5419,7 +5419,7 @@
               "detail": "Enters a $20 Billion non-exclusive technology licensing agreement and acqui-hires key leadership."
             },
             {
-              "date": "May \u2013 June 2026",
+              "date": "May – June 2026",
               "title": "Groq 2.0 Transition",
               "detail": "Groq transitions into Groq 2.0, refocusing purely as an independent AI inference neocloud operator."
             },
@@ -5461,7 +5461,7 @@
             },
             {
               "name": "GroqChip (LPU)",
-              "description": "Groq\u2019s foundational AI inference accelerator featuring a single-core, software-defined architecture relying exclusively on ultra-fast on-chip SRAM.",
+              "description": "Groq’s foundational AI inference accelerator featuring a single-core, software-defined architecture relying exclusively on ultra-fast on-chip SRAM.",
               "revenueNote": "",
               "status": "live"
             },
@@ -5699,7 +5699,7 @@
               "role": "Chief Executive Officer",
               "group": "exec",
               "parentId": null,
-              "bio": "Appointed CEO in July 2026 (effective August 10, 2026) to manage Scale AI\u2019s overall corporate growth across data and enterprise applications. He previously served as COO and President of Security Products at Google Cloud and was CEO of Illumina for over seven years, where he grew revenue past $4.5 billion."
+              "bio": "Appointed CEO in July 2026 (effective August 10, 2026) to manage Scale AI’s overall corporate growth across data and enterprise applications. He previously served as COO and President of Security Products at Google Cloud and was CEO of Illumina for over seven years, where he grew revenue past $4.5 billion."
             },
             {
               "id": "alexandr-wang",
@@ -5747,7 +5747,7 @@
               "role": "General Counsel & Corporate Secretary",
               "group": "exec",
               "parentId": "francis-desouza",
-              "bio": "Oversees Scale AI\u2019s global legal operations, governance, risk, and corporate compliance affairs."
+              "bio": "Oversees Scale AI’s global legal operations, governance, risk, and corporate compliance affairs."
             },
             {
               "id": "vijay-karunamurthy",
@@ -5763,7 +5763,7 @@
               "role": "Head of Research",
               "group": "ai",
               "parentId": "arun-murthy",
-              "bio": "Directs research initiatives at Scale AI\u2019s Safety, Evaluation and Alignment Lab, focusing on reinforcement learning, post-training, LLM benchmarking, and agentic AI systems."
+              "bio": "Directs research initiatives at Scale AI’s Safety, Evaluation and Alignment Lab, focusing on reinforcement learning, post-training, LLM benchmarking, and agentic AI systems."
             },
             {
               "id": "ben-scharfstein",
@@ -5869,7 +5869,7 @@
       },
       "history": {
         "content": {
-          "founderStory": "In the summer of 2016, 19-year-old MIT student Alexandr Wang dropped out of college after his freshman year to build a startup. The son of weapons physicists from Los Alamos, New Mexico, Wang had spent his teenage years competing in math and physics olympiads before landing engineering roles at Silicon Valley startups Addepar and Quora, where he met fellow engineer and Thiel Fellow Lucy Guo. Together, the pair entered Y Combinator's Summer 2016 cohort with an initial concept for an 'API for human tasks'\u2014a software wrapper to outsource arbitrary real-world tasks like phone calls or web lookups to human workers.\n\nDuring their early YC months, they recognized a far more pressing bottleneck in tech: while artificial intelligence and deep learning were advancing, AI researchers faced a major friction point because algorithms needed massive quantities of cleanly labeled training data, but gathering and annotating that data was tedious, error-prone, and unscalable. Wang and Guo pivoted to build Scale AI, offering an API that combined software pre-labeling with human verification. Wang went booth-to-booth at computer vision conferences with his laptop, pitching autonomous vehicle companies that were desperate for labeled sensor data, and by abstracting away the operational headache of manual annotation, Scale secured early clients like Toyota Research Institute and Lyft, establishing itself as the indispensable 'data plumbing' of the AI boom.",
+          "founderStory": "In the summer of 2016, 19-year-old MIT student Alexandr Wang dropped out of college after his freshman year to build a startup. The son of weapons physicists from Los Alamos, New Mexico, Wang had spent his teenage years competing in math and physics olympiads before landing engineering roles at Silicon Valley startups Addepar and Quora, where he met fellow engineer and Thiel Fellow Lucy Guo. Together, the pair entered Y Combinator's Summer 2016 cohort with an initial concept for an 'API for human tasks'—a software wrapper to outsource arbitrary real-world tasks like phone calls or web lookups to human workers.\n\nDuring their early YC months, they recognized a far more pressing bottleneck in tech: while artificial intelligence and deep learning were advancing, AI researchers faced a major friction point because algorithms needed massive quantities of cleanly labeled training data, but gathering and annotating that data was tedious, error-prone, and unscalable. Wang and Guo pivoted to build Scale AI, offering an API that combined software pre-labeling with human verification. Wang went booth-to-booth at computer vision conferences with his laptop, pitching autonomous vehicle companies that were desperate for labeled sensor data, and by abstracting away the operational headache of manual annotation, Scale secured early clients like Toyota Research Institute and Lyft, establishing itself as the indispensable 'data plumbing' of the AI boom.",
           "timeline": [
             {
               "date": "Q2 2016",
@@ -6088,7 +6088,7 @@
             {
               "id": "cmp_crusoe-crusoe-energy-systems_tx4jf-intel-3",
               "source": "news",
-              "title": "Crusoe\u2019s Latest Deal Targets Power Electronics for Grid Reliability",
+              "title": "Crusoe’s Latest Deal Targets Power Electronics for Grid Reliability",
               "url": "https://www.latitude-media.com/news/crusoes-latest-deal-targets-power-electronics-for-grid-reliability",
               "summary": "Crusoe partnered with ON.energy to deploy 5 GW of patented medium-voltage UPS systems to buffer grid fluctuations caused by synchronized GPU training bursts.",
               "sentiment": "positive",
@@ -6130,7 +6130,7 @@
               "source": "news",
               "title": "Chase Lochmiller, Crusoe | RAISE Summit 2026 Interview",
               "url": "https://www.youtube.com/watch?v=Ex6M7xA1Hy8",
-              "summary": "CEO Chase Lochmiller detailed Crusoe\u2019s 5 GW contracted capacity, modular data center construction, and debt financing structures during an interview at the RAISE Summit 2026 in Paris.",
+              "summary": "CEO Chase Lochmiller detailed Crusoe’s 5 GW contracted capacity, modular data center construction, and debt financing structures during an interview at the RAISE Summit 2026 in Paris.",
               "sentiment": "positive",
               "publishedAt": "2026-07-30T15:40:13.176Z",
               "stale": false
@@ -6230,7 +6230,7 @@
               "role": "Co-Founder, CEO, and Chairman",
               "group": "exec",
               "parentId": null,
-              "bio": "Holds B.S. degrees in Math and Physics from MIT and a Master\u2019s in Computer Science (specializing in AI) from Stanford. Previously served as General Partner at Polychain Capital, Quantitative Trader at Jump Trading and GETCO, and Managing Director at KCG Holdings."
+              "bio": "Holds B.S. degrees in Math and Physics from MIT and a Master’s in Computer Science (specializing in AI) from Stanford. Previously served as General Partner at Polychain Capital, Quantitative Trader at Jump Trading and GETCO, and Managing Director at KCG Holdings."
             },
             {
               "id": "cully-cavness",
@@ -6358,7 +6358,7 @@
       "mission_governance": {
         "content": {
           "mission": "To align the future of computing with the future of the climate.",
-          "ethos": "Energy-First Philosophy: Rather than siting data centers strictly near traditional power hubs, Crusoe designs infrastructure around localized, scalable, or underutilized energy sources\u2014bringing compute directly to the power source.",
+          "ethos": "Energy-First Philosophy: Rather than siting data centers strictly near traditional power hubs, Crusoe designs infrastructure around localized, scalable, or underutilized energy sources—bringing compute directly to the power source.",
           "governanceStructure": "Crusoe is led by a combination of its co-founders and venture/climate capital representatives.",
           "board": [
             {
@@ -6395,7 +6395,7 @@
       },
       "history": {
         "content": {
-          "founderStory": "In 2018, Chase Lochmiller returned to Colorado after scaling Mount Everest, only to receive the tragic news that his mother had passed away while he was on the mountain. While grieving and recalibrating, Lochmiller\u2014a former quantitative trader at Jump Trading and General Partner at Polychain Capital with degrees from MIT and Stanford\u2014reconnected with his childhood friend Cully Cavness, who came from a third-generation oil and gas background.\n\nWhile hiking through Colorado's 14ers, Cavness introduced Lochmiller to routine natural gas flaring, one of the fossil fuel industry's most wasteful challenges. Oil wells often release stranded natural gas lacking pipeline infrastructure to transport it, forcing operators to burn it off. Recognizing that computing workloads were entirely mobile, Lochmiller realized they could \"transport the data instead of the gas.\" The pair envisioned placing mobile, modular data centers (\"Crusoe Crates\") on flatbed trucks directly at remote wellheads, using the captured waste gas to generate low-cost, on-site electricity for compute-heavy workloads.\n\nThey named their startup Crusoe (Crusoe Energy Systems) after Robinson Crusoe, the fictional character stranded on a desert island who survived by being creative with stranded resources. Initially deploying units to mine Bitcoin, the founders soon realized their energy-first infrastructure model was uniquely suited to solve the massive power bottlenecks facing frontier artificial intelligence as it rapidly expanded.",
+          "founderStory": "In 2018, Chase Lochmiller returned to Colorado after scaling Mount Everest, only to receive the tragic news that his mother had passed away while he was on the mountain. While grieving and recalibrating, Lochmiller—a former quantitative trader at Jump Trading and General Partner at Polychain Capital with degrees from MIT and Stanford—reconnected with his childhood friend Cully Cavness, who came from a third-generation oil and gas background.\n\nWhile hiking through Colorado's 14ers, Cavness introduced Lochmiller to routine natural gas flaring, one of the fossil fuel industry's most wasteful challenges. Oil wells often release stranded natural gas lacking pipeline infrastructure to transport it, forcing operators to burn it off. Recognizing that computing workloads were entirely mobile, Lochmiller realized they could \"transport the data instead of the gas.\" The pair envisioned placing mobile, modular data centers (\"Crusoe Crates\") on flatbed trucks directly at remote wellheads, using the captured waste gas to generate low-cost, on-site electricity for compute-heavy workloads.\n\nThey named their startup Crusoe (Crusoe Energy Systems) after Robinson Crusoe, the fictional character stranded on a desert island who survived by being creative with stranded resources. Initially deploying units to mine Bitcoin, the founders soon realized their energy-first infrastructure model was uniquely suited to solve the massive power bottlenecks facing frontier artificial intelligence as it rapidly expanded.",
           "timeline": [
             {
               "date": "2018 Q4",
@@ -6592,7 +6592,7 @@
               "source": "news",
               "title": "Together AI Joins U.S. Department of Energy's Genesis Mission to Accelerate American Scientific Discovery",
               "url": "https://www.prnewswire.com/news-releases/together-ai-joins-us-department-of-energys-genesis-mission-to-accelerate-american-scientific-discovery-302128210.html",
-              "summary": "Together AI officially joined the U.S. Department of Energy\u2019s Genesis Mission to supply open-source model infrastructure for national scientific research.",
+              "summary": "Together AI officially joined the U.S. Department of Energy’s Genesis Mission to supply open-source model infrastructure for national scientific research.",
               "sentiment": "positive",
               "publishedAt": "2026-07-30T15:43:30.877Z",
               "stale": false
@@ -6622,7 +6622,7 @@
               "source": "news",
               "title": "AI Supply Chain Provenance Explorer for Responsible AI Governance",
               "url": "https://blogs.cisco.com/ai/ai-supply-chain-provenance-explorer-for-responsible-ai-governance",
-              "summary": "Cisco integrated Together AI\u2019s hosted open-weight model endpoints into its AI supply chain provenance and enterprise governance directory.",
+              "summary": "Cisco integrated Together AI’s hosted open-weight model endpoints into its AI supply chain provenance and enterprise governance directory.",
               "sentiment": "positive",
               "publishedAt": "2026-07-30T15:43:30.877Z",
               "stale": false
@@ -6632,7 +6632,7 @@
               "source": "reddit",
               "title": "Anyone moved away from Together.ai? Looking for alternatives",
               "url": "https://www.reddit.com/r/AI_Agents/comments/1dtx8zo/anyone_moved_away_from_togetherai_looking_for/",
-              "summary": "AI agent builders in r/AI_Agents debate the tradeoffs between Together AI\u2019s shared endpoints versus dedicated serverless GPU instances on platforms like DigitalOcean and Baseten.",
+              "summary": "AI agent builders in r/AI_Agents debate the tradeoffs between Together AI’s shared endpoints versus dedicated serverless GPU instances on platforms like DigitalOcean and Baseten.",
               "sentiment": "negative",
               "publishedAt": "2026-07-30T15:43:30.877Z",
               "stale": false
@@ -6640,7 +6640,7 @@
             {
               "id": "cmp_together-ai_m6oeb-intel-9",
               "source": "reddit",
-              "title": "I compiled LLM inference pricing across 7 providers \u2014 the caching numbers are surprising",
+              "title": "I compiled LLM inference pricing across 7 providers — the caching numbers are surprising",
               "url": "https://www.reddit.com/r/MachineLearning/comments/1dnu32p/i_compiled_llm_inference_pricing_across_7/",
               "summary": "A benchmark post in r/MachineLearning comparing input/output token costs and prompt caching efficiencies across Together AI, DeepSeek, and OpenRouter.",
               "sentiment": "neutral",
@@ -6672,7 +6672,7 @@
               "source": "reddit",
               "title": "Case Study: Together AI's entire GTM is basically \"give stuff away until you become unavoidable\"",
               "url": "https://www.reddit.com/r/MachineLearning/comments/1blp83e/case_study_together_ais_entire_gtm_is_basically/",
-              "summary": "An analysis in r/MachineLearning breaking down Together AI\u2019s bottom-up developer growth strategy through open-source tooling and initial compute credits.",
+              "summary": "An analysis in r/MachineLearning breaking down Together AI’s bottom-up developer growth strategy through open-source tooling and initial compute credits.",
               "sentiment": "positive",
               "publishedAt": "2026-07-30T15:43:30.877Z",
               "stale": false
@@ -6680,7 +6680,7 @@
             {
               "id": "cmp_together-ai_m6oeb-intel-13",
               "source": "reddit",
-              "title": "Got \u201cOut of Credits\u201d Email from Together AI While Only Using Free Model and Still Have $1 in Balance",
+              "title": "Got “Out of Credits” Email from Together AI While Only Using Free Model and Still Have $1 in Balance",
               "url": "https://www.reddit.com/r/LocalLLaMA/comments/1e4mvu3/got_out_of_credits_email_from_together_ai_while/",
               "summary": "A developer in r/LocalLLaMA seeks support after receiving confusing account status notifications regarding credit balances when using free-tier Llama model endpoints.",
               "sentiment": "negative",
@@ -6692,7 +6692,7 @@
               "source": "news",
               "title": "Together AI Integration with OpenClaw Framework",
               "url": "https://docs.openclaw.ai/providers/together",
-              "summary": "OpenClaw released technical documentation outlining direct API integration support for Together AI\u2019s catalog of open-weight chat and vision models.",
+              "summary": "OpenClaw released technical documentation outlining direct API integration support for Together AI’s catalog of open-weight chat and vision models.",
               "sentiment": "neutral",
               "publishedAt": "2026-07-30T15:43:30.877Z",
               "stale": false
@@ -6720,7 +6720,7 @@
               "role": "Co-Founder & Chief Technology Officer (CTO)",
               "group": "ai",
               "parentId": "vipul-ved-prakash",
-              "bio": "Holds a Ph.D. in Computer Science from UW\u2013Madison and serves as an Associate Professor at the University of Chicago (formerly ETH Z\u00fcrich). He co-founded Together AI in June 2022."
+              "bio": "Holds a Ph.D. in Computer Science from UW–Madison and serves as an Associate Professor at the University of Chicago (formerly ETH Zürich). He co-founded Together AI in June 2022."
             },
             {
               "id": "tri-dao",
@@ -6732,7 +6732,7 @@
             },
             {
               "id": "christopher-re",
-              "name": "Christopher R\u00e9",
+              "name": "Christopher Ré",
               "role": "Co-Founder",
               "group": "ai",
               "parentId": "vipul-ved-prakash",
@@ -6744,7 +6744,7 @@
               "role": "Co-Founder",
               "group": "ai",
               "parentId": "vipul-ved-prakash",
-              "bio": "Professor of Computer Science at Stanford University and Founding Director of Stanford\u2019s Center for Research on Foundation Models (CRFM). He co-founded Together AI in June 2022."
+              "bio": "Professor of Computer Science at Stanford University and Founding Director of Stanford’s Center for Research on Foundation Models (CRFM). He co-founded Together AI in June 2022."
             },
             {
               "id": "charles-zedlewski",
@@ -6868,12 +6868,12 @@
       },
       "history": {
         "content": {
-          "founderStory": "Together AI (legally Together Computer Inc.) was incorporated in June 2022 in Menlo Park, California, by a coalition of computer science academics and industry veterans: serial entrepreneur Vipul Ved Prakash, Stanford Professors Chris R\u00e9 and Percy Liang, and ETH Zurich/UChicago Professor Ce Zhang. They were soon joined by Tri Dao, author of the FlashAttention library, as Chief Scientist.\n\nThe team united to confront a structural crisis in the artificial intelligence landscape: the rising \"compute moat.\" As frontier models grew exponentially larger, training and serving them required massive GPU clusters and capital\u2014resources increasingly monopolized by a tiny cohort of tech giants. Together AI was founded on a simple premise: build an open, accessible, and high-performance \"AI Native Cloud.\"\n\nCombining breakthrough systems research\u2014such as kernel-level FlashAttention and Flash-Decoding algorithms\u2014with cloud infrastructure, Together AI set out to lower the cost of AI training and inference. This enabled developers, researchers, and enterprises to train, fine-tune, and run open-source and custom models without vendor lock-in or prohibitive costs.",
+          "founderStory": "Together AI (legally Together Computer Inc.) was incorporated in June 2022 in Menlo Park, California, by a coalition of computer science academics and industry veterans: serial entrepreneur Vipul Ved Prakash, Stanford Professors Chris Ré and Percy Liang, and ETH Zurich/UChicago Professor Ce Zhang. They were soon joined by Tri Dao, author of the FlashAttention library, as Chief Scientist.\n\nThe team united to confront a structural crisis in the artificial intelligence landscape: the rising \"compute moat.\" As frontier models grew exponentially larger, training and serving them required massive GPU clusters and capital—resources increasingly monopolized by a tiny cohort of tech giants. Together AI was founded on a simple premise: build an open, accessible, and high-performance \"AI Native Cloud.\"\n\nCombining breakthrough systems research—such as kernel-level FlashAttention and Flash-Decoding algorithms—with cloud infrastructure, Together AI set out to lower the cost of AI training and inference. This enabled developers, researchers, and enterprises to train, fine-tune, and run open-source and custom models without vendor lock-in or prohibitive costs.",
           "timeline": [
             {
               "date": "2022 Q2 (June)",
               "title": "Company Inception",
-              "detail": "Together AI is incorporated in Menlo Park, CA, by Vipul Ved Prakash, Ce Zhang, Chris R\u00e9, and Percy Liang."
+              "detail": "Together AI is incorporated in Menlo Park, CA, by Vipul Ved Prakash, Ce Zhang, Chris Ré, and Percy Liang."
             },
             {
               "date": "2022 Q3 (September)",
@@ -6916,7 +6916,7 @@
               "detail": "Raises $305 million at a $3.3 billion valuation and surpasses $100 million in annualized revenue."
             },
             {
-              "date": "2025 Q3 (July\u2013September)",
+              "date": "2025 Q3 (July–September)",
               "title": "Data Center and Self-Service Launch",
               "detail": "Launches live enterprise data center infrastructure in Maryland and Sweden alongside Self-Service GPU Infrastructure."
             },
@@ -6963,13 +6963,13 @@
             {
               "name": "GPU Capacity & Server Rentals (GPU Clusters, Dedicated Inference, Custom Models)",
               "description": "High-margin leasing of compute hardware (NVIDIA H100/H200/B200/GB200) for training, fine-tuning, and dedicated serving, including major multi-million-dollar long-term contracts.",
-              "revenueNote": "~60% \u2013 70% of revenue per market reporting",
+              "revenueNote": "~60% – 70% of revenue per market reporting",
               "status": "live"
             },
             {
               "name": "Serverless Per-Token API Usage (Inference Engine, Batch Inference)",
               "description": "Usage-based pricing on model tokens consumed by high-growth AI startups and developers, scaling directly with end-user API volumes.",
-              "revenueNote": "~30% \u2013 40% of revenue per market reporting",
+              "revenueNote": "~30% – 40% of revenue per market reporting",
               "status": "live"
             },
             {
@@ -7064,8 +7064,8 @@
       "id": "rpt_ms7ortrrp4z0",
       "kind": "deck",
       "subjectId": "dck_frontier-ai-ecosystem_ckgrf",
-      "title": "Frontier AI Ecosystem \u2014 Market Report",
-      "markdown": "## Executive summary\n\nThe Frontier Artificial Intelligence Ecosystem has entered a structural maturation phase defined by hyper-scale capital expenditure, intense platform competition, and severe physical infrastructure bottlenecks. Capital commitments across the hardware, cloud, data, and model layers have reached historic levels, highlighted by four leading U.S. hyperscalers committing over $700 billion combined in 2026 capital expenditures (CapEx) to build pre-emptive capacity moats.\n\n```\n                 FRONTIER AI ECOSYSTEM ARCHITECTURE\n  _________________________________________________________________\n |                                                                 |\n |                   DISTRIBUTION & CLOUD TITANS                   |\n |                   (e.g., Microsoft Corporation)                 |\n |_________________________________________________________________|\n                                  \u2502\n                                  \u25bc\n  _________________________________________________________________\n |                                                                 |\n |                     FRONTIER AI FOUNDATION LABS                 |\n |        (OpenAI, Anthropic, Mistral AI, proprietary/open-weight) |\n |_________________________________________________________________|\n                                  \u2502\n                                  \u25bc\n  _________________________________________________________________\n |                                                                 |\n |            NEOCLOUDS & DATA INFRASTRUCTURE PLATFORMS            |\n |         (CoreWeave, Crusoe, Together AI, Scale AI)              |\n |_________________________________________________________________|\n                                  \u2502\n                                  \u25bc\n  _________________________________________________________________\n |                                                                 |\n |                 HARDWARE & COMPUTE SILICON LAYER                |\n |               (NVIDIA Corporation, Groq LPUs)                   |\n |_________________________________________________________________|\n```\n\nMarket share within the foundation lab tier remains concentrated among top research entities. Based on primary evidence metrics, **Anthropic** holds an estimated 36% market share, supported by a verified $30 billion Annual Recurring Revenue (ARR) run-rate and a verified $380 billion valuation. **OpenAI** holds an estimated 26% market share, with an estimated $25 billion ARR, an estimated $852 billion valuation, and an estimated 1 billion user base. European contender **Mistral AI** commands a verified 2% market share with a verified $11.7 billion valuation and an estimated $400 million ARR.\n\nHowever, ecosystem growth is constrained by critical physical and geopolitical barriers:\n* **Power Grid Interconnection:** Lead times for electric grid connections currently stretch between 4 and 10 years, making power availability the single greatest operational constraint on data center expansion.\n* **Capital Intensity:** Extreme capital concentration creates a defensive \"arms race\" designed to starve smaller market entrants of compute resources.\n* **Supply Chain Chokepoints:** Upstream packaging limitations, high-voltage electrical component shortages, and tightening geopolitical export controls complicate hardware deployment worldwide.\n\n---\n\n## Landscape\n\nThe Frontier AI ecosystem is divided into four interdependent structural layers, spanning foundational raw hardware up to global enterprise distribution channels.\n\n```\n       [ Distribution & Cloud Titans ]  <-- Microsoft\n                      \u2502\n                      \u25bc\n       [ Frontier Foundation Labs ]     <-- Anthropic, OpenAI, Mistral AI\n                      \u2502\n                      \u25bc\n       [ Neoclouds & Data Infrastructure ] <-- CoreWeave, Crusoe, Together AI, Scale AI\n                      \u2502\n                      \u25bc\n       [ Silicon & Compute Hardware ]   <-- NVIDIA, Groq\n```\n\n### Ecosystem Layer Taxonomy\n\n| Ecosystem Layer | Primary Scope & Function | Key Entities | Strategic Role & Value Proposition |\n| :--- | :--- | :--- | :--- |\n| **Compute & Hardware Infrastructure** | High-performance silicon design, GPU manufacturing, specialized ASICs, and accelerated computing architectures. | **NVIDIA Corporation**, **Groq** | Provides the underlying accelerated compute platforms (GPUs/CPUs/networking) and specialized inference LPUs required to run foundation models efficiently. |\n| **Data & Compute Hosting (\"Neoclouds\")** | Specialized AI-native cloud hosting, high-density data center operations, clean energy integration, and training data annotation. | **CoreWeave**, **Crusoe Energy Systems**, **Together AI**, **Scale AI** | Supplies dedicated GPU compute clusters, low-latency orchestration software, clean energy infrastructure, and RLHF/data curation pipelines. |\n| **Frontier Foundation Labs** | Research, design, and deployment of foundational generative AI, proprietary/open-weight models, and autonomous agents. | **OpenAI**, **Anthropic**, **Mistral AI** | Builds cutting-edge general intelligence systems, agentic coding tools, and API platforms that serve as the cognitive core for applications. |\n| **Distribution & Enterprise Cloud** | Global enterprise cloud footprint, multi-tenant software integration, hyperscale distribution, and enterprise co-selling. | **Microsoft Corporation** | Embeds frontier models into established enterprise productivity stacks and global cloud infrastructure, monetizing models at scale. |\n\n#### 1. Hardware & Silicon Accelerator Layer\n**NVIDIA Corporation** serves as the primary compute platform provider, designing graphics processing units (GPUs), central processing units (CPUs), high-speed networking equipment, and full-stack accelerated computing systems. Concurrently, hardware innovators like **Groq** target inference cost and latency through Application-Specific Integrated Circuits (ASICs) known as Language Processing Units (LPUs), designed specifically for low-latency model execution.\n\n#### 2. Specialized Compute Hosting & Data Infrastructure (\"Neoclouds\")\nAs legacy public clouds face capacity limits, specialized AI-native infrastructure providers have expanded rapidly:\n* **CoreWeave:** Operates as a specialized \"neocloud,\" providing high-performance GPU compute, cluster management orchestration, and developer tooling optimized for scale training and inference.\n* **Crusoe Energy Systems:** Vertically integrated cloud operator building high-density data centers powered by stranded, off-grid, and clean energy sources to bypass traditional utility grid queues.\n* **Together AI:** Provides an AI-native cloud platform allowing developers to train, fine-tune, and host open and custom generative models.\n* **Scale AI:** Supplies data infrastructure, data annotation, Reinforcement Learning from Human Feedback (RLHF), model evaluation, and software stacks required to align and deploy frontier systems.\n\n#### 3. Frontier Foundation Labs\nThe cognitive core of the ecosystem is driven by foundation research labs developing proprietary and open-weight models:\n* **OpenAI:** Focused on developing Artificial General Intelligence (AGI), conversational assistants (ChatGPT), and API ecosystems.\n* **Anthropic:** Organized as an AI safety public benefit company, developing steerable and reliable systems through its Claude model series and Claude Code development tools.\n* **Mistral AI:** European frontier lab providing open-weight and proprietary models, custom enterprise generative solutions, and Le Chat assistants.\n\n#### 4. Enterprise Distribution & Cloud Titans\nMultinational technology leaders like **Microsoft Corporation** bridge foundation labs with commercial enterprises. By integrating frontier capabilities across cloud infrastructure (Azure), enterprise software, and productivity tools, hyperscalers provide distribution access to millions of end-users while funding foundation research.\n\n---\n\n## Key players & signals\n\n```\n========================================================================================\n                      FRONTIER AI LABS: MARKET COMPARISON\n========================================================================================\n\n  Anthropic\n  \u2502\n  \u251c\u2500\u2500 Market Share:  36% (estimated)\n  \u251c\u2500\u2500 Valuation:     $380B (verified)\n  \u251c\u2500\u2500 ARR:           $30B (verified)\n  \u2514\u2500\u2500 Employees:     2,300 (verified)\n\n  OpenAI\n  \u2502\n  \u251c\u2500\u2500 Market Share:  26% (estimated)\n  \u251c\u2500\u2500 Valuation:     $852B (estimated)\n  \u251c\u2500\u2500 ARR:           $25B (estimated)\n  \u251c\u2500\u2500 Users:         1B (estimated)\n  \u2514\u2500\u2500 Employees:     4,500 (estimated)\n\n  Mistral AI\n  \u2502\n  \u251c\u2500\u2500 Market Share:  2% (verified)\n  \u251c\u2500\u2500 Valuation:     $11.7B (verified)\n  \u251c\u2500\u2500 ARR:           $400M (estimated)\n  \u251c\u2500\u2500 Users:         450,000 (verified)\n  \u2514\u2500\u2500 Employees:     350 (verified)\n\n========================================================================================\n```\n\n### Primary Player Financial & Operational Profile\n\nThe table below synthesizes key quantitative metrics across the primary frontier labs. Confidence levels are strictly classified as either **Verified** (confirmed primary/audit data) or **Estimated** (market projection/third-party model):\n\n| Company | Market Share (%) | Private Valuation | Annual Recurring Revenue (ARR) | User Base | Workforce (Employees) | Confidence Level |\n| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n| **OpenAI** | 26% *(estimated)* | $852,000,000,000 *(estimated)* | $25,000,000,000 *(estimated)* | 1,000,000,000 *(estimated)* | 4,500 *(estimated)* | **Estimated** *(All figures digest-estimated)* |\n| **Anthropic** | 36% *(estimated)* | $380,000,000,000 *(verified)* | $30,000,000,000 *(verified)* | *Unknown / Not Disclosed* | 2,300 *(verified)* | **Verified** *(Valuation, ARR, Employees verified)* |\n| **Mistral AI** | 2% *(verified)* | $11,700,000,000 *(verified)* | $400,000,000 *(estimated)* | 450,000 *(verified)* | 350 *(verified)* | **Mixed** *(Share, Val, Users, Staff verified; ARR estimated)* |\n\n### Strategic Signals & Recent Developments\n\n#### OpenAI\n* **Market Position:** Maintains massive consumer reach with an estimated 1 billion users, supported by an estimated workforce of 4,500 employees.\n* **Operational Velocity:** Continues to lead consumer mindshare via ChatGPT while expanding developer adoption via API products.\n* **Capital Profile:** Operates at an estimated $852 billion valuation and an estimated $25 billion ARR, leveraging close commercial alignment with Microsoft Corporation for global compute distribution.\n\n#### Anthropic\n* **Enterprise Expansion:** Demonstrates strong enterprise and developer momentum with a verified $30 billion ARR and a verified $380 billion valuation, supported by a staff of 2,300 verified employees.\n* **Specialized Workflows:** Claude Code and steerable long-context models have captured high-margin developer and corporate workloads, driving an estimated 36% market share.\n* **Safety Positioning:** Leverages its public benefit corporate structure and safety framework as a competitive wedge to secure conservative enterprise and regulated industry contracts.\n\n#### Mistral AI\n* **Sovereign & Open-Weight Focus:** Positioned as Europe\u2019s premier frontier lab, capturing a verified 2% market share with a verified $11.7 billion valuation and 450,000 verified users.\n* **Capital Efficiency:** Operates with a lean team of 350 verified employees and an estimated $400 million ARR, focusing on open-weight deployment models and localized, sovereign cloud deployments for government and industrial clients.\n\n#### Infrastructure & Neocloud Signals\n* **CoreWeave:** Expanding rapidly into sovereign and national security sectors, entering partnerships to deploy classified AI cloud environments within Sensitive Compartmented Information Facilities (SCIFs).\n* **Groq:** Gaining market traction by delivering ultra-fast inference speeds via specialized LPU ASICs, decoupling operational inference costs from standard GPU clusters.\n* **Crusoe:** Capitalizing on power grid delays by developing off-grid, clean-energy-powered data center campuses tailored to multi-megawatt AI clusters.\n* **Scale AI & Together AI:** Securing critical positions in the training pipeline by scaling fine-tuning workflows, model evaluation metrics, and RLHF data pipelines.\n\n---\n\n## Risks & barriers\n\n```\n                  PRIMARY OPERATIONAL BARRIERS\n  _________________________________________________________________\n |                                                                 |\n |  1. ELECTRIC POWER GRID & INTERCONNECTION DELAYS                |\n |     \u2022 Grid queue wait times: 4 to 10 years                      |\n |     \u2022 Transformer & electrical equipment backlogs (120+ wks)    |\n |_________________________________________________________________|\n                                  \u2502\n                                  \u25bc\n  _________________________________________________________________\n |                                                                 |\n |  2. HYPER-SCALE CAPITAL INTENSITY & CAPACITY MOATS              |\n |     \u2022 Hyperscaler CapEx: >$700B combined in 2026                |\n |     \u2022 High free-cash-flow drag and ROIC scrutiny                |\n |_________________________________________________________________|\n                                  \u2502\n                                  \u25bc\n  _________________________________________________________________\n |                                                                 |\n |  3. UPSTREAM SUPPLY CHAIN & GEOPOLITICAL CONTROLS               |\n |     \u2022 Advanced packaging chokepoints (CoWoS, HBM)               |\n |     \u2022 Expanding export controls & sovereign data mandates       |\n |_________________________________________________________________|\n```\n\nThe expansion of the Frontier AI ecosystem faces three primary structural bottlenecks:\n\n### 1. Physical Power Infrastructure & Grid Interconnection Delays\nPower availability has surpassed hardware availability as the single largest operational bottleneck facing AI data center operators.\n* **Interconnection Timelines:** Lead times for securing electric grid interconnection now range from **4 to 10 years** in key regional markets. Over 2,000 gigawatts of generation and storage capacity remain stalled in public utility queues globally.\n* **Equipment Backlogs:** Procurement of critical high-voltage electrical equipment\u2014including large power transformers and switchgear\u2014suffers from supply chain lead times averaging 120 to 144 weeks.\n* **Density Requirements:** Modern AI training clusters require 30 kW to over 100 kW per rack (compared to 5\u201315 kW for legacy cloud workloads), severely straining regional electrical grids and causing wholesale power cost increases near major data center hubs.\n\n### 2. Hyper-Scale Capital Intensity & Pre-Emptive Capacity Moats\nThe financial investment required to maintain competitive frontier infrastructure has reached unprecedented levels:\n* **CapEx Aggression:** Four leading U.S. hyperscalers (Amazon, Microsoft, Alphabet, Meta) have committed **over $700 billion combined in 2026** toward capital expenditures, primarily driven by AI servers, data center builds, and networking.\n* **Defensive Game Theory:** Mega-cap technology firms are actively using massive balance sheets to pre-emptively lock up compute capacity, power rights, and real estate. This creates an intentional moat designed to make entry cost-prohibitive for non-hyperscale competitors, though it places heavy free-cash-flow drags on the hyperscalers themselves.\n\n### 3. Upstream Hardware Supply Chain Chokepoints & Geopolitical Regulatory Controls\nComplex manufacturing supply chains and expanding regulatory barriers pose ongoing operational risks:\n* **Manufacturing Bottlenecks:** Advanced semiconductor packaging technologies (e.g., TSMC's CoWoS) and High Bandwidth Memory (HBM) production remain tightly constrained, limiting overall GPU production throughput.\n* **Regulatory & Export Controls:** Tightening U.S. export control regulations restrict advanced hardware sales to key foreign markets, while emerging sovereign data requirements force operators to build localized, accredited infrastructure within national borders.\n\n---\n\n## Outlook & what to watch\n\nAs the market navigates power constraints and heavy capital investment, executive focus is shifting toward operational execution, inference efficiency, and sovereign computing strategies.\n\n```\n                         FUTURE MARKET TRAJECTORY\n  _________________________________________________________________\n |                                                                 |\n |  1. INFERENCE ECONOMICS & AGENTIC WORKFLOWS                     |\n |     \u2022 Transition from raw parameter scaling to task cost        |\n |     \u2022 Autonomy metrics replacing static benchmarks               |\n |_________________________________________________________________|\n                                  \u2502\n                                  \u25bc\n  _________________________________________________________________\n |                                                                 |\n |  2. OFF-GRID POWER & DIRECT ENERGY CO-LOCATION                  |\n |     \u2022 On-site nuclear, natural gas, and stranded energy sites   |\n |     \u2022 Hyperscalers bypassing public utility queues              |\n |_________________________________________________________________|\n                                  \u2502\n                                  \u25bc\n  _________________________________________________________________\n |                                                                 |\n |  3. SOVEREIGN CLOUD & DEFENSE ADOPTION                          |\n |     \u2022 Accredited SCIF environments for defense AI               |\n |     \u2022 European open-weight specialization (Mistral AI)          |\n |_________________________________________________________________|\n```\n\n### Key Trends & Catalysts to Monitor\n\n1. **Shift to \"Inference Economics\" & Cost-per-Outcome:** Enterprise deployment attention is pivoting from raw model parameter scaling toward token efficiency and cost-per-outcome. Specialist inference providers (such as Groq) and open-weight architectures (such as Mistral AI) will compete aggressively on unit economics for high-volume agentic applications.\n2. **Off-Grid Power Acceleration & Direct Energy Co-location:** To circumvent 4-to-10-year grid queues, hyperscalers and neocloud operators will increasingly deploy off-grid compute sites. Watch for expanded nuclear Power Purchase Agreements (PPAs), stranded natural gas utilization (e.g., Crusoe), and behind-the-meter co-location with dedicated power generation assets.\n3. **Expansion of Sovereign AI & Defense Infrastructure:** National security requirements are driving demand for sovereign cloud capacity isolated from public internet infrastructure. Key developments include specialized classified clouds (e.g., CoreWeave's defense partnerships) and regional open-weight champions (e.g., Mistral AI) benefiting from local digital sovereignty mandates.\n4. **Agentic Autonomy Benchmarks over Static Evaluations:** Benchmark metrics are shifting away from single-turn evaluations toward multi-hour autonomous agent execution, long-context code updates, and enterprise workflow execution. Labs that successfully convert run-rate usage into sticky enterprise software integrations will lead the next funding cycle.",
+      "title": "Frontier AI Ecosystem — Market Report",
+      "markdown": "## Executive summary\n\nThe Frontier Artificial Intelligence Ecosystem has entered a structural maturation phase defined by hyper-scale capital expenditure, intense platform competition, and severe physical infrastructure bottlenecks. Capital commitments across the hardware, cloud, data, and model layers have reached historic levels, highlighted by four leading U.S. hyperscalers committing over $700 billion combined in 2026 capital expenditures (CapEx) to build pre-emptive capacity moats.\n\n```\n                 FRONTIER AI ECOSYSTEM ARCHITECTURE\n  _________________________________________________________________\n |                                                                 |\n |                   DISTRIBUTION & CLOUD TITANS                   |\n |                   (e.g., Microsoft Corporation)                 |\n |_________________________________________________________________|\n                                  │\n                                  ▼\n  _________________________________________________________________\n |                                                                 |\n |                     FRONTIER AI FOUNDATION LABS                 |\n |        (OpenAI, Anthropic, Mistral AI, proprietary/open-weight) |\n |_________________________________________________________________|\n                                  │\n                                  ▼\n  _________________________________________________________________\n |                                                                 |\n |            NEOCLOUDS & DATA INFRASTRUCTURE PLATFORMS            |\n |         (CoreWeave, Crusoe, Together AI, Scale AI)              |\n |_________________________________________________________________|\n                                  │\n                                  ▼\n  _________________________________________________________________\n |                                                                 |\n |                 HARDWARE & COMPUTE SILICON LAYER                |\n |               (NVIDIA Corporation, Groq LPUs)                   |\n |_________________________________________________________________|\n```\n\nMarket share within the foundation lab tier remains concentrated among top research entities. Based on primary evidence metrics, **Anthropic** holds an estimated 36% market share, supported by a verified $30 billion Annual Recurring Revenue (ARR) run-rate and a verified $380 billion valuation. **OpenAI** holds an estimated 26% market share, with an estimated $25 billion ARR, an estimated $852 billion valuation, and an estimated 1 billion user base. European contender **Mistral AI** commands a verified 2% market share with a verified $11.7 billion valuation and an estimated $400 million ARR.\n\nHowever, ecosystem growth is constrained by critical physical and geopolitical barriers:\n* **Power Grid Interconnection:** Lead times for electric grid connections currently stretch between 4 and 10 years, making power availability the single greatest operational constraint on data center expansion.\n* **Capital Intensity:** Extreme capital concentration creates a defensive \"arms race\" designed to starve smaller market entrants of compute resources.\n* **Supply Chain Chokepoints:** Upstream packaging limitations, high-voltage electrical component shortages, and tightening geopolitical export controls complicate hardware deployment worldwide.\n\n---\n\n## Landscape\n\nThe Frontier AI ecosystem is divided into four interdependent structural layers, spanning foundational raw hardware up to global enterprise distribution channels.\n\n```\n       [ Distribution & Cloud Titans ]  <-- Microsoft\n                      │\n                      ▼\n       [ Frontier Foundation Labs ]     <-- Anthropic, OpenAI, Mistral AI\n                      │\n                      ▼\n       [ Neoclouds & Data Infrastructure ] <-- CoreWeave, Crusoe, Together AI, Scale AI\n                      │\n                      ▼\n       [ Silicon & Compute Hardware ]   <-- NVIDIA, Groq\n```\n\n### Ecosystem Layer Taxonomy\n\n| Ecosystem Layer | Primary Scope & Function | Key Entities | Strategic Role & Value Proposition |\n| :--- | :--- | :--- | :--- |\n| **Compute & Hardware Infrastructure** | High-performance silicon design, GPU manufacturing, specialized ASICs, and accelerated computing architectures. | **NVIDIA Corporation**, **Groq** | Provides the underlying accelerated compute platforms (GPUs/CPUs/networking) and specialized inference LPUs required to run foundation models efficiently. |\n| **Data & Compute Hosting (\"Neoclouds\")** | Specialized AI-native cloud hosting, high-density data center operations, clean energy integration, and training data annotation. | **CoreWeave**, **Crusoe Energy Systems**, **Together AI**, **Scale AI** | Supplies dedicated GPU compute clusters, low-latency orchestration software, clean energy infrastructure, and RLHF/data curation pipelines. |\n| **Frontier Foundation Labs** | Research, design, and deployment of foundational generative AI, proprietary/open-weight models, and autonomous agents. | **OpenAI**, **Anthropic**, **Mistral AI** | Builds cutting-edge general intelligence systems, agentic coding tools, and API platforms that serve as the cognitive core for applications. |\n| **Distribution & Enterprise Cloud** | Global enterprise cloud footprint, multi-tenant software integration, hyperscale distribution, and enterprise co-selling. | **Microsoft Corporation** | Embeds frontier models into established enterprise productivity stacks and global cloud infrastructure, monetizing models at scale. |\n\n#### 1. Hardware & Silicon Accelerator Layer\n**NVIDIA Corporation** serves as the primary compute platform provider, designing graphics processing units (GPUs), central processing units (CPUs), high-speed networking equipment, and full-stack accelerated computing systems. Concurrently, hardware innovators like **Groq** target inference cost and latency through Application-Specific Integrated Circuits (ASICs) known as Language Processing Units (LPUs), designed specifically for low-latency model execution.\n\n#### 2. Specialized Compute Hosting & Data Infrastructure (\"Neoclouds\")\nAs legacy public clouds face capacity limits, specialized AI-native infrastructure providers have expanded rapidly:\n* **CoreWeave:** Operates as a specialized \"neocloud,\" providing high-performance GPU compute, cluster management orchestration, and developer tooling optimized for scale training and inference.\n* **Crusoe Energy Systems:** Vertically integrated cloud operator building high-density data centers powered by stranded, off-grid, and clean energy sources to bypass traditional utility grid queues.\n* **Together AI:** Provides an AI-native cloud platform allowing developers to train, fine-tune, and host open and custom generative models.\n* **Scale AI:** Supplies data infrastructure, data annotation, Reinforcement Learning from Human Feedback (RLHF), model evaluation, and software stacks required to align and deploy frontier systems.\n\n#### 3. Frontier Foundation Labs\nThe cognitive core of the ecosystem is driven by foundation research labs developing proprietary and open-weight models:\n* **OpenAI:** Focused on developing Artificial General Intelligence (AGI), conversational assistants (ChatGPT), and API ecosystems.\n* **Anthropic:** Organized as an AI safety public benefit company, developing steerable and reliable systems through its Claude model series and Claude Code development tools.\n* **Mistral AI:** European frontier lab providing open-weight and proprietary models, custom enterprise generative solutions, and Le Chat assistants.\n\n#### 4. Enterprise Distribution & Cloud Titans\nMultinational technology leaders like **Microsoft Corporation** bridge foundation labs with commercial enterprises. By integrating frontier capabilities across cloud infrastructure (Azure), enterprise software, and productivity tools, hyperscalers provide distribution access to millions of end-users while funding foundation research.\n\n---\n\n## Key players & signals\n\n```\n========================================================================================\n                      FRONTIER AI LABS: MARKET COMPARISON\n========================================================================================\n\n  Anthropic\n  │\n  ├── Market Share:  36% (estimated)\n  ├── Valuation:     $380B (verified)\n  ├── ARR:           $30B (verified)\n  └── Employees:     2,300 (verified)\n\n  OpenAI\n  │\n  ├── Market Share:  26% (estimated)\n  ├── Valuation:     $852B (estimated)\n  ├── ARR:           $25B (estimated)\n  ├── Users:         1B (estimated)\n  └── Employees:     4,500 (estimated)\n\n  Mistral AI\n  │\n  ├── Market Share:  2% (verified)\n  ├── Valuation:     $11.7B (verified)\n  ├── ARR:           $400M (estimated)\n  ├── Users:         450,000 (verified)\n  └── Employees:     350 (verified)\n\n========================================================================================\n```\n\n### Primary Player Financial & Operational Profile\n\nThe table below synthesizes key quantitative metrics across the primary frontier labs. Confidence levels are strictly classified as either **Verified** (confirmed primary/audit data) or **Estimated** (market projection/third-party model):\n\n| Company | Market Share (%) | Private Valuation | Annual Recurring Revenue (ARR) | User Base | Workforce (Employees) | Confidence Level |\n| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n| **OpenAI** | 26% *(estimated)* | $852,000,000,000 *(estimated)* | $25,000,000,000 *(estimated)* | 1,000,000,000 *(estimated)* | 4,500 *(estimated)* | **Estimated** *(All figures digest-estimated)* |\n| **Anthropic** | 36% *(estimated)* | $380,000,000,000 *(verified)* | $30,000,000,000 *(verified)* | *Unknown / Not Disclosed* | 2,300 *(verified)* | **Verified** *(Valuation, ARR, Employees verified)* |\n| **Mistral AI** | 2% *(verified)* | $11,700,000,000 *(verified)* | $400,000,000 *(estimated)* | 450,000 *(verified)* | 350 *(verified)* | **Mixed** *(Share, Val, Users, Staff verified; ARR estimated)* |\n\n### Strategic Signals & Recent Developments\n\n#### OpenAI\n* **Market Position:** Maintains massive consumer reach with an estimated 1 billion users, supported by an estimated workforce of 4,500 employees.\n* **Operational Velocity:** Continues to lead consumer mindshare via ChatGPT while expanding developer adoption via API products.\n* **Capital Profile:** Operates at an estimated $852 billion valuation and an estimated $25 billion ARR, leveraging close commercial alignment with Microsoft Corporation for global compute distribution.\n\n#### Anthropic\n* **Enterprise Expansion:** Demonstrates strong enterprise and developer momentum with a verified $30 billion ARR and a verified $380 billion valuation, supported by a staff of 2,300 verified employees.\n* **Specialized Workflows:** Claude Code and steerable long-context models have captured high-margin developer and corporate workloads, driving an estimated 36% market share.\n* **Safety Positioning:** Leverages its public benefit corporate structure and safety framework as a competitive wedge to secure conservative enterprise and regulated industry contracts.\n\n#### Mistral AI\n* **Sovereign & Open-Weight Focus:** Positioned as Europe’s premier frontier lab, capturing a verified 2% market share with a verified $11.7 billion valuation and 450,000 verified users.\n* **Capital Efficiency:** Operates with a lean team of 350 verified employees and an estimated $400 million ARR, focusing on open-weight deployment models and localized, sovereign cloud deployments for government and industrial clients.\n\n#### Infrastructure & Neocloud Signals\n* **CoreWeave:** Expanding rapidly into sovereign and national security sectors, entering partnerships to deploy classified AI cloud environments within Sensitive Compartmented Information Facilities (SCIFs).\n* **Groq:** Gaining market traction by delivering ultra-fast inference speeds via specialized LPU ASICs, decoupling operational inference costs from standard GPU clusters.\n* **Crusoe:** Capitalizing on power grid delays by developing off-grid, clean-energy-powered data center campuses tailored to multi-megawatt AI clusters.\n* **Scale AI & Together AI:** Securing critical positions in the training pipeline by scaling fine-tuning workflows, model evaluation metrics, and RLHF data pipelines.\n\n---\n\n## Risks & barriers\n\n```\n                  PRIMARY OPERATIONAL BARRIERS\n  _________________________________________________________________\n |                                                                 |\n |  1. ELECTRIC POWER GRID & INTERCONNECTION DELAYS                |\n |     • Grid queue wait times: 4 to 10 years                      |\n |     • Transformer & electrical equipment backlogs (120+ wks)    |\n |_________________________________________________________________|\n                                  │\n                                  ▼\n  _________________________________________________________________\n |                                                                 |\n |  2. HYPER-SCALE CAPITAL INTENSITY & CAPACITY MOATS              |\n |     • Hyperscaler CapEx: >$700B combined in 2026                |\n |     • High free-cash-flow drag and ROIC scrutiny                |\n |_________________________________________________________________|\n                                  │\n                                  ▼\n  _________________________________________________________________\n |                                                                 |\n |  3. UPSTREAM SUPPLY CHAIN & GEOPOLITICAL CONTROLS               |\n |     • Advanced packaging chokepoints (CoWoS, HBM)               |\n |     • Expanding export controls & sovereign data mandates       |\n |_________________________________________________________________|\n```\n\nThe expansion of the Frontier AI ecosystem faces three primary structural bottlenecks:\n\n### 1. Physical Power Infrastructure & Grid Interconnection Delays\nPower availability has surpassed hardware availability as the single largest operational bottleneck facing AI data center operators.\n* **Interconnection Timelines:** Lead times for securing electric grid interconnection now range from **4 to 10 years** in key regional markets. Over 2,000 gigawatts of generation and storage capacity remain stalled in public utility queues globally.\n* **Equipment Backlogs:** Procurement of critical high-voltage electrical equipment—including large power transformers and switchgear—suffers from supply chain lead times averaging 120 to 144 weeks.\n* **Density Requirements:** Modern AI training clusters require 30 kW to over 100 kW per rack (compared to 5–15 kW for legacy cloud workloads), severely straining regional electrical grids and causing wholesale power cost increases near major data center hubs.\n\n### 2. Hyper-Scale Capital Intensity & Pre-Emptive Capacity Moats\nThe financial investment required to maintain competitive frontier infrastructure has reached unprecedented levels:\n* **CapEx Aggression:** Four leading U.S. hyperscalers (Amazon, Microsoft, Alphabet, Meta) have committed **over $700 billion combined in 2026** toward capital expenditures, primarily driven by AI servers, data center builds, and networking.\n* **Defensive Game Theory:** Mega-cap technology firms are actively using massive balance sheets to pre-emptively lock up compute capacity, power rights, and real estate. This creates an intentional moat designed to make entry cost-prohibitive for non-hyperscale competitors, though it places heavy free-cash-flow drags on the hyperscalers themselves.\n\n### 3. Upstream Hardware Supply Chain Chokepoints & Geopolitical Regulatory Controls\nComplex manufacturing supply chains and expanding regulatory barriers pose ongoing operational risks:\n* **Manufacturing Bottlenecks:** Advanced semiconductor packaging technologies (e.g., TSMC's CoWoS) and High Bandwidth Memory (HBM) production remain tightly constrained, limiting overall GPU production throughput.\n* **Regulatory & Export Controls:** Tightening U.S. export control regulations restrict advanced hardware sales to key foreign markets, while emerging sovereign data requirements force operators to build localized, accredited infrastructure within national borders.\n\n---\n\n## Outlook & what to watch\n\nAs the market navigates power constraints and heavy capital investment, executive focus is shifting toward operational execution, inference efficiency, and sovereign computing strategies.\n\n```\n                         FUTURE MARKET TRAJECTORY\n  _________________________________________________________________\n |                                                                 |\n |  1. INFERENCE ECONOMICS & AGENTIC WORKFLOWS                     |\n |     • Transition from raw parameter scaling to task cost        |\n |     • Autonomy metrics replacing static benchmarks               |\n |_________________________________________________________________|\n                                  │\n                                  ▼\n  _________________________________________________________________\n |                                                                 |\n |  2. OFF-GRID POWER & DIRECT ENERGY CO-LOCATION                  |\n |     • On-site nuclear, natural gas, and stranded energy sites   |\n |     • Hyperscalers bypassing public utility queues              |\n |_________________________________________________________________|\n                                  │\n                                  ▼\n  _________________________________________________________________\n |                                                                 |\n |  3. SOVEREIGN CLOUD & DEFENSE ADOPTION                          |\n |     • Accredited SCIF environments for defense AI               |\n |     • European open-weight specialization (Mistral AI)          |\n |_________________________________________________________________|\n```\n\n### Key Trends & Catalysts to Monitor\n\n1. **Shift to \"Inference Economics\" & Cost-per-Outcome:** Enterprise deployment attention is pivoting from raw model parameter scaling toward token efficiency and cost-per-outcome. Specialist inference providers (such as Groq) and open-weight architectures (such as Mistral AI) will compete aggressively on unit economics for high-volume agentic applications.\n2. **Off-Grid Power Acceleration & Direct Energy Co-location:** To circumvent 4-to-10-year grid queues, hyperscalers and neocloud operators will increasingly deploy off-grid compute sites. Watch for expanded nuclear Power Purchase Agreements (PPAs), stranded natural gas utilization (e.g., Crusoe), and behind-the-meter co-location with dedicated power generation assets.\n3. **Expansion of Sovereign AI & Defense Infrastructure:** National security requirements are driving demand for sovereign cloud capacity isolated from public internet infrastructure. Key developments include specialized classified clouds (e.g., CoreWeave's defense partnerships) and regional open-weight champions (e.g., Mistral AI) benefiting from local digital sovereignty mandates.\n4. **Agentic Autonomy Benchmarks over Static Evaluations:** Benchmark metrics are shifting away from single-turn evaluations toward multi-hour autonomous agent execution, long-context code updates, and enterprise workflow execution. Labs that successfully convert run-rate usage into sticky enterprise software integrations will lead the next funding cycle.",
       "citations": [
         {
           "title": "shayaikehassan.com",
@@ -7153,7 +7153,7 @@
   ],
   "opportunity": {
     "mkt_frontier-ai-ecosystem_s248s": {
-      "markdown": "## Positioning axes\n\nThe two most differentiating axes defining the Frontier AI Ecosystem are:\n1. **Deployment Architecture & Sovereignty** (*Closed Cloud SaaS APIs* vs. *Open-Weight / Private On-Premise Infrastructure*)\n2. **Target Scope & Value Proposition** (*Broad Consumer / General Horizontal Assistant* vs. *Specialized Enterprise / High-Reasoning Workflows*)\n\nHere is where each market player sits along these axes:\n\n* **OpenAI**: Positioned at **Closed Cloud SaaS \u00d7 Broad Consumer / Horizontal Platform**, leveraging its massive reach of 1,000,000,000 users and $25,000,000,000 ARR to deliver general-purpose generative AI and ChatGPT [T8].\n* **Anthropic**: Positioned at **Closed Cloud SaaS \u00d7 Specialized Enterprise Workflows**, commanding a leading 36% market share and $30,000,000,000 ARR driven by steerable, safety-focused models and specialized coding tools like Claude Code.\n* **Mistral AI**: Positioned at **Open-Weight / Private Infrastructure \u00d7 Broad Sovereign Base Models**, operating with a 2% market share, $400,000,000 ARR, $11,700,000,000 valuation, and 450,000 users focused on European data sovereignty and open-weight LLM deployment.\n\n---\n\n## The whitespace\n\nThe primary underserved quadrant in this market is **Open-Weight / Private Infrastructure \u00d7 Specialized High-Reasoning & Agentic Workflows** (air-gapped, high-precision domain agents).\n\n* **Strict Sovereignty Demands for Complex Workflows:** Regulated industries (defense, public sector, finance, healthcare) urgently require advanced multi-step reasoning and autonomous coding agents, but compliance and data ownership rules prevent them from routing sensitive IP through public cloud SaaS APIs.\n* **The Capability vs. Deployment Paradox:** The market's highest-performing agentic systems (such as Anthropic's Claude Code) remain locked behind closed proprietary SaaS clouds. Conversely, existing open-weight offerings historically lag on complex tool-use execution, multi-step logic, and agentic integrations out of the box.\n* **Enterprise Economics and Model Ownership:** Organizations are seeking to avoid perpetual API token markups and data lock-in by hosting models on private, air-gapped hardware, creating an open commercial lane for high-reasoning, open-weight agentic stacks.\n\n---\n\n## Closest to the gap\n\n1. **Mistral AI**: With 350 employees, a $11,700,000,000 valuation, and an established open-weight footprint [T5], Mistral is already anchored in private/sovereign deployment. To capture the gap, Mistral must move up the value chain from general-purpose base models to specialized, tool-binding agentic frameworks that rival proprietary closed models in complex reasoning and coding tasks.\n   * *What to watch:* Upgrades in Mistral's multi-step agentic benchmarks, tool-use integration capabilities, and its ability to scale revenue toward its target of $1,100,000,000+.\n\n2. **Anthropic**: Anchored by its $380,000,000,000 valuation, $30,000,000,000 ARR, and 2,300 employees [T7], Anthropic holds the leading product capabilities in enterprise reasoning and coding. If Anthropic introduces hybrid, private VPC, or source-available/dedicated weight license options for air-gapped environments, it could quickly capture high-security enterprise workloads.\n   * *What to watch:* Licensing announcements allowing Claude models or Claude Code engines to run inside private enterprise clouds or sovereign air-gapped customer environments.",
+      "markdown": "## Positioning axes\n\nThe two most differentiating axes defining the Frontier AI Ecosystem are:\n1. **Deployment Architecture & Sovereignty** (*Closed Cloud SaaS APIs* vs. *Open-Weight / Private On-Premise Infrastructure*)\n2. **Target Scope & Value Proposition** (*Broad Consumer / General Horizontal Assistant* vs. *Specialized Enterprise / High-Reasoning Workflows*)\n\nHere is where each market player sits along these axes:\n\n* **OpenAI**: Positioned at **Closed Cloud SaaS × Broad Consumer / Horizontal Platform**, leveraging its massive reach of 1,000,000,000 users and $25,000,000,000 ARR to deliver general-purpose generative AI and ChatGPT [T8].\n* **Anthropic**: Positioned at **Closed Cloud SaaS × Specialized Enterprise Workflows**, commanding a leading 36% market share and $30,000,000,000 ARR driven by steerable, safety-focused models and specialized coding tools like Claude Code.\n* **Mistral AI**: Positioned at **Open-Weight / Private Infrastructure × Broad Sovereign Base Models**, operating with a 2% market share, $400,000,000 ARR, $11,700,000,000 valuation, and 450,000 users focused on European data sovereignty and open-weight LLM deployment.\n\n---\n\n## The whitespace\n\nThe primary underserved quadrant in this market is **Open-Weight / Private Infrastructure × Specialized High-Reasoning & Agentic Workflows** (air-gapped, high-precision domain agents).\n\n* **Strict Sovereignty Demands for Complex Workflows:** Regulated industries (defense, public sector, finance, healthcare) urgently require advanced multi-step reasoning and autonomous coding agents, but compliance and data ownership rules prevent them from routing sensitive IP through public cloud SaaS APIs.\n* **The Capability vs. Deployment Paradox:** The market's highest-performing agentic systems (such as Anthropic's Claude Code) remain locked behind closed proprietary SaaS clouds. Conversely, existing open-weight offerings historically lag on complex tool-use execution, multi-step logic, and agentic integrations out of the box.\n* **Enterprise Economics and Model Ownership:** Organizations are seeking to avoid perpetual API token markups and data lock-in by hosting models on private, air-gapped hardware, creating an open commercial lane for high-reasoning, open-weight agentic stacks.\n\n---\n\n## Closest to the gap\n\n1. **Mistral AI**: With 350 employees, a $11,700,000,000 valuation, and an established open-weight footprint [T5], Mistral is already anchored in private/sovereign deployment. To capture the gap, Mistral must move up the value chain from general-purpose base models to specialized, tool-binding agentic frameworks that rival proprietary closed models in complex reasoning and coding tasks.\n   * *What to watch:* Upgrades in Mistral's multi-step agentic benchmarks, tool-use integration capabilities, and its ability to scale revenue toward its target of $1,100,000,000+.\n\n2. **Anthropic**: Anchored by its $380,000,000,000 valuation, $30,000,000,000 ARR, and 2,300 employees [T7], Anthropic holds the leading product capabilities in enterprise reasoning and coding. If Anthropic introduces hybrid, private VPC, or source-available/dedicated weight license options for air-gapped environments, it could quickly capture high-security enterprise workloads.\n   * *What to watch:* Licensing announcements allowing Claude models or Claude Code engines to run inside private enterprise clouds or sovereign air-gapped customer environments.",
       "citations": [
         {
           "title": "useluminix.com",
