@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Quote } from 'lucide-react';
 import { useCompany, useDashboardTab } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
@@ -6,11 +7,23 @@ import { DigDeeper } from '@/features/deepdive/DeepDive';
 export function HistoryTab({ companyId }: { companyId: string }) {
   const query = useDashboardTab(companyId, 'history');
   const name = useCompany(companyId).data?.name ?? 'this company';
+  const [granularity, setGranularity] = useState<'all' | 'yearly' | 'quarterly'>('all');
+
   return (
     <QueryBoundary query={query}>
       {(result) => {
         const c = result.content;
         const paragraphs = c.founderStory.split(/\n\n+/).filter((x) => x.trim().length > 0);
+
+        const filteredTimeline = c.timeline.filter((t) => {
+          if (granularity === 'yearly') {
+            return !/Q[1-4]|Quarter/i.test(t.date);
+          }
+          if (granularity === 'quarterly') {
+            return /Q[1-4]|Quarter/i.test(t.date);
+          }
+          return true;
+        });
         return (
           <div className="space-y-4">
             {/* The one-pager: the company's story, written to be read. */}
@@ -36,9 +49,35 @@ export function HistoryTab({ companyId }: { companyId: string }) {
             <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
               {/* A story in time: the rail keeps scrolling as research adds to it. */}
               <div className="panel p-5">
-                <h3 className="mb-4 font-display text-sm font-semibold text-content">Timeline</h3>
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="font-display text-sm font-semibold text-content">Timeline</h3>
+                  <div className="flex rounded-md bg-surface-2 p-0.5 text-xs">
+                    <button
+                      type="button"
+                      className={`px-2 py-0.5 font-medium rounded ${granularity === 'all' ? 'bg-surface text-content shadow-sm' : 'text-muted hover:text-content'}`}
+                      onClick={() => setGranularity('all')}
+                    >
+                      All
+                    </button>
+                    <button
+                      type="button"
+                      className={`px-2 py-0.5 font-medium rounded ${granularity === 'yearly' ? 'bg-surface text-content shadow-sm' : 'text-muted hover:text-content'}`}
+                      onClick={() => setGranularity('yearly')}
+                    >
+                      Yearly
+                    </button>
+                    <button
+                      type="button"
+                      className={`px-2 py-0.5 font-medium rounded ${granularity === 'quarterly' ? 'bg-surface text-content shadow-sm' : 'text-muted hover:text-content'}`}
+                      onClick={() => setGranularity('quarterly')}
+                    >
+                      Quarterly
+                    </button>
+                  </div>
+                </div>
+
                 <ol className="relative border-l-2 border-border pl-6">
-                  {c.timeline.map((t, i) => (
+                  {filteredTimeline.map((t, i) => (
                     <li key={i} className="relative mb-5 last:mb-0">
                       <span className="absolute -left-[31px] top-1 h-3.5 w-3.5 rounded-full border-2 border-surface bg-primary shadow-sm" />
                       <div className="rounded-lg border border-border bg-surface-2/50 px-3.5 py-2.5">
