@@ -38,7 +38,9 @@ const WEB_DIST = app.isPackaged
   ? path.join(process.resourcesPath, 'web-dist')
   : path.join(__dirname, '../../web/dist');
 
+app.name = 'Stratemark';
 app.setName('Stratemark');
+process.title = 'Stratemark';
 
 function createApplicationMenu(): void {
   const isMac = process.platform === 'darwin';
