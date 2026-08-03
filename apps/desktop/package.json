@@ -14,7 +14,7 @@
   },
   "build": {
     "appId": "com.marketintel.deckbuilder",
-    "productName": "Market Intel Deck Builder",
+    "productName": "Stratemark",
     "icon": "build/icon.png",
     "files": [
       "dist/**",
