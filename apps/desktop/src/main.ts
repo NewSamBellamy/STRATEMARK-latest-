@@ -14,6 +14,7 @@ import {
   dialog,
   WebContentsView,
   ipcMain,
+  nativeImage,
   net,
   protocol,
   safeStorage,
@@ -276,10 +277,15 @@ function registerIpc(): void {
 }
 
 function createWindow(): void {
+  const iconPath = path.join(__dirname, '../build/icon.png');
+  const appIcon = existsSync(iconPath) ? nativeImage.createFromPath(iconPath) : undefined;
+
   mainWin = new BrowserWindow({
     width: 1440,
     height: 900,
     show: false,
+    title: 'Stratemark — Market Intel Deck Builder',
+    icon: appIcon,
     backgroundColor: '#EDECE8',
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
@@ -293,6 +299,13 @@ function createWindow(): void {
     mainWin?.show();
     mainWin?.focus();
     if (process.platform === 'darwin') {
+      if (appIcon) {
+        try {
+          app.dock?.setIcon(appIcon);
+        } catch {
+          // ignore if setIcon fails in dev
+        }
+      }
       app.dock?.show();
       app.focus({ steal: true });
     }

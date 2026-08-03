@@ -14,8 +14,10 @@
   "build": {
     "appId": "com.marketintel.deckbuilder",
     "productName": "Market Intel Deck Builder",
+    "icon": "build/icon.png",
     "files": [
-      "dist/**"
+      "dist/**",
+      "build/**"
     ],
     "extraResources": [
       {
@@ -27,13 +29,16 @@
       "output": "release"
     },
     "mac": {
+      "icon": "build/icon.icns",
       "target": "dmg",
       "category": "public.app-category.productivity"
     },
     "win": {
+      "icon": "build/icon.png",
       "target": "nsis"
     },
     "linux": {
+      "icon": "build/icon.png",
       "target": "AppImage",
       "category": "Office"
     }
