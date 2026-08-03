@@ -14,6 +14,8 @@ import {
   dialog,
   WebContentsView,
   ipcMain,
+  Menu,
+  type MenuItemConstructorOptions,
   nativeImage,
   net,
   protocol,
@@ -35,6 +37,72 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WEB_DIST = app.isPackaged
   ? path.join(process.resourcesPath, 'web-dist')
   : path.join(__dirname, '../../web/dist');
+
+app.setName('Stratemark');
+
+function createApplicationMenu(): void {
+  const isMac = process.platform === 'darwin';
+
+  const template: MenuItemConstructorOptions[] = [
+    ...(isMac
+      ? [
+          {
+            label: 'Stratemark',
+            submenu: [
+              { role: 'about', label: 'About Stratemark' },
+              { type: 'separator' },
+              { role: 'services' },
+              { type: 'separator' },
+              { role: 'hide', label: 'Hide Stratemark' },
+              { role: 'hideOthers' },
+              { role: 'unhide' },
+              { type: 'separator' },
+              { role: 'quit', label: 'Quit Stratemark' },
+            ] as MenuItemConstructorOptions[],
+          },
+        ]
+      : []),
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' },
+      ],
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+      ],
+    },
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'zoom' },
+        ...(isMac
+          ? [{ type: 'separator' }, { role: 'front' }, { type: 'separator' }, { role: 'window' }]
+          : [{ role: 'close' }]),
+      ] as MenuItemConstructorOptions[],
+    },
+  ];
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
+}
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } },
@@ -351,6 +419,7 @@ void app.whenReady().then(() => {
     console.error('[main] Failed to create repository:', err);
     repository = new MockRepository();
   }
+  createApplicationMenu();
   registerIpc();
   createWindow();
 
