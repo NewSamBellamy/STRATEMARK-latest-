@@ -17,13 +17,24 @@ const SENTIMENT_STYLE = {
 function IntelRow({ item, companyId, companyName }: { item: LiveIntelItem; companyId: string; companyName: string }) {
   const Icon = SOURCE_ICON[item.source];
   const hasUrl = /^https?:\/\//.test(item.url);
+  const displayTime = (() => {
+    if (!item.publishedAt) return null;
+    const rel = formatRelative(item.publishedAt);
+    if (rel === 'just now' || rel === 'never' || rel === 'unknown') return null;
+    return rel;
+  })();
+
   return (
     <li className={cn('panel p-4', item.stale && 'opacity-60')}>
       <div className="flex items-center gap-2 text-xs text-muted">
         <Icon className="h-3.5 w-3.5" />
         <span className="uppercase">{item.source}</span>
-        <span>·</span>
-        <span>{formatRelative(item.publishedAt)}</span>
+        {displayTime && (
+          <>
+            <span>·</span>
+            <span>{displayTime}</span>
+          </>
+        )}
         <span className={cn('ml-auto font-semibold', SENTIMENT_STYLE[item.sentiment])}>
           {item.sentiment}
         </span>

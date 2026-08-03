@@ -65,6 +65,24 @@ function extractText(data: GeminiResponse): string {
     .trim();
 }
 
+export async function resolveCitationUrl(url: string, timeoutMs = 2000, fetchImpl: typeof fetch = fetch): Promise<string> {
+  if (!/vertexaisearch\.cloud\.google\.com|grounding-api-redirect/i.test(url)) {
+    return url;
+  }
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetchImpl(url, { method: 'HEAD', redirect: 'follow', signal: controller.signal });
+    clearTimeout(timer);
+    if (res.url && /^https?:\/\//i.test(res.url) && !/vertexaisearch\.cloud\.google\.com/i.test(res.url)) {
+      return res.url;
+    }
+  } catch {
+    // Fallback to original redirect URL on timeout or network error
+  }
+  return url;
+}
+
 function extractCitations(data: GeminiResponse): Citation[] {
   const chunks = data.candidates?.[0]?.groundingMetadata?.groundingChunks ?? [];
   const cites: Citation[] = [];
@@ -136,9 +154,16 @@ export function createGeminiClient(config: GeminiClientConfig): LlmClient {
       if (data.promptFeedback?.blockReason) {
         throw new Error(`Gemini blocked the request: ${data.promptFeedback.blockReason}`);
       }
+      const rawCitations = extractCitations(data);
+      const citations = await Promise.all(
+        rawCitations.map(async (c) => ({
+          title: c.title,
+          url: await resolveCitationUrl(c.url, 2000, doFetch),
+        })),
+      );
       return {
         text: extractText(data),
-        citations: extractCitations(data),
+        citations,
         queries: data.candidates?.[0]?.groundingMetadata?.webSearchQueries ?? [],
       };
     },

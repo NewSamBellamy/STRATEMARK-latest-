@@ -42,6 +42,7 @@ const liveIntelItemsSchema = z.object({
         url: z.string().default(''),
         summary: z.string().default(''),
         sentiment: z.enum(['positive', 'neutral', 'negative']).default('neutral'),
+        publishedAt: z.string().nullable().optional(),
       }),
     )
     .default([]),
@@ -98,7 +99,7 @@ export async function researchDashboardTab<T extends DashboardTab>(
         system,
       );
       const loose = await client.structure(
-        `Convert to JSON { "items": [ { "source": "news"|"x"|"reddit", "title", "url", "summary", "sentiment": "positive"|"neutral"|"negative" } ] }.\n\nNOTES:\n${g.text}`,
+        `Convert to JSON { "items": [ { "source": "news"|"x"|"reddit", "title", "url", "summary", "sentiment": "positive"|"neutral"|"negative", "publishedAt": "YYYY-MM-DD" or null } ] }.\n\nNOTES:\n${g.text}`,
         liveIntelItemsSchema,
         structSys,
       );
@@ -111,7 +112,7 @@ export async function researchDashboardTab<T extends DashboardTab>(
           url: it.url,
           summary: it.summary,
           sentiment: it.sentiment,
-          publishedAt: nowIso,
+          publishedAt: it.publishedAt || nowIso,
           stale: false,
         })),
         lastRefreshedAt: nowIso,
