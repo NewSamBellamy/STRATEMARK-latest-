@@ -373,7 +373,7 @@ function timeLabel(): string {
 
 export default function NewDeckPage() {
   const repo = useRepository();
-  const { user } = useAuth();
+  const { user, getToken } = useAuth();
   const isPro = user?.subscriptionTier === 'pro';
   const hasKey = useApiKey((s) => s.hasKey);
   const { consumeDemoQuery, isDemoMode, remainingDemoQueries } = useDemo();
@@ -422,7 +422,8 @@ export default function NewDeckPage() {
     if (engine === 'cloud') {
       try {
         addLog('Connecting to Sentinel Cloud Agent…', { stage: 'interpret' });
-        const res = await runCloudResearchDeck(q, regionStr || null);
+        const authToken = (await getToken()) || user?.id || null;
+        const res = await runCloudResearchDeck(q, regionStr || null, undefined, authToken);
         const market = res.market || res.result?.market;
         if (res.ok && market && (market as { id?: string }).id) {
           const m = market as { id: string };

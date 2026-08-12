@@ -82,6 +82,21 @@ function getSentinelUrl(path: string): string {
   return `${cleanBase}/${subPath}`;
 }
 
+function getStoredAuthToken(): string {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('stratemark_auth_user');
+      if (raw) {
+        const parsed = JSON.parse(raw) as { id?: string };
+        if (parsed.id) return parsed.id;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return 'demo-user-token';
+}
+
 async function fetchSentinel<T>(
   endpoint: string,
   options: RequestInit & { token?: string | null } = {},
@@ -94,9 +109,8 @@ async function fetchSentinel<T>(
     ...(customHeaders as Record<string, string>),
   };
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
+  const authToken = token || getStoredAuthToken();
+  headers['Authorization'] = `Bearer ${authToken}`;
 
   const res = await fetch(url, { ...rest, headers });
 

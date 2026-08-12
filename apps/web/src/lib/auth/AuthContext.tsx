@@ -41,6 +41,7 @@ export interface AuthState {
   signInWithGoogle: () => Promise<AuthUser | null>;
   signOut: () => Promise<void>;
   clearError: () => void;
+  getToken: () => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -296,6 +297,20 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
 
   const clearError = useCallback(() => setError(null), []);
 
+  const getToken = useCallback(async (): Promise<string | null> => {
+    if (authInstance?.currentUser) {
+      try {
+        return await authInstance.currentUser.getIdToken();
+      } catch (err) {
+        console.warn('Failed to get Firebase idToken:', err);
+      }
+    }
+    if (user?.id) {
+      return user.id;
+    }
+    return null;
+  }, [authInstance, user]);
+
   const value = useMemo<AuthState>(
     () => ({
       user,
@@ -306,8 +321,9 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
       signInWithGoogle,
       signOut,
       clearError,
+      getToken,
     }),
-    [user, isLoading, error, signInWithGoogle, signOut, clearError],
+    [user, isLoading, error, signInWithGoogle, signOut, clearError, getToken],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
