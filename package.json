@@ -9,8 +9,8 @@
   },
   "scripts": {
     "dev": "pnpm --filter @mi/web dev",
-    "build": "pnpm -r --filter=./packages/* build && pnpm --filter @mi/web build",
-    "build:contracts": "pnpm --filter @mi/contracts build",
+    "build": "pnpm --filter @mi/web build && pnpm --filter @mi/desktop build:main",
+    "build:contracts": "pnpm --filter @mi/contracts typecheck",
     "build:mocks": "pnpm --filter @mi/mocks build",
     "preview": "pnpm --filter @mi/web preview",
     "typecheck": "pnpm -r typecheck",
