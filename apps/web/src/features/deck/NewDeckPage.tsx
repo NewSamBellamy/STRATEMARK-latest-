@@ -24,6 +24,7 @@ import { useRepository } from '@/lib/repository/RepositoryProvider';
 import { useApiKey } from '@/lib/settings/apiKey';
 import { useDemo } from '@/lib/demo/DemoContext';
 import { cn } from '@/lib/cn';
+import logoMark from '@/assets/logo-mark.svg';
 import wordmark from '@/assets/wordmark.svg';
 import { useResearchSession } from './research-session';
 
@@ -326,11 +327,12 @@ export default function NewDeckPage() {
           /* ── Empty state ── */
           <div className="w-full max-w-2xl pb-32">
             <div className="mb-8">
-              <div className="flex items-center gap-3">
-                <img src={wordmark} alt="Stratemark" className="h-10" />
-                <span className="text-[13px] text-muted">{timeLabel()}</span>
+              <div className="flex items-center gap-2.5">
+                <img src={logoMark} alt="Stratemark" className="h-8 w-8" />
+                <span className="font-display text-lg font-bold tracking-tight text-content">Stratemark</span>
+                <span className="text-[13px] text-muted ml-1">{timeLabel()}</span>
               </div>
-              <h1 className="mt-1.5 font-display text-2xl font-semibold text-content md:text-3xl">
+              <h1 className="mt-2 font-display text-2xl font-semibold text-content md:text-3xl">
                 What market should we dive into?
               </h1>
             </div>
@@ -362,8 +364,9 @@ export default function NewDeckPage() {
 
             {/* AI status card */}
             <div className="mt-5">
-              <div className="mb-1 flex items-center gap-2 text-[11px] text-faint">
-                <img src={wordmark} alt="Stratemark" className="h-4" />
+              <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-content">
+                <img src={logoMark} alt="" className="h-4 w-4" />
+                <span>Stratemark AI</span>
               </div>
 
               {running && (

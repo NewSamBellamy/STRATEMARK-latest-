@@ -11,7 +11,7 @@ import {
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/cn';
 import { useApiKey } from '@/lib/settings/apiKey';
-import wordmark from '@/assets/wordmark.svg';
+import logoMark from '@/assets/logo-mark.svg';
 
 export function Sidebar() {
   const hasKey = useApiKey((s) => s.hasKey);
@@ -26,11 +26,11 @@ export function Sidebar() {
       <div className={cn('mb-8 flex items-center', collapsed ? 'flex-col gap-2' : 'justify-between px-2')}>
         {collapsed ? (
           /* Collapsed: just the icon mark */
-          <img src={wordmark} alt="Stratemark" className="h-8 w-8" />
+          <img src={logoMark} alt="Stratemark" className="h-8 w-8" />
         ) : (
           /* Expanded: icon mark + brand name */
           <div className="flex items-center gap-2">
-            <img src={wordmark} alt="" className="h-7 w-7" />
+            <img src={logoMark} alt="" className="h-7 w-7" />
             <span className="font-display text-[15px] font-bold tracking-tight text-content">Stratemark</span>
           </div>
         )}
