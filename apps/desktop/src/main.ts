@@ -15,6 +15,9 @@ import path from 'node:path';
 import { IPC_CHANNELS, SECURE_CHANNELS, type MarketIntelRepository } from '@mi/contracts';
 import { MockRepository } from '@mi/mocks';
 import { GeminiRepository, type RepoSnapshot, type ResearchStore } from '@mi/research';
+import { performGoogleOAuthFlow, loadDesktopEnv, type OAuthUser } from './oauth.js';
+
+loadDesktopEnv();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WEB_DIST = app.isPackaged
@@ -194,6 +197,29 @@ function registerIpc(): void {
     saveApiKey(key);
     swapRepository();
   });
+
+  // Google Auth IPC handlers for Electron desktop shell
+  let desktopUser: OAuthUser | null = null;
+
+  const handleGoogleSignIn = async () => {
+    try {
+      const user = await performGoogleOAuthFlow();
+      desktopUser = user;
+      return desktopUser;
+    } catch (err) {
+      console.error('[main] Google sign-in failed:', err);
+      throw err;
+    }
+  };
+
+  const handleGoogleSignOut = async () => {
+    desktopUser = null;
+  };
+
+  ipcMain.handle(IPC_CHANNELS.googleSignIn, handleGoogleSignIn);
+  ipcMain.handle(IPC_CHANNELS.googleSignOut, handleGoogleSignOut);
+  ipcMain.handle(SECURE_CHANNELS.googleSignIn, handleGoogleSignIn);
+  ipcMain.handle(SECURE_CHANNELS.googleSignOut, handleGoogleSignOut);
 }
 
 function createWindow(): void {

@@ -61,6 +61,15 @@ const api: PreloadRepositoryApi = {
     ipcRenderer.invoke(IPC_CHANNELS.cancelResearchJob, id) as Promise<ResearchJob | null>,
   resumeResearchJob: (id) =>
     ipcRenderer.invoke(IPC_CHANNELS.resumeResearchJob, id) as Promise<ResearchJob | null>,
+  googleSignIn: () => ipcRenderer.invoke(IPC_CHANNELS.googleSignIn),
+  googleSignOut: () => ipcRenderer.invoke(IPC_CHANNELS.googleSignOut),
+  onAuthCallback: (listener) => {
+    const handler = (_event: unknown, data: { token?: string; user?: Record<string, unknown> }) => listener(data);
+    ipcRenderer.on(IPC_CHANNELS.authCallbackEvent, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.authCallbackEvent, handler);
+    };
+  },
   onDeckRefresh: (listener: DeckRefreshListener) => {
     const handler = (_event: unknown, evt: DeckRefreshEvent) => listener(evt);
     ipcRenderer.on(IPC_CHANNELS.deckRefreshEvent, handler);
@@ -82,5 +91,7 @@ contextBridge.exposeInMainWorld('mi', api);
 const secure: SecureApi = {
   getApiKey: () => ipcRenderer.invoke(SECURE_CHANNELS.getApiKey),
   setApiKey: (key) => ipcRenderer.invoke(SECURE_CHANNELS.setApiKey, key),
+  googleSignIn: () => ipcRenderer.invoke(SECURE_CHANNELS.googleSignIn),
+  googleSignOut: () => ipcRenderer.invoke(SECURE_CHANNELS.googleSignOut),
 };
 contextBridge.exposeInMainWorld('miSecure', secure);
