@@ -5,14 +5,19 @@ import {
   ExternalLink,
   Loader2,
   ShieldCheck,
+  Sparkles,
   Trash2,
 } from 'lucide-react';
 import { createGeminiClient } from '@mi/research';
 import { looksLikeGeminiKey, sanitizeApiKey, useApiKey } from '@/lib/settings/apiKey';
+import { useDemo } from '@/lib/demo/DemoContext';
+import { useAuth } from '@/lib/auth/AuthContext';
 
 type TestState = { status: 'idle' | 'testing' | 'ok' | 'fail'; detail?: string };
 
 export default function SettingsPage() {
+  const { remainingDemoQueries, openUpgradeModal } = useDemo();
+  const { user, isAuthenticated, signInWithGoogle } = useAuth();
   const { apiKey, model, hasKey, setApiKey, setModel, clear } = useApiKey();
   const [draft, setDraft] = useState(apiKey);
   const [saved, setSaved] = useState(false);
@@ -187,6 +192,63 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      <div className="panel mt-6 space-y-4 p-6">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-amber-500" />
+          <h2 className="font-display text-lg text-content">Stratemark Pro Subscription</h2>
+        </div>
+        <p className="text-sm text-muted">
+          Manage your Stratemark Pro subscription and unlock unlimited AI research across Web & Desktop.
+        </p>
+        <div className="rounded-lg border border-border bg-surface-2 p-4 text-sm">
+          {isAuthenticated && user ? (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2 font-semibold text-content">
+                  <span>Stratemark Pro</span>
+                  <span className="chip border-emerald-300 bg-emerald-50 text-emerald-700 text-xs">
+                    <CheckCircle2 className="h-3 w-3" /> Active (Lifetime Access)
+                  </span>
+                </div>
+                <p className="text-xs text-muted mt-0.5">
+                  License linked to {user.email || user.name}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="font-semibold text-content flex items-center gap-2">
+                  <span>Demo Mode</span>
+                  <span className="chip border-amber-300 bg-amber-50 text-amber-800 text-xs">
+                    {remainingDemoQueries} AI {remainingDemoQueries === 1 ? 'query' : 'queries'} left
+                  </span>
+                </div>
+                <p className="text-xs text-muted mt-0.5">
+                  One-time Paddle license ($49) tied to your Google Account
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => openUpgradeModal('Upgrade to Stratemark Pro for unlimited AI market research.')}
+                  className="btn-primary flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-semibold"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  <span>Upgrade to Pro — $49</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => signInWithGoogle()}
+                  className="btn-ghost text-xs text-muted hover:text-content"
+                >
+                  Already purchased? Sign in
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
