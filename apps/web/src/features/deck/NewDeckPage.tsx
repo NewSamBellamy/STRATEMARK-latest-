@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useRepository } from '@/lib/repository/RepositoryProvider';
 import { useApiKey } from '@/lib/settings/apiKey';
+import { useDemo } from '@/lib/demo/DemoContext';
 import { cn } from '@/lib/cn';
 import wordmark from '@/assets/wordmark.svg';
 import { useResearchSession } from './research-session';
@@ -179,6 +180,8 @@ function InputPill({
   disabled,
   hasKey,
   showHint,
+  remainingDemoQueries,
+  isDemoMode,
 }: {
   prompt: string;
   setPrompt: (v: string) => void;
@@ -188,6 +191,8 @@ function InputPill({
   disabled: boolean;
   hasKey: boolean;
   showHint: boolean;
+  remainingDemoQueries: number;
+  isDemoMode: boolean;
 }) {
   return (
     <form onSubmit={onSubmit} className="w-full max-w-2xl">
@@ -224,11 +229,22 @@ function InputPill({
       </div>
       {showHint && !hasKey && (
         <p className="mt-2 text-center text-[11px] text-faint">
-          Demo mode —{' '}
-          <Link to="/settings" className="text-primary-ink hover:underline">
-            add API key
-          </Link>{' '}
-          for live research.
+          {isDemoMode ? (
+            <span>
+              Demo mode — {remainingDemoQueries} {remainingDemoQueries === 1 ? 'query' : 'queries'} remaining.{' '}
+              <Link to="/settings" className="text-primary-ink hover:underline">
+                Add API key
+              </Link>{' '}
+              for unlimited live research.
+            </span>
+          ) : (
+            <span>
+              <Link to="/settings" className="text-primary-ink hover:underline">
+                Add API key
+              </Link>{' '}
+              for live research.
+            </span>
+          )}
         </p>
       )}
     </form>
@@ -244,6 +260,7 @@ function timeLabel(): string {
 export default function NewDeckPage() {
   const repo = useRepository();
   const hasKey = useApiKey((s) => s.hasKey);
+  const { consumeDemoQuery, isDemoMode, remainingDemoQueries } = useDemo();
 
   const [prompt, setPrompt] = useState('');
   const [region, setRegion] = useState('');
@@ -257,10 +274,6 @@ export default function NewDeckPage() {
   const fail = useResearchSession((s) => s.fail);
   const clear = useResearchSession((s) => s.clear);
 
-  // New Deck should always be a clean slate. If a previous session finished
-  // (completed or errored), clear it on mount so the user sees the empty state.
-  // Only a currently-running session stays visible here — its result will also
-  // appear in the Decks list when it completes.
   useEffect(() => {
     if (session && !session.running) clear();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -271,6 +284,10 @@ export default function NewDeckPage() {
     e.preventDefault();
     const q = prompt.trim();
     if (!q || session?.running) return;
+
+    if (!consumeDemoQuery()) {
+      return;
+    }
 
     const regionStr = region.trim();
     const userText = regionStr ? `${q} — ${regionStr}` : q;
@@ -446,6 +463,8 @@ export default function NewDeckPage() {
           disabled={running}
           hasKey={hasKey}
           showHint={!hasSession}
+          remainingDemoQueries={remainingDemoQueries}
+          isDemoMode={isDemoMode}
         />
       </div>
     </div>
