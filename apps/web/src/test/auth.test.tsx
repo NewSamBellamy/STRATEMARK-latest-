@@ -24,8 +24,8 @@ function TestAuthComponent() {
 describe('Google Auth System', () => {
   beforeEach(() => {
     localStorage.clear();
-    delete (window as any).mi;
-    delete (window as any).miSecure;
+    delete (window as unknown as Record<string, unknown>).mi;
+    delete (window as unknown as Record<string, unknown>).miSecure;
   });
 
   describe('Authenticated State', () => {
@@ -116,7 +116,7 @@ describe('Google Auth System', () => {
   describe('Error State & Error Recovery', () => {
     it('handles sign-in error and renders Auth Error indicator in TopBar', async () => {
       localStorage.setItem('stratemark_auth_user', JSON.stringify({ id: 'local', name: 'Local Analyst', email: null }));
-      (window as any).mi = {
+      (window as unknown as Record<string, unknown>).mi = {
         googleSignIn: vi.fn().mockRejectedValue(new Error('OAuth provider popup blocked')),
       };
 
@@ -144,7 +144,7 @@ describe('Google Auth System', () => {
 
     it('clears auth error when clearError is invoked', async () => {
       localStorage.setItem('stratemark_auth_user', JSON.stringify({ id: 'local', name: 'Local Analyst', email: null }));
-      (window as any).mi = {
+      (window as unknown as Record<string, unknown>).mi = {
         googleSignIn: vi.fn().mockRejectedValue(new Error('Network auth failure')),
       };
 

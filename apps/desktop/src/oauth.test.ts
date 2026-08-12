@@ -34,7 +34,9 @@ describe('Desktop Google OAuth Loopback Flow', () => {
     if (server) {
       try {
         server.close();
-      } catch {}
+      } catch {
+        // ignore cleanup error
+      }
     }
   });
 

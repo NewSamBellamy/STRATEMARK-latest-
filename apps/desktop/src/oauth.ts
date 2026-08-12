@@ -81,7 +81,9 @@ export async function performGoogleOAuthFlow(): Promise<OAuthUser> {
   }
 
   return new Promise<OAuthUser>((resolve, reject) => {
+    // eslint-disable-next-line prefer-const
     let server: http.Server;
+    // eslint-disable-next-line prefer-const
     let timeoutId: NodeJS.Timeout;
 
     const cleanup = () => {

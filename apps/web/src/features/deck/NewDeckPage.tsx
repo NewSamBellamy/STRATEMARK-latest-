@@ -26,6 +26,7 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import { runCloudResearchDeck } from '@/lib/sentinelApi';
 import { useRepository } from '@/lib/repository/RepositoryProvider';
 import { useApiKey } from '@/lib/settings/apiKey';
+import { useEngineChoice, type EngineChoice } from '@/lib/settings/engine';
 import { useDemo } from '@/lib/demo/DemoContext';
 import { cn } from '@/lib/cn';
 import logoMark from '@/assets/logo-mark.svg';
@@ -173,8 +174,6 @@ function RegionPicker({
     </div>
   );
 }
-
-export type EngineChoice = 'local' | 'cloud';
 
 function EnginePicker({
   value,
@@ -381,12 +380,14 @@ export default function NewDeckPage() {
 
   const [prompt, setPrompt] = useState('');
   const [region, setRegion] = useState('');
-  const [engine, setEngine] = useState<EngineChoice>(() => (isPro ? 'cloud' : 'local'));
+  const { engine, setEngine } = useEngineChoice();
   const [logsOpen, setLogsOpen] = useState(false);
 
   useEffect(() => {
-    if (isPro) setEngine('cloud');
-  }, [isPro]);
+    if (isPro && !localStorage.getItem('mi.researchEngine')) {
+      setEngine('cloud');
+    }
+  }, [isPro, setEngine]);
 
   // Session from the store — survives navigation
   const session = useResearchSession((s) => s.session);
@@ -422,13 +423,22 @@ export default function NewDeckPage() {
       try {
         addLog('Connecting to Sentinel Cloud Agent…', { stage: 'interpret' });
         const res = await runCloudResearchDeck(q, regionStr || null);
-        if (res.ok && res.result?.market) {
-          const m = res.result.market as { id: string };
-          finish(`/markets/${m.id}/deck`, res.result.cards?.length || 12);
+        const market = res.market || res.result?.market;
+        if (res.ok && market && (market as { id?: string }).id) {
+          const m = market as { id: string };
+          finish(`/markets/${m.id}/deck`, res.candidates?.length || res.result?.cards?.length || 12);
+          return;
+        } else {
+          const errMsg = res.error || 'Sentinel Cloud Agent failed to create deck.';
+          addLog('Sentinel Cloud Agent error: ' + errMsg);
+          fail(errMsg);
           return;
         }
       } catch (err) {
-        addLog('Cloud Agent fallback to local processing: ' + String(err));
+        const errMsg = err instanceof Error ? err.message : String(err);
+        addLog('Sentinel Cloud Agent request failed: ' + errMsg);
+        fail('Sentinel Cloud Agent error: ' + errMsg);
+        return;
       }
     }
 

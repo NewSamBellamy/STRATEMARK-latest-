@@ -2,14 +2,18 @@ import { useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
+  Cloud,
+  Cpu,
   ExternalLink,
   Loader2,
   ShieldCheck,
   Sparkles,
   Trash2,
+  Zap,
 } from 'lucide-react';
 import { createGeminiClient } from '@mi/research';
 import { looksLikeGeminiKey, sanitizeApiKey, useApiKey } from '@/lib/settings/apiKey';
+import { useEngineChoice } from '@/lib/settings/engine';
 import { useDemo } from '@/lib/demo/DemoContext';
 import { useAuth } from '@/lib/auth/AuthContext';
 
@@ -18,6 +22,8 @@ type TestState = { status: 'idle' | 'testing' | 'ok' | 'fail'; detail?: string }
 export default function SettingsPage() {
   const { remainingDemoQueries, openUpgradeModal } = useDemo();
   const { user, isAuthenticated, signInWithGoogle } = useAuth();
+  const { engine, setEngine } = useEngineChoice();
+  const isPro = user?.subscriptionTier === 'pro';
   const { apiKey, model, hasKey, setApiKey, setModel, clear } = useApiKey();
   const [draft, setDraft] = useState(apiKey);
   const [saved, setSaved] = useState(false);
@@ -189,6 +195,54 @@ export default function SettingsPage() {
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
           Your key is stored only in this browser and sent only to Google’s API. It is never logged
           or shared. In the desktop build it moves to the OS keychain.
+        </div>
+      </div>
+
+      <div className="panel mt-6 space-y-4 p-6">
+        <div className="flex items-center gap-2">
+          <Cpu className="h-5 w-5 text-sky-400" />
+          <h2 className="font-display text-lg text-content">Research Execution Engine</h2>
+        </div>
+        <p className="text-sm text-muted">
+          Choose where your competitive intelligence and deck research runs.
+        </p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setEngine('cloud')}
+            className={`flex flex-col items-start rounded-xl border p-4 text-left transition-all ${
+              engine === 'cloud'
+                ? 'border-sky-500/50 bg-sky-500/10 ring-1 ring-sky-500/40'
+                : 'border-border bg-surface-2 hover:border-border-strong'
+            }`}
+          >
+            <div className="flex items-center gap-2 font-medium text-content text-sm">
+              <Cloud className="h-4 w-4 text-sky-400" />
+              <span>Sentinel Cloud Agent</span>
+              {isPro && <span className="chip border-emerald-300 bg-emerald-50 text-emerald-700 text-[10px] py-0 px-1.5">Default (Pro)</span>}
+            </div>
+            <p className="mt-2 text-xs text-muted leading-relaxed">
+              Multi-pass research pipeline running on Cloud Run. Automatically links 24/7 CourtListener legal & market monitoring.
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setEngine('local')}
+            className={`flex flex-col items-start rounded-xl border p-4 text-left transition-all ${
+              engine === 'local'
+                ? 'border-sky-500/50 bg-sky-500/10 ring-1 ring-sky-500/40'
+                : 'border-border bg-surface-2 hover:border-border-strong'
+            }`}
+          >
+            <div className="flex items-center gap-2 font-medium text-content text-sm">
+              <Zap className="h-4 w-4 text-amber-400" />
+              <span>Local Engine</span>
+            </div>
+            <p className="mt-2 text-xs text-muted leading-relaxed">
+              Runs grounded search directly in your local browser / desktop client using your connected Gemini API key.
+            </p>
+          </button>
         </div>
       </div>
 

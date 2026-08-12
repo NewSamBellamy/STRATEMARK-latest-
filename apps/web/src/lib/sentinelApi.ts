@@ -55,12 +55,16 @@ export async function fetchUserProfile(token?: string | null, email?: string | n
 
 export interface CloudResearchDeckResponse {
   ok: boolean;
-  result: {
+  stage?: string;
+  market?: Record<string, unknown>;
+  deck?: Record<string, unknown>;
+  candidates?: Array<Record<string, unknown>>;
+  result?: {
     market: Record<string, unknown>;
     deck: Record<string, unknown>;
     cards: Array<Record<string, unknown>>;
   };
-  scrapedCompanies: Array<{ company: Record<string, unknown>; changes: Array<unknown> }>;
+  scrapedCompanies?: Array<{ company: Record<string, unknown>; changes: Array<unknown> }>;
   error?: string;
 }
 
@@ -68,9 +72,14 @@ const DEFAULT_SENTINEL_URL =
   import.meta.env.VITE_SENTINEL_API_URL || 'https://stratemark-sentinel-api.a.run.app';
 
 function getSentinelUrl(path: string): string {
-  const base = DEFAULT_SENTINEL_URL.replace(/\/+$/, '');
+  let base = DEFAULT_SENTINEL_URL;
+  if (typeof localStorage !== 'undefined') {
+    const customUrl = localStorage.getItem('mi.sentinelApiUrl');
+    if (customUrl) base = customUrl;
+  }
+  const cleanBase = base.replace(/\/+$/, '');
   const subPath = path.replace(/^\/+/, '');
-  return `${base}/${subPath}`;
+  return `${cleanBase}/${subPath}`;
 }
 
 async function fetchSentinel<T>(
