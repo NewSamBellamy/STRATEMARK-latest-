@@ -8,7 +8,7 @@
  * persists to a JSON snapshot in userData. (SQLite/Drizzle remains the
  * documented upgrade path — same ResearchStore seam.)
  */
-import { app, BrowserWindow, ipcMain, net, protocol, safeStorage } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, type MenuItemConstructorOptions, nativeImage, net, protocol, safeStorage } from 'electron';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -23,6 +23,70 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WEB_DIST = app.isPackaged
   ? path.join(process.resourcesPath, 'web-dist')
   : path.join(__dirname, '../../web/dist');
+
+app.name = 'Stratemark';
+app.setName('Stratemark');
+process.title = 'Stratemark';
+
+function createApplicationMenu(): void {
+  const isMac = process.platform === 'darwin';
+
+  const template: MenuItemConstructorOptions[] = [
+    ...(isMac
+      ? [
+          {
+            label: 'Stratemark',
+            submenu: [
+              { role: 'about', label: 'About Stratemark' },
+              { type: 'separator' },
+              { role: 'hide', label: 'Hide Stratemark' },
+              { role: 'hideOthers' },
+              { role: 'unhide' },
+              { type: 'separator' },
+              { role: 'quit', label: 'Quit Stratemark' },
+            ] as MenuItemConstructorOptions[],
+          },
+        ]
+      : []),
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' },
+      ],
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+      ],
+    },
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'zoom' },
+        ...(isMac ? [{ type: 'separator' }, { role: 'front' }] : [{ role: 'close' }]),
+      ] as MenuItemConstructorOptions[],
+    },
+  ];
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
+}
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } },
@@ -223,9 +287,15 @@ function registerIpc(): void {
 }
 
 function createWindow(): void {
+  const iconPath = path.join(__dirname, '../build/icon.png');
+  const appIcon = existsSync(iconPath) ? nativeImage.createFromPath(iconPath) : undefined;
+
   mainWin = new BrowserWindow({
     width: 1440,
     height: 900,
+    show: false,
+    title: 'Stratemark — Market Intel Deck Builder',
+    icon: appIcon,
     backgroundColor: '#EDECE8',
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
@@ -234,6 +304,23 @@ function createWindow(): void {
       sandbox: false, // required for an ESM preload; the bridge is still isolated
     },
   });
+
+  mainWin.once('ready-to-show', () => {
+    mainWin?.show();
+    mainWin?.focus();
+    if (process.platform === 'darwin') {
+      if (appIcon) {
+        try {
+          app.dock?.setIcon(appIcon);
+        } catch {
+          // ignore
+        }
+      }
+      app.dock?.show();
+      app.focus({ steal: true });
+    }
+  });
+
   wireRefreshForwarding();
 
   const devUrl = process.env.VITE_DEV_SERVER_URL;
@@ -251,6 +338,7 @@ void app.whenReady().then(() => {
   });
 
   repository = makeRepository();
+  createApplicationMenu();
   registerIpc();
   createWindow();
 
