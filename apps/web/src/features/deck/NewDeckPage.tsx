@@ -13,13 +13,17 @@ import {
   Brain,
   ChevronDown,
   ChevronRight,
+  Cloud,
   Globe2,
   Loader2,
   Radar,
   ScanSearch,
   TrendingUp,
   X,
+  Zap,
 } from 'lucide-react';
+import { useAuth } from '@/lib/auth/AuthContext';
+import { runCloudResearchDeck } from '@/lib/sentinelApi';
 import { useRepository } from '@/lib/repository/RepositoryProvider';
 import { useApiKey } from '@/lib/settings/apiKey';
 import { useDemo } from '@/lib/demo/DemoContext';
@@ -170,13 +174,119 @@ function RegionPicker({
   );
 }
 
-// ── Input pill ───────────────────────────────────────────────────────────────
+export type EngineChoice = 'local' | 'cloud';
+
+function EnginePicker({
+  value,
+  onChange,
+  isPro,
+  disabled,
+}: {
+  value: EngineChoice;
+  onChange: (e: EngineChoice) => void;
+  isPro: boolean;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative inline-block">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          'flex items-center gap-1.5 rounded-full border border-border/80 px-2.5 py-1 text-xs font-medium transition-colors hover:border-border hover:bg-surface-2',
+          value === 'cloud'
+            ? 'border-primary/30 bg-primary/10 text-primary-ink font-semibold'
+            : 'bg-surface-2/60 text-content-muted',
+        )}
+      >
+        {value === 'cloud' ? (
+          <>
+            <Cloud className="h-3 w-3 text-primary-ink" />
+            <span>Sentinel Cloud</span>
+          </>
+        ) : (
+          <>
+            <Zap className="h-3 w-3 text-amber-500" />
+            <span>Local Engine</span>
+          </>
+        )}
+        <ChevronDown className="h-3 w-3 opacity-60" />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 bottom-full z-30 mb-1.5 w-60 rounded-xl border border-border bg-surface p-1.5 shadow-elevated text-xs">
+          <button
+            type="button"
+            onClick={() => {
+              onChange('local');
+              setOpen(false);
+            }}
+            className={cn(
+              'flex w-full items-start gap-2.5 rounded-lg p-2 text-left transition-colors hover:bg-surface-2',
+              value === 'local' && 'bg-surface-2 font-medium',
+            )}
+          >
+            <Zap className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+            <div>
+              <div className="font-medium text-content">Local Engine</div>
+              <div className="text-[11px] text-faint">In-browser Gemini API processing</div>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            disabled={!isPro}
+            onClick={() => {
+              if (isPro) {
+                onChange('cloud');
+                setOpen(false);
+              }
+            }}
+            className={cn(
+              'flex w-full items-start gap-2.5 rounded-lg p-2 text-left transition-colors',
+              isPro ? 'hover:bg-surface-2 cursor-pointer' : 'opacity-50 cursor-not-allowed',
+              value === 'cloud' && 'bg-primary/10 font-medium text-primary-ink',
+            )}
+          >
+            <Cloud className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary-ink" />
+            <div>
+              <div className="flex items-center justify-between gap-1 text-content font-medium">
+                <span>Sentinel Cloud Agent</span>
+                {!isPro && (
+                  <span className="rounded bg-primary/10 px-1 py-0.2 text-[9px] font-semibold text-primary-ink">
+                    Pro
+                  </span>
+                )}
+              </div>
+              <div className="text-[11px] text-faint">Cloud Run + 24/7 CourtListener Scraper</div>
+            </div>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function InputPill({
   prompt,
   setPrompt,
   region,
   setRegion,
+  engine,
+  setEngine,
+  isPro,
   onSubmit,
   disabled,
   hasKey,
@@ -188,6 +298,9 @@ function InputPill({
   setPrompt: (v: string) => void;
   region: string;
   setRegion: (v: string) => void;
+  engine: EngineChoice;
+  setEngine: (v: EngineChoice) => void;
+  isPro: boolean;
   onSubmit: (e: FormEvent) => void;
   disabled: boolean;
   hasKey: boolean;
@@ -217,6 +330,7 @@ function InputPill({
           <div className="flex items-center gap-2">
             <img src={wordmark} alt="" className="h-3.5 opacity-40" />
             <RegionPicker value={region} onChange={setRegion} disabled={disabled} />
+            <EnginePicker value={engine} onChange={setEngine} isPro={isPro} disabled={disabled} />
           </div>
           <button
             type="submit"
@@ -260,12 +374,19 @@ function timeLabel(): string {
 
 export default function NewDeckPage() {
   const repo = useRepository();
+  const { user } = useAuth();
+  const isPro = user?.subscriptionTier === 'pro';
   const hasKey = useApiKey((s) => s.hasKey);
   const { consumeDemoQuery, isDemoMode, remainingDemoQueries } = useDemo();
 
   const [prompt, setPrompt] = useState('');
   const [region, setRegion] = useState('');
+  const [engine, setEngine] = useState<EngineChoice>(() => (isPro ? 'cloud' : 'local'));
   const [logsOpen, setLogsOpen] = useState(false);
+
+  useEffect(() => {
+    if (isPro) setEngine('cloud');
+  }, [isPro]);
 
   // Session from the store — survives navigation
   const session = useResearchSession((s) => s.session);
@@ -296,6 +417,20 @@ export default function NewDeckPage() {
     startSession(userText, timeLabel());
     setPrompt('');
     setRegion('');
+
+    if (engine === 'cloud') {
+      try {
+        addLog('Connecting to Sentinel Cloud Agent…', { stage: 'interpret' });
+        const res = await runCloudResearchDeck(q, regionStr || null);
+        if (res.ok && res.result?.market) {
+          const m = res.result.market as { id: string };
+          finish(`/markets/${m.id}/deck`, res.result.cards?.length || 12);
+          return;
+        }
+      } catch (err) {
+        addLog('Cloud Agent fallback to local processing: ' + String(err));
+      }
+    }
 
     let cardCount = 0;
     try {
@@ -462,6 +597,9 @@ export default function NewDeckPage() {
           setPrompt={setPrompt}
           region={region}
           setRegion={setRegion}
+          engine={engine}
+          setEngine={setEngine}
+          isPro={isPro}
           onSubmit={onSubmit}
           disabled={running}
           hasKey={hasKey}

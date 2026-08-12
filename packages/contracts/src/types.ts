@@ -25,9 +25,14 @@ import type {
   teamOrgContentSchema,
   timelineEventSchema,
   timePointSchema,
+  userMeResponseSchema,
+  userSchema,
   viceClaimSchema,
 } from './schemas';
 import type { DashboardTab } from './enums';
+
+export type User = z.infer<typeof userSchema>;
+export type UserMeResponse = z.infer<typeof userMeResponseSchema>;
 
 export type ScopeDefinition = z.infer<typeof scopeDefinitionSchema>;
 export type Market = z.infer<typeof marketSchema>;

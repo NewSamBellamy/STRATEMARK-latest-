@@ -11,6 +11,8 @@ import {
   DASHBOARD_TABS,
   METRIC_TYPES,
   REFRESH_CADENCES,
+  SUBSCRIPTION_STATUSES,
+  SUBSCRIPTION_TIERS,
 } from './enums';
 
 // Enum schemas -------------------------------------------------------------
@@ -19,6 +21,8 @@ export const metricTypeSchema = z.enum(METRIC_TYPES);
 export const confidenceSchema = z.enum(CONFIDENCE_LEVELS);
 export const refreshCadenceSchema = z.enum(REFRESH_CADENCES);
 export const dashboardTabSchema = z.enum(DASHBOARD_TABS);
+export const subscriptionTierSchema = z.enum(SUBSCRIPTION_TIERS);
+export const subscriptionStatusSchema = z.enum(SUBSCRIPTION_STATUSES);
 export const maturityTierSchema = z.union([
   z.literal(1),
   z.literal(2),
@@ -32,6 +36,23 @@ export const maturityTierSchema = z.union([
 
 // ISO-8601 timestamps travel as strings across the boundary (SQLite text / JSON).
 const isoTimestamp = z.string().min(1);
+
+// User & Auth schemas -----------------------------------------------------
+export const userSchema = z.object({
+  id: z.string(),
+  email: z.string().catch(''),
+  subscriptionTier: subscriptionTierSchema.catch('free'),
+  subscriptionStatus: subscriptionStatusSchema.catch('active'),
+  stripeCustomerId: z.string().nullable().optional(),
+  timezone: z.string().optional(),
+  slackWebhookUrl: z.string().nullable().optional(),
+  discordWebhookUrl: z.string().nullable().optional(),
+  createdAt: isoTimestamp,
+});
+
+export const userMeResponseSchema = z.object({
+  user: userSchema,
+});
 
 // Core tables (spec §10) ---------------------------------------------------
 export const scopeDefinitionSchema = z.object({

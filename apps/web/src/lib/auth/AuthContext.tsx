@@ -28,6 +28,8 @@ export interface AuthUser {
   name: string;
   email: string | null;
   photoURL?: string | null;
+  subscriptionTier?: 'pro' | 'free';
+  subscriptionStatus?: string;
 }
 
 export interface AuthState {
@@ -82,7 +84,16 @@ function initFirebaseAuth(): Auth | null {
   }
 }
 
-export const LOCAL_USER: AuthUser = { id: 'local', name: 'Local Analyst', email: null };
+function enrichUserSubscription(u: AuthUser): AuthUser {
+  const isOmniveo = u.email ? u.email.toLowerCase().endsWith('@omniveo.io') : false;
+  return {
+    ...u,
+    subscriptionTier: u.subscriptionTier || (isOmniveo ? 'pro' : 'free'),
+    subscriptionStatus: u.subscriptionStatus || (isOmniveo ? 'active' : 'trialing'),
+  };
+}
+
+export const LOCAL_USER: AuthUser = enrichUserSubscription({ id: 'local', name: 'Local Analyst', email: null });
 
 /** Google Auth Provider component supporting live Google OAuth, Electron IPC, and local session fallback */
 export function GoogleAuthProvider({ children }: { children: ReactNode }) {
@@ -111,12 +122,12 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
         authInstance,
         (fbUser) => {
           if (fbUser) {
-            const mappedUser: AuthUser = {
+            const mappedUser: AuthUser = enrichUserSubscription({
               id: fbUser.uid,
               name: fbUser.displayName || fbUser.email || 'Google User',
               email: fbUser.email,
               photoURL: fbUser.photoURL,
-            };
+            });
             setUser(mappedUser);
             try {
               localStorage.setItem(STORAGE_KEY, JSON.stringify(mappedUser));
@@ -174,7 +185,7 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
             ? await window.mi.googleSignIn()
             : null;
         if (ipcUser) {
-          signedInUser = ipcUser;
+          signedInUser = enrichUserSubscription(ipcUser as AuthUser);
           setUser(signedInUser);
           try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(signedInUser));
@@ -190,12 +201,12 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
         try {
           const cred = await signInWithPopup(authInstance, provider);
           if (cred?.user) {
-            signedInUser = {
+            signedInUser = enrichUserSubscription({
               id: cred.user.uid,
               name: cred.user.displayName || cred.user.email || 'Google User',
               email: cred.user.email,
               photoURL: cred.user.photoURL,
-            };
+            });
           }
         } catch (popupErr: unknown) {
           const errCode = (popupErr as { code?: string })?.code;

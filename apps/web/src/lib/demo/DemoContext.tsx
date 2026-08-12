@@ -46,8 +46,9 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [upgradeReason, setUpgradeReason] = useState<string | null>(null);
 
-  // Demo mode is active if user is not authenticated or signed in on local free analyst
+  // Demo mode is active if user is not authenticated or on free tier
   const isDemoMode = useMemo(() => {
+    if (user?.subscriptionTier === 'pro') return false;
     if (!isAuthenticated || !user) return true;
     if (user.id === 'local') return true;
     return false;

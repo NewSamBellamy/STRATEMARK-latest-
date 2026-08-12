@@ -203,3 +203,17 @@ export const TIER_TYPICAL_COUNTS: Record<MaturityTier, number> = {
 export function isMaturityTier(value: unknown): value is MaturityTier {
   return typeof value === 'number' && MATURITY_TIERS.includes(value as MaturityTier);
 }
+
+// ---------------------------------------------------------------------------
+// Subscription Tiers & Statuses
+// ---------------------------------------------------------------------------
+export const SUBSCRIPTION_TIERS = ['free', 'pro'] as const;
+export type SubscriptionTier = (typeof SUBSCRIPTION_TIERS)[number];
+
+export const SUBSCRIPTION_STATUSES = ['active', 'trialing', 'canceled'] as const;
+export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
+
+export const SUBSCRIPTION_TIER_LABELS: Record<SubscriptionTier, string> = {
+  free: 'Free',
+  pro: 'Pro',
+};

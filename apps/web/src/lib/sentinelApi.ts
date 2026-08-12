@@ -21,8 +21,36 @@ export interface SentinelCompany {
   id: string;
   userId: string;
   name: string;
-  edgarCik: string | null;
+  edgarCik?: string | null;
+  newsSources?: string[];
+  rssFeeds?: string[];
   createdAt: string;
+}
+
+export interface SentinelUserProfile {
+  id: string;
+  email: string | null;
+  subscriptionTier: 'pro' | 'free';
+  subscriptionStatus: 'active' | 'trialing' | 'canceled';
+}
+
+/** Fetch authenticated user profile and subscription status from Sentinel Cloud Run */
+export async function fetchUserProfile(token?: string | null, email?: string | null): Promise<SentinelUserProfile | null> {
+  try {
+    const data = await fetchSentinel<{ user: SentinelUserProfile }>('/api/me', { token });
+    if (data.user) return data.user;
+  } catch {
+    // If backend /api/me endpoint is not reached or in offline/demo mode, check domain rule
+  }
+  if (email && email.toLowerCase().endsWith('@omniveo.io')) {
+    return {
+      id: 'omniveo-user',
+      email,
+      subscriptionTier: 'pro',
+      subscriptionStatus: 'active',
+    };
+  }
+  return null;
 }
 
 export interface CloudResearchDeckResponse {
