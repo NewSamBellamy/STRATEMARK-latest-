@@ -424,10 +424,15 @@ export default function NewDeckPage() {
         addLog('Connecting to Sentinel Cloud Agent…', { stage: 'interpret' });
         const authToken = (await getToken()) || user?.id || null;
         const res = await runCloudResearchDeck(q, regionStr || null, undefined, authToken);
-        const market = res.market || res.result?.market;
+        const market =
+          res.market ||
+          res.result?.market ||
+          (res.deck?.marketId ? { id: res.deck.marketId as string } : null) ||
+          (res.deck?.id ? { id: res.deck.id as string } : null);
         if (res.ok && market && (market as { id?: string }).id) {
           const m = market as { id: string };
-          finish(`/markets/${m.id}/deck`, res.candidates?.length || res.result?.cards?.length || 12);
+          const cardCount = res.cards?.length || res.candidates?.length || res.result?.cards?.length || 12;
+          finish(`/markets/${m.id}/deck`, cardCount);
           return;
         } else {
           const errMsg = res.error || 'Sentinel Cloud Agent failed to create deck.';

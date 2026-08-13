@@ -58,6 +58,8 @@ export interface CloudResearchDeckResponse {
   stage?: string;
   market?: Record<string, unknown>;
   deck?: Record<string, unknown>;
+  cards?: Array<Record<string, unknown>>;
+  companies?: Array<Record<string, unknown>>;
   candidates?: Array<Record<string, unknown>>;
   result?: {
     market: Record<string, unknown>;
@@ -174,6 +176,52 @@ export async function runCloudResearchDeck(
     body: JSON.stringify({ prompt, region, targetCompanies }),
     token,
   });
+}
+
+/** Fetch user's research decks from Sentinel Cloud backend */
+export async function getCloudDecks(token?: string | null): Promise<Array<Record<string, unknown>>> {
+  try {
+    const data = await fetchSentinel<{ decks: Array<Record<string, unknown>> }>('/api/decks', { token });
+    return data.decks || [];
+  } catch (err) {
+    console.warn('Failed to fetch cloud decks:', err);
+    return [];
+  }
+}
+
+/** Fetch a single deck and its cards/companies/metrics/viceClaims from Sentinel Cloud backend */
+export async function getCloudDeck(
+  deckId: string,
+  token?: string | null,
+): Promise<{
+  deck: Record<string, unknown>;
+  market: Record<string, unknown>;
+  cards: Array<Record<string, unknown>>;
+  companies: Array<Record<string, unknown>>;
+  metrics: Array<Record<string, unknown>>;
+  viceClaims: Array<Record<string, unknown>>;
+} | null> {
+  try {
+    return await fetchSentinel(`/api/decks/${encodeURIComponent(deckId)}`, { token });
+  } catch (err) {
+    console.warn(`Failed to fetch cloud deck ${deckId}:`, err);
+    return null;
+  }
+}
+
+/** Fetch user's cards (optionally filtered by deckId) from Sentinel Cloud backend */
+export async function getCloudCards(
+  deckId?: string,
+  token?: string | null,
+): Promise<Array<Record<string, unknown>>> {
+  try {
+    const query = deckId ? `?deckId=${encodeURIComponent(deckId)}` : '';
+    const data = await fetchSentinel<{ cards: Array<Record<string, unknown>> }>(`/api/cards${query}`, { token });
+    return data.cards || [];
+  } catch (err) {
+    console.warn('Failed to fetch cloud cards:', err);
+    return [];
+  }
 }
 
 /** Import user brain snapshot into Firestore Cloud Storage */

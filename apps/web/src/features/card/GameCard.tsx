@@ -256,7 +256,7 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
               {deriveIndustry(company.oneLiner)}
             </span>
           </div>
-          {score != null && (
+          {score != null ? (
             <div className="flex shrink-0 flex-col items-center">
               <div className="relative h-10 w-10">
                 <svg className="h-10 w-10 -rotate-90" viewBox="0 0 40 40">
@@ -275,8 +275,8 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
                     fill="none"
                     stroke={sColor}
                     strokeWidth="2.5"
-                    strokeLinecap="round"
                     strokeDasharray={`${(score / 100) * 106.81} 106.81`}
+                    strokeLinecap="round"
                   />
                 </svg>
                 <span className="absolute inset-0 flex items-center justify-center text-[13px] font-bold text-content">
@@ -286,6 +286,11 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
               <span className="mt-0.5 text-[9px] font-medium" style={{ color: sColor }}>
                 {sLabel}
               </span>
+            </div>
+          ) : (
+            <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-medium text-teal-700 dark:bg-teal-950/40 dark:text-teal-300">
+              <span className="h-1.5 w-1.5 animate-ping rounded-full bg-teal-500" />
+              Enriching…
             </div>
           )}
         </div>

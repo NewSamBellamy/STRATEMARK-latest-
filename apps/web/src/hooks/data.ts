@@ -52,6 +52,13 @@ export function useCards(
     queryKey: qk.cards(deckId ?? '', filter),
     queryFn: () => repo.listCards(deckId as string, filter),
     enabled: !!deckId,
+    refetchInterval: (query) => {
+      const cards = query.state.data;
+      if (cards && cards.some((c) => c.card.tier === null)) {
+        return 3000;
+      }
+      return false;
+    },
   });
 }
 
