@@ -252,9 +252,20 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
             <h3 className="truncate font-display text-[18px] font-semibold leading-tight text-content">
               {company.name}
             </h3>
-            <span className="mt-0.5 inline-block rounded bg-surface-2 px-1.5 py-px text-[10px] font-medium text-muted">
-              {deriveIndustry(company.oneLiner)}
-            </span>
+            <div className="mt-0.5 flex items-center gap-1.5">
+              <span className="inline-block rounded bg-surface-2 px-1.5 py-px text-[10px] font-medium text-muted">
+                {deriveIndustry(company.oneLiner)}
+              </span>
+              {(card as any).engine === 'cloud' ? (
+                <span className="inline-flex items-center gap-1 rounded border border-teal-200 bg-teal-50 px-1.5 py-px text-[10px] font-medium text-teal-700 dark:border-teal-800 dark:bg-teal-950/50 dark:text-teal-300">
+                  ☁️ Cloud Agent
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                  ⚡ Local Engine
+                </span>
+              )}
+            </div>
           </div>
           {score != null ? (
             <div className="flex shrink-0 flex-col items-center">

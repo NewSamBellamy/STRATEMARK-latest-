@@ -116,9 +116,20 @@ export default function DeckPage() {
         {/* Title row */}
         <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div>
-            <h1 className="font-display text-[22px] font-bold tracking-tight text-content sm:text-[28px]">
-              {market.data?.name ?? 'Deck'}
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="font-display text-[22px] font-bold tracking-tight text-content sm:text-[28px]">
+                {market.data?.name ?? 'Deck'}
+              </h1>
+              {(market.data as any)?.id?.startsWith('mkt_') || (market.data as any)?.engine === 'cloud' || (all[0]?.card as any)?.engine === 'cloud' ? (
+                <span className="inline-flex items-center gap-1 rounded border border-teal-200 bg-teal-50 px-2 py-0.5 text-[11px] font-medium text-teal-700 dark:border-teal-800 dark:bg-teal-950/50 dark:text-teal-300">
+                  ☁️ Sentinel Cloud Agent
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                  ⚡ Local Research Engine
+                </span>
+              )}
+            </div>
             {market.data?.scopeDefinition && (
               <p className="mt-0.5 text-[12px] text-faint">
                 {[

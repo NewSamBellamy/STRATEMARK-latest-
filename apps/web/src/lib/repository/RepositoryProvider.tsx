@@ -14,13 +14,18 @@ import { MockRepository, type SeedSnapshot } from '@mi/mocks';
 import sampleSnapshot from '@/sample/frontier-snapshot.json';
 import { GeminiRepository } from '@mi/research';
 import { IpcRepository, isElectron } from './ipc-repository';
+import { SentinelRepository } from './SentinelRepository';
 import { createLocalStore } from './localStore';
 import { useApiKey } from '@/lib/settings/apiKey';
+import { useEngineChoice } from '@/lib/settings/engine';
 import { recordCall } from '@/lib/usage';
 
 const RepositoryContext = createContext<MarketIntelRepository | null>(null);
 
-export function selectRepository(apiKey: string, model: string): MarketIntelRepository {
+export function selectRepository(apiKey: string, model: string, engine?: string): MarketIntelRepository {
+  if (engine === 'cloud') {
+    return new SentinelRepository();
+  }
   if (isElectron() && window.mi) {
     return new IpcRepository(window.mi);
   }
@@ -61,9 +66,10 @@ export function RepositoryProvider({
 }) {
   const apiKey = useApiKey((s) => s.apiKey);
   const model = useApiKey((s) => s.model);
+  const { engine } = useEngineChoice();
   const value = useMemo(
-    () => repository ?? selectRepository(apiKey, model),
-    [repository, apiKey, model],
+    () => repository ?? selectRepository(apiKey, model, engine),
+    [repository, apiKey, model, engine],
   );
   return <RepositoryContext.Provider value={value}>{children}</RepositoryContext.Provider>;
 }

@@ -51,10 +51,23 @@ export default function MarketsListPage() {
                   className="panel group w-full cursor-pointer p-5 text-left transition-colors hover:border-primary/50 hover:bg-surface-2"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <h2 className="font-display text-lg font-semibold text-content">{m.name}</h2>
+                    <div>
+                      <h2 className="font-display text-lg font-semibold text-content">{m.name}</h2>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="text-sm text-muted">{m.scopeDefinition.vertical}</span>
+                        {(m as any).id?.startsWith('mkt_') || (m as any).engine === 'cloud' ? (
+                          <span className="inline-flex items-center gap-1 rounded border border-teal-200 bg-teal-50 px-1.5 py-px text-[10px] font-medium text-teal-700 dark:border-teal-800 dark:bg-teal-950/50 dark:text-teal-300">
+                            ☁️ Sentinel Cloud
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                            ⚡ Local Engine
+                          </span>
+                        )}
+                      </div>
+                    </div>
                     <ArrowRight className="h-5 w-5 shrink-0 text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-content" />
                   </div>
-                  <p className="mt-1 text-sm text-muted">{m.scopeDefinition.vertical}</p>
                   {m.scopeDefinition.geography && (
                     <p className="mt-3 flex items-center gap-1.5 text-xs text-faint">
                       <MapPin className="h-3 w-3" />
