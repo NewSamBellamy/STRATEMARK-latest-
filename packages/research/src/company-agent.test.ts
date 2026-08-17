@@ -98,6 +98,13 @@ describe('Company Agent — Brand & Helper Functions', () => {
           arr: { value: 10_000_000, confidence: 'verified', sourceIndex: 0, method: null },
           users: { value: 5_000, confidence: 'estimated', sourceIndex: null, method: 'est' },
         },
+        facts: {
+          headcount: null,
+          lastFundingRound: null,
+          scrapedPricing: null,
+          publicUserFootprint: null,
+          footprintLabel: null,
+        },
         viceClaims: [],
         cultureNote: null,
       },
