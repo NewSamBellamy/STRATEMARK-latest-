@@ -19,13 +19,104 @@ import {
   ExternalLink,
   FilePlus2,
   FileText,
-  Loader2,
+  Layers,
   MessageCircle,
+  PanelRight,
+  PictureInPicture2,
   X,
 } from 'lucide-react';
 import { publisherOf, type Citation, type DeepDiveInput, type ResearchScope, type ResearchThread } from '@mi/contracts';
 import { useRepository } from '@/lib/repository/RepositoryProvider';
+import { useCards, useCompany } from '@/hooks/data';
 import { cn } from '@/lib/cn';
+import { MicButton } from '@/components/ui/MicButton';
+import { Logo } from '@/features/card/Logo';
+
+type PanelMode = 'locked' | 'floating';
+
+const WIDTH_MIN = 340;
+const WIDTH_MAX = 760;
+const WIDTH_DEFAULT = 400;
+
+// localStorage throws in sandboxed iframes (no allow-same-origin) and in some
+// private-browsing modes, so every access is guarded — matching theme.ts.
+function safeGetItem(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+function safeSetItem(key: string, value: string): void {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    /* sandboxed iframe / private mode — preference simply won't persist */
+  }
+}
+
+function readStoredMode(): PanelMode {
+  return safeGetItem('deepdive:mode') === 'floating' ? 'floating' : 'locked';
+}
+function readStoredWidth(): number {
+  const v = Number(safeGetItem('deepdive:width'));
+  return Number.isFinite(v) && v >= WIDTH_MIN && v <= WIDTH_MAX ? v : WIDTH_DEFAULT;
+}
+
+/** Track whether we're at the sm+ breakpoint (panel docks) vs mobile (full-screen). */
+function useIsDesktop(): boolean {
+  const [desktop, setDesktop] = useState(() =>
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia('(min-width: 640px)').matches
+      : true,
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia('(min-width: 640px)');
+    const on = () => setDesktop(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return desktop;
+}
+
+/** Rotating status phrases shown inside the assistant "typing" bubble. */
+const THINKING_PHASES = [
+  'Searching the web…',
+  'Reading sources…',
+  'Cross-checking claims…',
+  'Drafting the answer…',
+] as const;
+
+function useThinkingPhase(active: boolean): string {
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    if (!active) {
+      setIndex(0);
+      return;
+    }
+    const id = setInterval(() => setIndex((i) => (i + 1) % THINKING_PHASES.length), 2200);
+    return () => clearInterval(id);
+  }, [active]);
+  return THINKING_PHASES[index]!;
+}
+
+/** Assistant-bubble-shaped "typing" indicator — bouncing dots + cycling status text. */
+function TypingBubble({ active }: { active: boolean }) {
+  const phase = useThinkingPhase(active);
+  return (
+    <div className="flex justify-start py-1">
+      <div className="flex max-w-[85%] items-center gap-2 rounded-2xl rounded-bl-md bg-surface-2 px-3 py-2.5">
+        <span className="flex items-center gap-1">
+          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted [animation-delay:-0.2s]" />
+          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted [animation-delay:-0.1s]" />
+          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted" />
+        </span>
+        <span className="text-[12.5px] text-muted">{phase}</span>
+      </div>
+    </div>
+  );
+}
 
 interface ChatOptions {
   seed?: string;
@@ -40,6 +131,17 @@ interface DeepDiveContextValue {
   closePanel: () => void;
   /** Whether the AI panel is currently open — used by AppShell to adjust layout. */
   isOpen: boolean;
+  /** Display mode: docked (locked) or overlay (floating). */
+  mode: PanelMode;
+  setMode: (m: PanelMode) => void;
+  /** Current panel width in px. */
+  width: number;
+  /** Horizontal space the main content should reserve (0 unless locked + open on desktop). */
+  pushWidth: number;
+  /** Company currently anchored to the open chat (for "In chat" card badges). */
+  attachedCompanyId: string | null;
+  /** Card ids currently anchored to the open chat (comparison sets). */
+  attachedCardIds: string[];
 }
 
 const DeepDiveContext = createContext<DeepDiveContextValue | null>(null);
@@ -82,7 +184,21 @@ function SourceChips({ citations }: { citations: Citation[] }) {
 export function DeepDiveProvider({ children }: { children: ReactNode }) {
   const noop = () => {};
   return (
-    <DeepDiveContext.Provider value={{ open: noop, chat: noop, openThread: noop, closePanel: noop, isOpen: false }}>
+    <DeepDiveContext.Provider
+      value={{
+        open: noop,
+        chat: noop,
+        openThread: noop,
+        closePanel: noop,
+        isOpen: false,
+        mode: 'locked',
+        setMode: noop,
+        width: WIDTH_DEFAULT,
+        pushWidth: 0,
+        attachedCompanyId: null,
+        attachedCardIds: [],
+      }}
+    >
       {children}
     </DeepDiveContext.Provider>
   );
@@ -108,6 +224,37 @@ export function DeepDiveProviderWithPanel({ children }: { children: ReactNode })
   const [savingReport, setSavingReport] = useState(false);
   const [reportFocus, setReportFocus] = useState('');
   const [showReportForm, setShowReportForm] = useState(false);
+
+  // ── Layout preferences (persisted) ──
+  const isDesktop = useIsDesktop();
+  const [mode, setModeState] = useState<PanelMode>(readStoredMode);
+  const [width, setWidth] = useState<number>(readStoredWidth);
+  const setMode = (m: PanelMode) => {
+    setModeState(m);
+    safeSetItem('deepdive:mode', m);
+  };
+
+  // Drag-to-resize the panel from its left edge. Because the panel is docked to
+  // the right, width grows as the cursor moves left (viewportWidth - clientX).
+  const startResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    let latest = width;
+    const onMove = (ev: MouseEvent) => {
+      latest = Math.min(WIDTH_MAX, Math.max(WIDTH_MIN, window.innerWidth - ev.clientX));
+      setWidth(latest);
+    };
+    const onUp = () => {
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      safeSetItem('deepdive:width', String(Math.round(latest)));
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
 
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -239,21 +386,71 @@ export function DeepDiveProviderWithPanel({ children }: { children: ReactNode })
   const canConverse = conversational && thread?.id !== 'oneshot';
   const hasAnswer = (thread?.messages ?? []).some((m) => m.role === 'assistant');
 
+  // Derived layout values shared with AppShell + the card grid.
+  const pushWidth = openState && mode === 'locked' && isDesktop ? width : 0;
+  const attachedCompanyId =
+    openState && scope && (scope.kind === 'company' || scope.kind === 'datapoint')
+      ? scope.companyId ?? null
+      : null;
+  const attachedCardIds = openState && scope?.kind === 'cards' ? scope.cardIds ?? [] : [];
+
   return (
-    <DeepDiveContext.Provider value={{ open, chat, openThread, closePanel: close, isOpen: openState }}>
+    <DeepDiveContext.Provider
+      value={{
+        open,
+        chat,
+        openThread,
+        closePanel: close,
+        isOpen: openState,
+        mode,
+        setMode,
+        width,
+        pushWidth,
+        attachedCompanyId,
+        attachedCardIds,
+      }}
+    >
       {children}
 
-      {/* Docked AI panel — no backdrop overlay, slides from right edge.
-          AppShell adds a right margin to the main area when this is open. */}
+      {/* Floating pill — in floating mode, when minimized, a tap reopens the chat. */}
+      {mode === 'floating' && !openState && scope && (
+        <button
+          type="button"
+          onClick={() => setOpenState(true)}
+          className="fixed bottom-5 right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-fg shadow-lg transition-transform hover:scale-105"
+          aria-label="Open AI chat"
+          title="Open AI chat"
+        >
+          <MessageCircle className="h-5 w-5" />
+        </button>
+      )}
+
+      {/* AI panel — docks (locked) or overlays (floating) at the right edge.
+          AppShell reserves pushWidth as a right margin only in locked mode. */}
       <aside
         className={cn(
-          'fixed right-0 top-0 z-40 flex h-full w-full flex-col border-l border-border bg-surface transition-transform duration-300 ease-out sm:w-[400px]',
+          'fixed right-0 top-0 z-40 flex h-full w-full flex-col border-l border-border bg-surface transition-transform duration-300 ease-out',
           openState ? 'translate-x-0' : 'translate-x-full',
+          mode === 'floating' && 'shadow-2xl',
         )}
+        style={isDesktop ? { width } : undefined}
         role="dialog"
         aria-label="AI Research"
         aria-hidden={!openState}
       >
+        {/* Drag handle (desktop only) */}
+        {isDesktop && (
+          <div
+            onMouseDown={startResize}
+            className="group absolute left-0 top-0 z-10 flex h-full w-2 -translate-x-1/2 cursor-col-resize items-center justify-center"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize panel"
+          >
+            <span className="h-full w-px bg-border transition-colors group-hover:bg-primary/60" />
+          </div>
+        )}
+
         {/* Header */}
         <header className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
           <div className="min-w-0">
@@ -262,6 +459,15 @@ export function DeepDiveProviderWithPanel({ children }: { children: ReactNode })
             </h2>
           </div>
           <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setMode(mode === 'locked' ? 'floating' : 'locked')}
+              className="rounded-lg p-1 text-muted hover:bg-surface-2 hover:text-content"
+              aria-label={mode === 'locked' ? 'Float panel' : 'Dock panel'}
+              title={mode === 'locked' ? 'Float panel (overlay)' : 'Dock panel (locked)'}
+            >
+              {mode === 'locked' ? <PictureInPicture2 className="h-4 w-4" /> : <PanelRight className="h-4 w-4" />}
+            </button>
             {canConverse && hasAnswer && repo.saveThreadAsReport && !thread?.reportId && (
               <button
                 type="button"
@@ -290,6 +496,9 @@ export function DeepDiveProviderWithPanel({ children }: { children: ReactNode })
             </button>
           </div>
         </header>
+
+        {/* In-context reference chips — shows exactly what the chat is anchored to. */}
+        {scope && <ContextChips scope={scope} />}
 
         {showReportForm && (
           <div className="border-b border-border bg-surface-2 px-4 py-2.5">
@@ -340,12 +549,7 @@ export function DeepDiveProviderWithPanel({ children }: { children: ReactNode })
             )}
           </div>
 
-          {busy && (
-            <div className="flex items-center gap-2 py-6 text-muted">
-              <Loader2 className="h-4 w-4 animate-spin text-muted" />
-              <span className="text-[13px]">Searching…</span>
-            </div>
-          )}
+          {busy && <TypingBubble active={busy} />}
           {error && (
             <div className="mt-4 rounded-lg border border-negative/40 bg-negative/10 p-3 text-[13px] text-negative">
               {error}
@@ -356,9 +560,9 @@ export function DeepDiveProviderWithPanel({ children }: { children: ReactNode })
         {/* Composer */}
         {conversational && (
           <form onSubmit={submit} className="border-t border-border px-4 py-3">
-            <div className="flex items-end gap-2">
+            <div className="flex items-end gap-1.5 rounded-2xl border border-border bg-surface-2 px-2 py-1.5">
               <textarea
-                className="input max-h-28 min-h-[38px] flex-1 resize-none py-2 text-[13px]"
+                className="max-h-28 min-h-[32px] flex-1 resize-none bg-transparent px-1 py-1 text-[13px] text-content placeholder:text-faint focus:outline-none"
                 rows={1}
                 placeholder={placeholder ?? 'Ask a question…'}
                 aria-label="Ask a research question"
@@ -371,9 +575,10 @@ export function DeepDiveProviderWithPanel({ children }: { children: ReactNode })
                   }
                 }}
               />
+              <MicButton onTranscript={(text) => setDraft((d) => (d ? `${d} ${text}` : text))} disabled={busy} />
               <button
                 type="submit"
-                className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-full bg-primary text-primary-fg transition-opacity disabled:opacity-40"
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-primary-fg transition-opacity disabled:opacity-40"
                 disabled={!draft.trim() || busy}
                 aria-label="Send"
               >
@@ -384,6 +589,91 @@ export function DeepDiveProviderWithPanel({ children }: { children: ReactNode })
         )}
       </aside>
     </DeepDiveContext.Provider>
+  );
+}
+
+/** A single reference chip: small logo/icon + label. */
+function RefChip({ label, sub, logo }: { label: string; sub?: string | null; logo?: ReactNode }) {
+  return (
+    <span className="inline-flex max-w-[220px] items-center gap-1.5 rounded-full border border-border bg-surface-2 py-0.5 pl-1 pr-2 text-[11px] text-content">
+      <span className="grid h-4 w-4 shrink-0 place-items-center overflow-hidden rounded-[4px] bg-surface">
+        {logo ?? <Layers className="h-2.5 w-2.5 text-muted" />}
+      </span>
+      <span className="truncate font-medium">{label}</span>
+      {sub && <span className="truncate text-faint">· {sub}</span>}
+    </span>
+  );
+}
+
+function ChipRow({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 border-b border-border bg-surface px-4 py-2">
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-faint">In context</span>
+      {children}
+    </div>
+  );
+}
+
+function CompanyChip({ companyId, subject }: { companyId: string; subject: string | null }) {
+  const company = useCompany(companyId).data;
+  const name = company?.name ?? subject ?? 'Company';
+  const sub = company && subject && subject !== company.name ? subject : null;
+  return (
+    <RefChip
+      label={name}
+      sub={sub}
+      logo={
+        company ? (
+          <Logo name={company.name} website={company.websiteUrl} logoUrl={company.logoUrl} className="h-full w-full" />
+        ) : undefined
+      }
+    />
+  );
+}
+
+function CardsChips({ deckId, cardIds }: { deckId: string; cardIds: string[] }) {
+  const cards = useCards(deckId).data ?? [];
+  const wanted = new Set(cardIds);
+  const matched = cards.filter((c) => wanted.has(c.card.id));
+  const shown = matched.slice(0, 6);
+  return (
+    <ChipRow>
+      {shown.map((c) => (
+        <RefChip
+          key={c.card.id}
+          label={c.company?.name ?? c.card.title ?? 'Card'}
+          logo={
+            c.company ? (
+              <Logo name={c.company.name} website={c.company.websiteUrl} logoUrl={c.company.logoUrl} className="h-full w-full" />
+            ) : undefined
+          }
+        />
+      ))}
+      {matched.length > shown.length && (
+        <span className="text-[11px] text-faint">+{matched.length - shown.length} more</span>
+      )}
+      {matched.length === 0 && <span className="text-[11px] text-faint">{cardIds.length} cards</span>}
+    </ChipRow>
+  );
+}
+
+/** Renders the reference chips appropriate to the current chat scope. */
+function ContextChips({ scope }: { scope: ResearchScope }) {
+  if (scope.kind === 'cards' && scope.deckId) {
+    return <CardsChips deckId={scope.deckId} cardIds={scope.cardIds ?? []} />;
+  }
+  if ((scope.kind === 'company' || scope.kind === 'datapoint') && scope.companyId) {
+    return (
+      <ChipRow>
+        <CompanyChip companyId={scope.companyId} subject={scope.subject ?? null} />
+      </ChipRow>
+    );
+  }
+  // Deck-level or topic-only fallback.
+  return (
+    <ChipRow>
+      <RefChip label={scope.subject ?? 'This deck'} />
+    </ChipRow>
   );
 }
 

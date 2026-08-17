@@ -285,9 +285,11 @@ export interface MarketIntelRepository {
   getMarket(id: string): Promise<Market | null>;
   createMarket(input: CreateMarketInput): Promise<Market>;
   updateMarketCadence(id: string, cadence: RefreshCadence): Promise<Market>;
+  deleteMarket?(id: string): Promise<boolean>;
 
   // Decks
   getDeckByMarket(marketId: string): Promise<Deck | null>;
+  deleteDeck?(deckId: string): Promise<boolean>;
   /** Re-run the grounded-search research pass for the market scope (spec §9). */
   refreshDeck(marketId: string): Promise<Deck>;
   /**

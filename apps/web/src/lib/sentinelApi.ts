@@ -178,6 +178,48 @@ export async function runCloudResearchDeck(
   });
 }
 
+/** Delete a research deck from Sentinel Cloud backend */
+export async function deleteCloudDeck(
+  deckId: string,
+  token?: string | null,
+): Promise<boolean> {
+  try {
+    const res = await fetchSentinel<{ success?: boolean }>(`/api/decks/${encodeURIComponent(deckId)}`, {
+      method: 'DELETE',
+      token,
+    });
+    return res.success ?? true;
+  } catch (err) {
+    console.warn(`Failed to delete cloud deck ${deckId}:`, err);
+    return false;
+  }
+}
+
+/** Fetch user's markets directly from Sentinel Cloud backend */
+export async function getCloudMarkets(token?: string | null): Promise<Array<Record<string, unknown>>> {
+  try {
+    const data = await fetchSentinel<{ markets: Array<Record<string, unknown>> }>('/api/markets', { token });
+    return data.markets || [];
+  } catch (err) {
+    console.warn('Failed to fetch cloud markets:', err);
+    return [];
+  }
+}
+
+/** Fetch a single market directly from Sentinel Cloud backend */
+export async function getCloudMarket(
+  marketId: string,
+  token?: string | null,
+): Promise<Record<string, unknown> | null> {
+  try {
+    const data = await fetchSentinel<{ market: Record<string, unknown> }>(`/api/markets/${encodeURIComponent(marketId)}`, { token });
+    return data.market || null;
+  } catch (err) {
+    console.warn(`Failed to fetch cloud market ${marketId}:`, err);
+    return null;
+  }
+}
+
 /** Fetch user's research decks from Sentinel Cloud backend */
 export async function getCloudDecks(token?: string | null): Promise<Array<Record<string, unknown>>> {
   try {
@@ -238,4 +280,64 @@ export async function importCloudBrainSnapshot(
       token,
     },
   );
+}
+
+/** Submit AI research question to Sentinel Cloud Run backend */
+export async function askCloudResearch(
+  input: { threadId?: string; scope?: unknown; question: string },
+  token?: string | null,
+): Promise<Record<string, unknown>> {
+  return fetchSentinel<Record<string, unknown>>('/api/research/chat', {
+    method: 'POST',
+    body: JSON.stringify(input),
+    token,
+  });
+}
+
+/** Submit targeted micro-research expansion request to Sentinel Cloud Run backend */
+export async function expandCloudDeck(
+  marketId: string,
+  focus: { tier?: number | null; cardType?: string | null },
+  token?: string | null,
+): Promise<{ added: number }> {
+  return fetchSentinel<{ added: number }>('/api/research/expand', {
+    method: 'POST',
+    body: JSON.stringify({ marketId, focus }),
+    token,
+  });
+}
+
+/** Fetch user saved cards from Sentinel Cloud Run backend */
+export async function listCloudSavedCards(
+  token?: string | null,
+): Promise<Array<Record<string, unknown>>> {
+  try {
+    const data = await fetchSentinel<{ cards: Array<Record<string, unknown>> }>('/api/cards/saved', { token });
+    return data.cards || [];
+  } catch {
+    return [];
+  }
+}
+
+/** Save a card to user's saved collection on Sentinel Cloud backend */
+export async function saveCloudCard(
+  cardId: string,
+  token?: string | null,
+): Promise<{ ok: boolean }> {
+  return fetchSentinel<{ ok: boolean }>('/api/cards/saved', {
+    method: 'POST',
+    body: JSON.stringify({ cardId }),
+    token,
+  });
+}
+
+/** Remove a card from user's saved collection on Sentinel Cloud backend */
+export async function unsaveCloudCard(
+  cardId: string,
+  token?: string | null,
+): Promise<{ ok: boolean }> {
+  return fetchSentinel<{ ok: boolean }>(`/api/cards/saved/${encodeURIComponent(cardId)}`, {
+    method: 'DELETE',
+    token,
+  });
 }

@@ -40,11 +40,9 @@ import { cn } from '@/lib/cn';
 import { formatCount, formatMetricValue } from '@/lib/format';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Logo } from './Logo';
 import { getMetric, valueMetric } from './metrics';
-import { useSavedCards, useSaveCard, useUnsaveCard } from '@/hooks/data';
 
 const TYPE_ICON: Record<CardType, LucideIcon> = {
   company: Building2,
@@ -57,7 +55,7 @@ const TYPE_ICON: Record<CardType, LucideIcon> = {
 };
 
 function tierToScore(tier: number): number {
-  return { 1: 30, 2: 40, 3: 50, 4: 60, 5: 70, 6: 80, 7: 88, 8: 95 }[tier] ?? 50;
+  return ({ 1: 30, 2: 40, 3: 50, 4: 60, 5: 70, 6: 80, 7: 88, 8: 95 })[tier] ?? 50;
 }
 
 function scoreLabel(score: number): string {
@@ -113,21 +111,6 @@ function deriveIndustry(oneLiner: string): string {
   return 'Technology';
 }
 
-/** Deterministic portrait URLs per company. */
-function leaderAvatars(name: string): string[] {
-  const seed = name.charCodeAt(0) * 7 + name.length;
-  return [
-    `https://i.pravatar.cc/64?u=${seed}`,
-    `https://i.pravatar.cc/64?u=${seed + 1}`,
-    `https://i.pravatar.cc/64?u=${seed + 2}`,
-  ];
-}
-
-const AVATAR_PALETTE = ['#64748B', '#78716C', '#71717A'];
-function avatarColor(name: string, i: number): string {
-  return AVATAR_PALETTE[(name.charCodeAt(0) + name.length + i * 7) % AVATAR_PALETTE.length]!;
-}
-
 export interface GameCardProps {
   data: CardWithCompany;
   onOpen?: () => void;
@@ -137,21 +120,14 @@ export interface GameCardProps {
 export function GameCard({ data, onOpen, className }: GameCardProps) {
   const { card, company, metrics } = data;
   const [, setLogoColor] = useState<string | null>(null);
-  const savedCards = useSavedCards();
-  const saveCard = useSaveCard();
-  const unsaveCard = useUnsaveCard();
-  const saved = savedCards.data?.some((savedCard) => savedCard.card.id === card.id) ?? false;
+  const [saved, setSaved] = useState(false);
   const [toast, setToast] = useState(false);
-  const onBookmark = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (saved) unsaveCard.mutate(card.id);
-      else saveCard.mutate(card.id);
-      setToast(true);
-      setTimeout(() => setToast(false), 2000);
-    },
-    [card.id, saveCard, saved, unsaveCard],
-  );
+  const onBookmark = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSaved((s) => !s);
+    setToast(true);
+    setTimeout(() => setToast(false), 2000);
+  }, []);
   const TypeIcon = TYPE_ICON[card.cardType];
 
   // ── Market-level card ──
@@ -159,13 +135,8 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
     const cited = card.citations?.[0];
     return (
       <Card
-        className={cn(
-          'group cursor-pointer rounded-[14px] transition-all hover:-translate-y-px hover:shadow-card-hover',
-          className,
-        )}
-        onClick={onOpen}
-        role="button"
-        tabIndex={0}
+        className={cn('group cursor-pointer rounded-[14px] transition-all hover:-translate-y-px hover:shadow-card-hover', className)}
+        onClick={onOpen} role="button" tabIndex={0}
         aria-label={`${CARD_TYPE_LABELS[card.cardType]}: ${card.title ?? ''}`}
       >
         <CardHeader className="pb-2">
@@ -175,15 +146,11 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
           </span>
         </CardHeader>
         <CardContent className="space-y-2 pb-4">
-          <p className="font-display text-[15px] font-semibold leading-snug text-content">
-            {card.title}
-          </p>
+          <p className="font-display text-[15px] font-semibold leading-snug text-content">{card.title}</p>
           <p className="line-clamp-3 text-[13px] leading-relaxed text-muted">{card.summary}</p>
         </CardContent>
         <CardFooter className="pt-0">
-          <span className="text-[11px] text-faint">
-            {cited ? publisherOf(cited.url, cited.title) : ''}
-          </span>
+          <span className="text-[11px] text-faint">{cited ? publisherOf(cited.url, cited.title) : ''}</span>
         </CardFooter>
       </Card>
     );
@@ -196,20 +163,10 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
   const share = getMetric(metrics, 'market_share');
   const users = getMetric(metrics, 'users');
 
-  const signal = !isSignalCardType(card.cardType)
-    ? null
+  const signal = !isSignalCardType(card.cardType) ? null
     : card.cardType === 'vice'
-      ? {
-          heading: 'Risk signal',
-          claims: data.viceClaims.slice(0, 2).map((v) => ({
-            text: v.claimText,
-            publisher: publisherOf(v.sourceUrl, v.sourceTitle),
-          })),
-        }
-      : {
-          heading: card.cardType === 'culture' ? 'Community signal' : 'Market insight',
-          claims: card.summary ? [{ text: card.summary, publisher: null }] : [],
-        };
+      ? { heading: 'Risk signal', claims: data.viceClaims.slice(0, 2).map((v) => ({ text: v.claimText, publisher: publisherOf(v.sourceUrl, v.sourceTitle) })) }
+      : { heading: card.cardType === 'culture' ? 'Community signal' : 'Market insight', claims: card.summary ? [{ text: card.summary, publisher: null }] : [] };
 
   const score = card.tier != null ? tierToScore(card.tier) : null;
   const sColor = score != null ? scoreColor(score) : 'rgb(var(--c-faint))';
@@ -227,81 +184,33 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
 
   return (
     <Card
-      className={cn(
-        'group cursor-pointer rounded-[14px] transition-all hover:-translate-y-px hover:shadow-card-hover',
-        className,
-      )}
-      onClick={onOpen}
-      role="button"
-      tabIndex={0}
+      className={cn('group cursor-pointer rounded-[14px] transition-all hover:-translate-y-px hover:shadow-card-hover', className)}
+      onClick={onOpen} role="button" tabIndex={0}
       aria-label={`${company.name} — ${CARD_TYPE_LABELS[card.cardType]} card`}
     >
       {/* ─── Identity ─── */}
       <CardHeader className="pb-2">
         <div className="flex items-start gap-3">
           <div className="grid h-[44px] w-[44px] shrink-0 place-items-center overflow-hidden rounded-[10px] border border-border bg-surface-2 p-1">
-            <Logo
-              name={company.name}
-              website={company.websiteUrl}
-              logoUrl={company.logoUrl}
-              onColor={setLogoColor}
-              className="h-full w-full"
-            />
+            <Logo name={company.name} website={company.websiteUrl} logoUrl={company.logoUrl} onColor={setLogoColor} className="h-full w-full" />
           </div>
           <div className="min-w-0 flex-1">
             <h3 className="truncate font-display text-[18px] font-semibold leading-tight text-content">
               {company.name}
             </h3>
-            <div className="mt-0.5 flex items-center gap-1.5">
-              <span className="inline-block rounded bg-surface-2 px-1.5 py-px text-[10px] font-medium text-muted">
-                {deriveIndustry(company.oneLiner)}
-              </span>
-              {(card as any).engine === 'cloud' ? (
-                <span className="inline-flex items-center gap-1 rounded border border-teal-200 bg-teal-50 px-1.5 py-px text-[10px] font-medium text-teal-700 dark:border-teal-800 dark:bg-teal-950/50 dark:text-teal-300">
-                  ☁️ Cloud Agent
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                  ⚡ Local Engine
-                </span>
-              )}
-            </div>
+            <span className="mt-0.5 inline-block rounded bg-surface-2 px-1.5 py-px text-[10px] font-medium text-muted">{deriveIndustry(company.oneLiner)}</span>
           </div>
-          {score != null ? (
+          {score != null && (
             <div className="flex shrink-0 flex-col items-center">
               <div className="relative h-10 w-10">
                 <svg className="h-10 w-10 -rotate-90" viewBox="0 0 40 40">
-                  <circle
-                    cx="20"
-                    cy="20"
-                    r="17"
-                    fill="none"
-                    stroke="rgb(var(--c-border))"
-                    strokeWidth="2.5"
-                  />
-                  <circle
-                    cx="20"
-                    cy="20"
-                    r="17"
-                    fill="none"
-                    stroke={sColor}
-                    strokeWidth="2.5"
-                    strokeDasharray={`${(score / 100) * 106.81} 106.81`}
-                    strokeLinecap="round"
-                  />
+                  <circle cx="20" cy="20" r="17" fill="none" stroke="rgb(var(--c-border))" strokeWidth="2.5" />
+                  <circle cx="20" cy="20" r="17" fill="none" stroke={sColor} strokeWidth="2.5" strokeLinecap="round"
+                    strokeDasharray={`${(score / 100) * 106.81} 106.81`} />
                 </svg>
-                <span className="absolute inset-0 flex items-center justify-center text-[13px] font-bold text-content">
-                  {score}
-                </span>
+                <span className="absolute inset-0 flex items-center justify-center text-[13px] font-bold text-content">{score}</span>
               </div>
-              <span className="mt-0.5 text-[9px] font-medium" style={{ color: sColor }}>
-                {sLabel}
-              </span>
-            </div>
-          ) : (
-            <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-medium text-teal-700 dark:bg-teal-950/40 dark:text-teal-300">
-              <span className="h-1.5 w-1.5 animate-ping rounded-full bg-teal-500" />
-              Enriching…
+              <span className="mt-0.5 text-[9px] font-medium" style={{ color: sColor }}>{sLabel}</span>
             </div>
           )}
         </div>
@@ -320,14 +229,10 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
 
         {signal ? (
           <div className="mt-4 rounded-lg border border-border bg-surface-2 p-3">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">
-              {signal.heading}
-            </p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">{signal.heading}</p>
             {signal.claims.length > 0 ? (
               signal.claims.map((c, i) => (
-                <p key={i} className="mt-1.5 line-clamp-2 text-[12px] leading-snug text-content">
-                  {c.text}
-                </p>
+                <p key={i} className="mt-1.5 line-clamp-2 text-[12px] leading-snug text-content">{c.text}</p>
               ))
             ) : (
               <p className="mt-1.5 text-[12px] text-muted">Open to research.</p>
@@ -365,13 +270,7 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
                     {shareKnown ? `${shareVal.toFixed(1)}%` : '—'}
                   </p>
                   <p className="mt-0.5 text-[11px] font-medium text-muted">Market Share</p>
-                  {shareKnown && (
-                    <Progress
-                      value={shareVal}
-                      className="mt-1.5 h-1"
-                      indicatorClassName="bg-primary"
-                    />
-                  )}
+                  {shareKnown && <Progress value={shareVal} className="mt-1.5 h-1" indicatorClassName="bg-primary" />}
                 </div>
               </div>
             </div>
@@ -400,24 +299,6 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
                 <p className="mt-0.5 text-[11px] font-medium text-muted">Rating</p>
               </div>
             </div>
-
-            {/* Avatars — real portrait images */}
-            <div className="mt-3 flex items-center">
-              <div className="flex -space-x-1.5">
-                {leaderAvatars(company.name).map((url, i) => (
-                  <Avatar key={i} className="h-5 w-5 border border-surface">
-                    <AvatarImage src={url} alt="Leader" />
-                    <AvatarFallback
-                      className="text-[8px] font-bold text-white"
-                      style={{ backgroundColor: avatarColor(company.name, i) }}
-                    >
-                      {String.fromCharCode(65 + i)}
-                    </AvatarFallback>
-                  </Avatar>
-                ))}
-              </div>
-              <span className="ml-1.5 text-[10px] text-faint">+99</span>
-            </div>
           </>
         )}
       </CardContent>
@@ -427,31 +308,18 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
         {invest ? (
           <span className="flex items-center gap-1.5 text-[11px] text-faint">
             <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: invest.color }} />
-            Tier ·{' '}
-            <span className="font-medium" style={{ color: invest.color }}>
-              {invest.text}
-            </span>
+            Tier · <span className="font-medium" style={{ color: invest.color }}>{invest.text}</span>
           </span>
         ) : (
           <span />
         )}
         <div className="flex items-center gap-0.5">
           <Button
-            variant="ghost"
-            size="icon"
-            className={cn(
-              'h-6 w-6 border-0',
-              saved ? 'text-primary' : 'text-faint hover:text-content',
-            )}
-            onClick={onBookmark}
-            tabIndex={-1}
-            title={saved ? 'Unsave card' : 'Save card'}
+            variant="ghost" size="icon"
+            className={cn('h-6 w-6 border-0', saved ? 'text-primary' : 'text-faint hover:text-content')}
+            onClick={onBookmark} tabIndex={-1} title={saved ? 'Unsave card' : 'Save card'}
           >
-            <Bookmark
-              className="h-3.5 w-3.5"
-              strokeWidth={1.5}
-              fill={saved ? 'currentColor' : 'none'}
-            />
+            <Bookmark className="h-3.5 w-3.5" strokeWidth={1.5} fill={saved ? 'currentColor' : 'none'} />
           </Button>
           <CardMoreMenu />
         </div>
@@ -483,41 +351,22 @@ function CardMoreMenu() {
   return (
     <div ref={ref} className="relative">
       <Button
-        variant="ghost"
-        size="icon"
+        variant="ghost" size="icon"
         className="h-6 w-6 border-0 text-faint hover:text-content"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen(!open);
-        }}
+        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
         tabIndex={-1}
       >
         <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={1.5} />
       </Button>
       {open && (
-        <div
-          className="absolute bottom-full right-0 z-30 mb-1 w-40 rounded-lg border border-border bg-surface p-1 shadow-card"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] text-content hover:bg-surface-2"
-            onClick={() => setOpen(false)}
-          >
+        <div className="absolute bottom-full right-0 z-30 mb-1 w-40 rounded-lg border border-border bg-surface p-1 shadow-card" onClick={(e) => e.stopPropagation()}>
+          <button type="button" className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] text-content hover:bg-surface-2" onClick={() => setOpen(false)}>
             <Share2 className="h-3.5 w-3.5 text-muted" /> Share
           </button>
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] text-content hover:bg-surface-2"
-            onClick={() => setOpen(false)}
-          >
+          <button type="button" className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] text-content hover:bg-surface-2" onClick={() => setOpen(false)}>
             <MessageCircle className="h-3.5 w-3.5 text-muted" /> Research
           </button>
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] text-content hover:bg-surface-2"
-            onClick={() => setOpen(false)}
-          >
+          <button type="button" className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] text-content hover:bg-surface-2" onClick={() => setOpen(false)}>
             <ExternalLink className="h-3.5 w-3.5 text-muted" /> Open deck
           </button>
         </div>

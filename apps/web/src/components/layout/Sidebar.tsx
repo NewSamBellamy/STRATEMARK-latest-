@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   BookmarkSimple,
@@ -11,26 +11,34 @@ import {
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/cn';
 import { useApiKey } from '@/lib/settings/apiKey';
-import logoMark from '@/assets/logo-mark.svg';
+import { useMarkets } from '@/hooks/data';
+import wordmark from '@/assets/wordmark.svg';
 
 export function Sidebar() {
   const hasKey = useApiKey((s) => s.hasKey);
   const [collapsed, setCollapsed] = useState(false);
+  const markets = useMarkets();
+
+  // Most-recent decks first — the sidebar becomes the deck history itself.
+  const recentDecks = useMemo(() => {
+    const list = markets.data ?? [];
+    return [...list].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  }, [markets.data]);
 
   return (
     <aside className={cn(
-      'flex shrink-0 flex-col border-r border-border bg-surface py-6 transition-all duration-200',
+      'flex h-full shrink-0 flex-col border-r border-border bg-surface py-6 transition-all duration-200',
       collapsed ? 'w-16 px-2' : 'w-56 px-4',
     )}>
       {/* Logo + collapse toggle */}
-      <div className={cn('mb-8 flex items-center', collapsed ? 'flex-col gap-2' : 'justify-between px-2')}>
+      <div className={cn('mb-6 flex items-center', collapsed ? 'flex-col gap-2' : 'justify-between px-2')}>
         {collapsed ? (
-          /* Collapsed: just the icon mark */
-          <img src={logoMark} alt="Stratemark" className="h-8 w-8" />
+          <img src={wordmark} alt="Stratemark" className="h-8 w-8" />
         ) : (
-          /* Expanded: icon mark + brand name */
           <div className="flex items-center gap-2">
-            <img src={logoMark} alt="" className="h-7 w-7" />
+            <img src={wordmark} alt="" className="h-7 w-7" />
             <span className="font-display text-[15px] font-bold tracking-tight text-content">Stratemark</span>
           </div>
         )}
@@ -50,25 +58,71 @@ export function Sidebar() {
           workspace
         </p>
       )}
-      <nav className="flex flex-col gap-0.5" aria-label="Primary">
+      <nav className="flex shrink-0 flex-col gap-0.5" aria-label="Primary">
         <SidebarLink to="/" end icon={PlusCircle} label="New Deck" collapsed={collapsed} primary />
-        <SidebarLink to="/history" icon={ClockCounterClockwise} label="Deck History" collapsed={collapsed} />
+        {/* Collapsed: no room for the inline list, so keep a link to the full history page. */}
+        {collapsed && (
+          <SidebarLink to="/history" icon={ClockCounterClockwise} label="Deck History" collapsed />
+        )}
         <SidebarLink to="/saved" icon={BookmarkSimple} label="Saved Cards" collapsed={collapsed} />
         <SidebarLink to="/reports" icon={FileText} label="Reports" collapsed={collapsed} />
       </nav>
 
+      {/* Recent decks — inline history (expanded only) */}
+      {!collapsed && (
+        <div className="mt-6 flex min-h-0 flex-1 flex-col">
+          <div className="mb-2 flex items-center justify-between px-3">
+            <p className="text-[10px] font-medium tracking-[0.08em] text-faint">recent decks</p>
+            {recentDecks.length > 0 && (
+              <NavLink to="/history" className="text-[10px] font-medium text-faint transition-colors hover:text-content">
+                View all
+              </NavLink>
+            )}
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {markets.isLoading ? (
+              <p className="px-3 py-1 text-[12px] text-faint">Loading…</p>
+            ) : recentDecks.length === 0 ? (
+              <p className="px-3 py-1 text-[12px] leading-snug text-faint">
+                No decks yet. Start one above.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-0.5">
+                {recentDecks.map((m) => (
+                  <li key={m.id}>
+                    <NavLink
+                      to={`/markets/${m.id}/deck`}
+                      title={m.name}
+                      className={({ isActive }) => cn(
+                        'block truncate rounded-lg px-3 py-1.5 text-[13px] transition-colors',
+                        isActive
+                          ? 'bg-primary/8 font-medium text-primary'
+                          : 'text-muted hover:bg-surface-2 hover:text-content',
+                      )}
+                    >
+                      {m.name}
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+      {collapsed && <div className="flex-1" />}
+
       {/* System */}
       {!collapsed && (
-        <p className="mb-2 mt-6 px-3 text-[10px] font-medium tracking-[0.08em] text-faint">
+        <p className="mb-2 mt-4 px-3 text-[10px] font-medium tracking-[0.08em] text-faint">
           system
         </p>
       )}
-      {collapsed && <div className="mt-6" />}
-      <nav className="flex flex-col gap-0.5">
+      {collapsed && <div className="mt-4" />}
+      <nav className="flex shrink-0 flex-col gap-0.5">
         <SidebarLink to="/settings" icon={Gear} label="Settings" collapsed={collapsed} />
       </nav>
 
-      <div className="mt-auto px-2 pt-4">
+      <div className="shrink-0 px-2 pt-4">
         {!collapsed && (
           hasKey ? (
             <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-positive">
@@ -108,7 +162,7 @@ function SidebarLink({
       className={({ isActive }) => cn(
         'flex items-center gap-3 rounded-lg transition-colors',
         collapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2',
-        collapsed ? 'text-[13px]' : 'text-[13px]',
+        'text-[13px]',
         isActive
           ? 'bg-primary/8 font-semibold text-primary'
           : primary

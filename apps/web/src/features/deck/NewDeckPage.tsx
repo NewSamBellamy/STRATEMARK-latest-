@@ -31,6 +31,7 @@ import { useDemo } from '@/lib/demo/DemoContext';
 import { cn } from '@/lib/cn';
 import logoMark from '@/assets/logo-mark.svg';
 import wordmark from '@/assets/wordmark.svg';
+import { MicButton } from '@/components/ui/MicButton';
 import { useResearchSession } from './research-session';
 
 const SUGGESTIONS = [
@@ -331,14 +332,20 @@ function InputPill({
             <RegionPicker value={region} onChange={setRegion} disabled={disabled} />
             <EnginePicker value={engine} onChange={setEngine} isPro={isPro} disabled={disabled} />
           </div>
-          <button
-            type="submit"
-            disabled={!prompt.trim() || disabled}
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-primary-fg transition-opacity disabled:opacity-30"
-            aria-label="Research this market"
-          >
-            <ArrowUp className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <MicButton
+              onTranscript={(text) => setPrompt(prompt ? `${prompt} ${text}` : text)}
+              disabled={disabled}
+            />
+            <button
+              type="submit"
+              disabled={!prompt.trim() || disabled}
+              className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-primary-fg transition-opacity disabled:opacity-30"
+              aria-label="Research this market"
+            >
+              <ArrowUp className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
       {showHint && !hasKey && (

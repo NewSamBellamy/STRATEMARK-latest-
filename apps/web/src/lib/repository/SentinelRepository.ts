@@ -38,9 +38,17 @@ import type {
 import { MockRepository } from '@mi/mocks';
 import sampleSnapshot from '@/sample/frontier-snapshot.json';
 import {
+  deleteCloudDeck,
   getCloudDeck,
   getCloudDecks,
+  getCloudMarket,
+  getCloudMarkets,
   runCloudResearchDeck,
+  askCloudResearch,
+  expandCloudDeck,
+  saveCloudCard,
+  unsaveCloudCard,
+  listCloudSavedCards,
 } from '@/lib/sentinelApi';
 
 export class SentinelRepository implements MarketIntelRepository {
@@ -58,13 +66,17 @@ export class SentinelRepository implements MarketIntelRepository {
 
   async listMarkets(): Promise<Market[]> {
     try {
-      const cloudDecks = await getCloudDecks();
-      if (cloudDecks && cloudDecks.length > 0) {
-        const remoteMarkets: Market[] = cloudDecks.map((d: any) => {
+      const [cloudDecks, cloudMarkets] = await Promise.all([
+        getCloudDecks(),
+        getCloudMarkets(),
+      ]);
+      const marketList = cloudMarkets.length > 0 ? cloudMarkets : cloudDecks;
+      if (marketList && marketList.length > 0) {
+        const remoteMarkets: Market[] = marketList.map((d: any) => {
           const marketId = d.marketId || d.id || `mkt_${d.id}`;
           const market: Market = {
             id: marketId,
-            name: d.marketName || d.title || d.prompt || 'Sentinel Cloud Market',
+            name: d.marketName || d.name || d.title || d.prompt || 'Sentinel Cloud Market',
             scopeDefinition: {
               vertical: d.vertical || 'Competitive Market Intelligence',
               geography: d.region || d.geography || null,
@@ -101,6 +113,27 @@ export class SentinelRepository implements MarketIntelRepository {
     if (this.memoryMarkets.has(id)) {
       return this.memoryMarkets.get(id)!;
     }
+    try {
+      const remote = await getCloudMarket(id);
+      if (remote) {
+        const market: Market = {
+          id: (remote.id || remote.marketId || id) as string,
+          name: (remote.name || remote.marketName || 'Sentinel Cloud Market') as string,
+          scopeDefinition: {
+            vertical: (remote.vertical || 'Competitive Market Intelligence') as string,
+            geography: (remote.region || remote.geography || null) as string | null,
+            notes: (remote.notes || null) as string | null,
+          },
+          refreshCadence: 'weekly',
+          createdAt: (remote.createdAt || new Date().toISOString()) as string,
+        };
+        (market as any).engine = 'cloud';
+        this.memoryMarkets.set(id, market);
+        return market;
+      }
+    } catch {
+      /* ignore */
+    }
     const markets = await this.listMarkets();
     return markets.find((m) => m.id === id) || this.fallbackRepo.getMarket(id);
   }
@@ -125,6 +158,33 @@ export class SentinelRepository implements MarketIntelRepository {
       return market;
     }
     return this.fallbackRepo.updateMarketCadence(id, cadence);
+  }
+
+  async deleteMarket(id: string): Promise<boolean> {
+    this.memoryMarkets.delete(id);
+    const deck = this.memoryDecks.get(id);
+    if (deck) {
+      this.memoryDecks.delete(id);
+      this.memoryDecks.delete(deck.id);
+      this.memoryCards.delete(deck.id);
+      this.memoryCards.delete(id);
+      await deleteCloudDeck(deck.id);
+    } else {
+      await deleteCloudDeck(id);
+    }
+    await this.fallbackRepo.deleteMarket?.(id);
+    return true;
+  }
+
+  async deleteDeck(deckId: string): Promise<boolean> {
+    this.memoryDecks.delete(deckId);
+    this.memoryCards.delete(deckId);
+    for (const [mktId, m] of this.memoryMarkets.entries()) {
+      if (m.id === deckId) this.memoryMarkets.delete(mktId);
+    }
+    const res = await deleteCloudDeck(deckId);
+    await this.fallbackRepo.deleteDeck?.(deckId);
+    return res;
   }
 
   async getDeckByMarket(marketId: string): Promise<Deck | null> {
@@ -262,14 +322,32 @@ export class SentinelRepository implements MarketIntelRepository {
   }
 
   async listSavedCards(): Promise<CardWithCompany[]> {
+    try {
+      const cloudSaved = await listCloudSavedCards();
+      if (cloudSaved && cloudSaved.length > 0) {
+        return this.mapCloudCards({ cards: cloudSaved });
+      }
+    } catch {
+      /* fallback */
+    }
     return this.fallbackRepo.listSavedCards();
   }
 
   async saveCard(cardId: string): Promise<SavedCard> {
+    try {
+      await saveCloudCard(cardId);
+    } catch {
+      /* ignore */
+    }
     return this.fallbackRepo.saveCard(cardId);
   }
 
   async unsaveCard(cardId: string): Promise<void> {
+    try {
+      await unsaveCloudCard(cardId);
+    } catch {
+      /* ignore */
+    }
     return this.fallbackRepo.unsaveCard(cardId);
   }
 
@@ -314,6 +392,12 @@ export class SentinelRepository implements MarketIntelRepository {
   }
 
   async expandDeck(marketId: string, focus: ExpandFocus): Promise<{ added: number }> {
+    try {
+      const res = await expandCloudDeck(marketId, focus);
+      if (res && typeof res.added === 'number') return res;
+    } catch {
+      /* fallback to local mock repository */
+    }
     return this.fallbackRepo.expandDeck(marketId, focus);
   }
 
@@ -326,6 +410,14 @@ export class SentinelRepository implements MarketIntelRepository {
   }
 
   async askResearch(input: AskResearchInput): Promise<ResearchThread> {
+    try {
+      const res = await askCloudResearch(input);
+      if (res && res.id && Array.isArray(res.messages)) {
+        return res as unknown as ResearchThread;
+      }
+    } catch {
+      /* fallback to local mock repository */
+    }
     return (this.fallbackRepo as any).askResearch(input);
   }
 

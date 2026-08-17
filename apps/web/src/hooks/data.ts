@@ -133,6 +133,25 @@ export function useCreateMarket() {
   });
 }
 
+export function useDeleteDeck() {
+  const repo = useRepository();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (repo.deleteDeck) {
+        return repo.deleteDeck(id);
+      }
+      if (repo.deleteMarket) {
+        return repo.deleteMarket(id);
+      }
+      return false;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.markets });
+    },
+  });
+}
+
 export function useUpdateCadence() {
   const repo = useRepository();
   const qc = useQueryClient();

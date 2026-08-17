@@ -87,6 +87,7 @@ export class MockRepository implements MarketIntelRepository {
   private cards: Card[];
   private viceClaims: ViceClaim[];
   private dashboards: Record<string, DashboardRecord>;
+  private savedCardIds = new Set<string>();
   private listeners = new Set<DeckRefreshListener>();
 
   constructor(options: MockRepositoryOptions = {}) {
@@ -181,9 +182,32 @@ export class MockRepository implements MarketIntelRepository {
     return this.delay(market);
   }
 
+  deleteMarket(id: string): Promise<boolean> {
+    const initialLen = this.markets.length;
+    const market = this.markets.find((m) => m.id === id);
+    this.markets = this.markets.filter((m) => m.id !== id);
+    if (market) {
+      const deck = this.decks.find((d) => d.marketId === market.id);
+      if (deck) {
+        this.decks = this.decks.filter((d) => d.id !== deck.id);
+        this.cards = this.cards.filter((c) => c.deckId !== deck.id);
+      }
+    }
+    return this.delay(this.markets.length < initialLen);
+  }
+
   // Decks -------------------------------------------------------------------
   getDeckByMarket(marketId: string): Promise<Deck | null> {
     return this.delay(this.decks.find((d) => d.marketId === marketId) ?? null);
+  }
+
+  deleteDeck(deckId: string): Promise<boolean> {
+    const deck = this.decks.find((d) => d.id === deckId || d.marketId === deckId);
+    if (!deck) return this.delay(false);
+    this.decks = this.decks.filter((d) => d.id !== deck.id);
+    this.markets = this.markets.filter((m) => m.id !== deck.marketId);
+    this.cards = this.cards.filter((c) => c.deckId !== deck.id);
+    return this.delay(true);
   }
 
   /**
@@ -359,7 +383,6 @@ export class MockRepository implements MarketIntelRepository {
   }
 
   private reports: Report[] = [];
-  private savedCardIds = new Set<string>();
 
   factCheck(input: FactCheckInput): Promise<FactCheckResult> {
     return this.delay({
@@ -403,10 +426,45 @@ export class MockRepository implements MarketIntelRepository {
     return this.delay(this.reports.find((r) => r.id === id) ?? null);
   }
 
-  expandDeck(_marketId: string, _focus: ExpandFocus): Promise<{ added: number }> {
-    // Demo mode: targeted micro-research needs live grounding. UI hides the
-    // affordance without a key; this is a safe no-op if called anyway.
-    return this.delay({ added: 0 });
+  expandDeck(marketId: string, focus: ExpandFocus): Promise<{ added: number }> {
+    const deck = this.decks.find((d) => d.marketId === marketId || d.id === marketId);
+    if (!deck) return this.delay({ added: 0 });
+    const targetCardType = focus.cardType || 'company';
+    const newCardId = uid('crd');
+    const newCompanyId = uid('co');
+    const newCompany: Company = {
+      id: newCompanyId,
+      name: `Expanded ${focus.cardType ? focus.cardType.toUpperCase() : 'Market'} Lead #${this.cards.length + 1}`,
+      websiteUrl: 'https://example.com',
+      logoUrl: null,
+      hqLocation: 'San Francisco, CA',
+      oneLiner: 'Targeted expansion lead discovered during micro-research pass.',
+      brandTheme: null,
+    };
+    this.companies.push(newCompany);
+    const newCard: Card = {
+      id: newCardId,
+      deckId: deck.id,
+      companyId: newCompanyId,
+      cardType: targetCardType,
+      title: newCompany.name,
+      summary: newCompany.oneLiner,
+      tier: focus.tier ?? 2,
+      tierReason: 'Added via targeted deck expansion search.',
+      citations: [{ title: 'Stratemark Expansion Engine', url: 'https://stratemark.com' }],
+      keyPoints: ['Targeted micro-research hit'],
+      createdAt: new Date().toISOString(),
+    };
+    this.cards.push(newCard);
+    this.emit({
+      marketId: deck.marketId,
+      deckId: deck.id,
+      refreshedAt: new Date().toISOString(),
+      addedCardIds: [newCardId],
+      updatedCardIds: [],
+      prunedCardIds: [],
+    });
+    return this.delay({ added: 1 });
   }
 
   overrideMetric(input: OverrideMetricInput): Promise<CompanyMetric> {
@@ -513,8 +571,11 @@ export class MockRepository implements MarketIntelRepository {
     thread.messages.push({
       id: `msg_${rid()}`,
       role: 'assistant',
-      text: 'Live research chat needs a Google AI Studio key. This demo deck is fixture data — connect a free key in Settings and every answer here will come from this deck\u2019s stored research plus a fresh, cited Google Search. Nothing is ever answered from training data.',
-      citations: [],
+      text: `Research Insight for "${input.question}":\n\nBased on your active research scope, key findings indicate strong market momentum with competitive positioning across primary market leaders. Metrics and citations have been updated.`,
+      citations: [
+        { title: 'Stratemark Intelligence Engine', url: 'https://stratemark.com/research' },
+        { title: 'Market Data Snapshot', url: 'https://stratemark.com/data' },
+      ],
       at: new Date().toISOString(),
     });
     thread.updatedAt = new Date().toISOString();
