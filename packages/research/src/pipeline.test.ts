@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ZodType } from 'zod';
+import type { DeckRefreshEvent } from '@mi/contracts';
 import type { CompanyCandidate, LlmClient } from './types';
-import { discoverWithCoverage, runDeckResearch, selectCandidates } from './pipeline';
+import {
+  discoverDeckStubs,
+  discoverWithCoverage,
+  hydrateDeckCards,
+  runDeckResearch,
+  selectCandidates,
+} from './pipeline';
 import { GeminiRepository, type ResearchStore, type RepoSnapshot } from './repository';
 import { discoveryMinimumOutSchema } from './schemas';
 
@@ -444,6 +451,9 @@ describe('GeminiRepository (fake client + in-memory store)', () => {
     expect(overview?.tab).toBe('overview');
     expect(metrics?.tab).toBe('metrics');
 
+    // Wait for continual background hydration to finish
+    await repo.waitForBackgroundJobs();
+
     // A fresh repo backed by the same store rehydrates the deck (persistence).
     const repo2 = new GeminiRepository({
       apiKey: 'x',
@@ -683,5 +693,156 @@ describe('discovery coverage contract', () => {
       })),
     });
     expect(result.success).toBe(true);
+  });
+});
+
+describe('Progressive Fast-Boot & Continual Background Research Architecture', () => {
+  it('discoverDeckStubs generates unhydrated stub cards with names, logos, and domains', async () => {
+    const events: string[] = [];
+    const result = await discoverDeckStubs(
+      { prompt: 'AI developer tools', region: 'CA' },
+      fakeClient(),
+      {
+        apiKey: '',
+        coverage: testCoverage,
+        catalogMax: 3,
+        catalogPasses: 0,
+        onEvent: (e) => events.push(e.type === 'status' ? e.step : e.type),
+      },
+    );
+
+    expect(result.market.name).toBe('Test Market');
+    expect(result.deck.marketId).toBe(result.market.id);
+    expect(result.candidates.length).toBeGreaterThanOrEqual(3);
+    expect(result.cards.length).toBeGreaterThanOrEqual(3);
+
+    for (const cwc of result.cards) {
+      expect(cwc.company).not.toBeNull();
+      expect(cwc.company!.name).toBeTruthy();
+      expect(cwc.company!.logoUrl).toContain('faviconV2');
+      expect(cwc.card.deckId).toBe(result.deck.id);
+      expect(cwc.card.tier).toBeNull(); // stub: unhydrated placeholder
+      expect(cwc.card.tierReason).toBeNull();
+      expect(cwc.metrics).toEqual([]); // stub: empty metrics
+      expect(cwc.viceClaims).toEqual([]);
+    }
+
+    expect(events).toContain('interpret');
+    expect(events).toContain('market');
+    expect(events).toContain('discover');
+    expect(events).toContain('candidates');
+  });
+
+  it('hydrateDeckCards concurrently enriches entity cards and triggers onCardHydrated callbacks', async () => {
+    const client = fakeClient();
+    const stubsResult = await discoverDeckStubs(
+      { prompt: 'AI developer tools', region: 'CA' },
+      client,
+      {
+        apiKey: '',
+        coverage: testCoverage,
+        catalogMax: 3,
+        catalogPasses: 0,
+      },
+    );
+
+    const hydratedNames: string[] = [];
+    const hydratedCards = await hydrateDeckCards(
+      stubsResult.plan,
+      stubsResult.deck,
+      stubsResult.candidates,
+      client,
+      {
+        concurrency: 3,
+        coverage: testCoverage,
+        onCardHydrated: (res) => {
+          hydratedNames.push(res.company.name);
+        },
+      },
+    );
+
+    expect(hydratedNames.length).toBeGreaterThanOrEqual(3);
+    const companyCards = hydratedCards.filter((c) => c.card.cardType === 'company');
+    expect(companyCards.length).toBeGreaterThanOrEqual(3);
+
+    // Cards should now be scored with tiers and populated metrics
+    for (const cwc of companyCards) {
+      expect(cwc.card.tier).not.toBeNull();
+      expect(cwc.metrics.length).toBeGreaterThan(0);
+    }
+
+    // Macro signal cards (barriers and insights) are produced
+    const barrierCards = hydratedCards.filter((c) => c.card.cardType === 'barrier');
+    const insightCards = hydratedCards.filter((c) => c.card.cardType === 'insight');
+    expect(barrierCards.length).toBeGreaterThan(0);
+    expect(insightCards.length).toBeGreaterThan(0);
+  });
+
+  it('createResearchedDeck returns immediately with stubs and hydrates progressively with live events', async () => {
+    const storeState: { value: RepoSnapshot | null } = { value: null };
+    const store: ResearchStore = {
+      read: () => storeState.value,
+      write: (snap) => (storeState.value = snap),
+    };
+
+    const repo = new GeminiRepository({
+      apiKey: 'test-key',
+      client: fakeClient(),
+      coverage: testCoverage,
+      catalogMax: 3,
+      catalogPasses: 0,
+      store,
+    });
+
+    const refreshEvents: DeckRefreshEvent[] = [];
+    repo.subscribeDeckRefresh((evt) => {
+      refreshEvents.push(evt);
+    });
+
+    // 1. Fast-boot invocation: returns immediately
+    const { market, deck } = await repo.createResearchedDeck({
+      prompt: 'AI developer tools',
+      region: 'CA',
+    });
+
+    expect(market.id).toBeTruthy();
+    expect(deck.id).toBeTruthy();
+
+    // 2. Initial state in store: stub cards are already stored and accessible
+    const initialCards = await repo.listCards(deck.id);
+    expect(initialCards.length).toBeGreaterThanOrEqual(3);
+
+    // Stubs are unhydrated initially
+    const stubCompanyCards = initialCards.filter((c) => c.card.cardType === 'company');
+    expect(stubCompanyCards.length).toBeGreaterThanOrEqual(3);
+    for (const stub of stubCompanyCards) {
+      expect(stub.company?.name).toBeTruthy();
+      expect(stub.company?.logoUrl).toContain('faviconV2');
+      expect(stub.card.tier).toBeNull();
+      expect(stub.metrics).toEqual([]);
+    }
+
+    // 3. Wait for continual background worker pool to finish
+    await repo.waitForBackgroundJobs();
+
+    // 4. Verify live DeckRefreshEvent emissions were fired
+    expect(refreshEvents.length).toBeGreaterThanOrEqual(1);
+    const updatedCardIds = refreshEvents.flatMap((e) => e.updatedCardIds);
+    const addedCardIds = refreshEvents.flatMap((e) => e.addedCardIds);
+    expect(updatedCardIds.length + addedCardIds.length).toBeGreaterThan(0);
+
+    // 5. Hydrated state in store: cards now have scores, metrics, and macro signals
+    const finalCards = await repo.listCards(deck.id);
+    const finalCompanyCards = finalCards.filter((c) => c.card.cardType === 'company');
+    for (const card of finalCompanyCards) {
+      expect(card.card.tier).not.toBeNull();
+      expect(card.metrics.length).toBeGreaterThan(0);
+    }
+
+    // Macro signal cards exist
+    const barriers = finalCards.filter((c) => c.card.cardType === 'barrier');
+    const insights = finalCards.filter((c) => c.card.cardType === 'insight');
+    expect(barriers.length).toBeGreaterThan(0);
+    expect(insights.length).toBeGreaterThan(0);
   });
 });

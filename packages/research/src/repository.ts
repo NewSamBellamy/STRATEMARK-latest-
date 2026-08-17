@@ -18,6 +18,7 @@ import {
   type CompanyMetric,
   type CreateMarketInput,
   type ExpandFocus,
+  type MaturityTier,
   type OverrideMetricInput,
   type DashboardTab,
   type DashboardTabResult,
@@ -46,7 +47,16 @@ import {
 } from '@mi/contracts';
 import { createGeminiClient, type GeminiClientConfig } from './gemini';
 import { researchDashboardTab } from './dashboard';
-import { runDeckResearch, type ResearchResult } from './pipeline';
+import {
+  discoverDeckStubs,
+  reviewTiersBatch,
+  runDeckResearch,
+  type DeckStubsResult,
+  type ResearchResult,
+} from './pipeline';
+import { hydrateCompanyCard } from './company-agent';
+import { researchMarketSignals } from './signal-agents';
+import { mapWithConcurrency, throwIfAborted } from './util';
 import { expandDeckWithDeltaAgent } from './delta-agent';
 import { CHAT_SYSTEM, GROUNDED_SYSTEM, STRUCTURE_SYSTEM } from './prompts';
 import { factCheckOutSchema } from './schemas';
@@ -183,6 +193,7 @@ export class GeminiRepository implements MarketIntelRepository {
   private readonly catalogMax?: number;
   private readonly catalogPasses?: number;
   private readonly jobControllers = new Map<string, AbortController>();
+  private readonly activeBackgroundJobs = new Map<string, Promise<void>>();
   private listeners = new Set<DeckRefreshListener>();
 
   constructor(options: GeminiRepositoryOptions) {
@@ -241,7 +252,14 @@ export class GeminiRepository implements MarketIntelRepository {
       if (index >= 0) this.snap.companies[index] = company;
       else this.snap.companies.push(company);
     }
-    this.snap.metrics = reconcileMetrics(this.snap.metrics, metrics);
+    const otherMetrics = this.snap.metrics.filter((m) => !companyById.has(m.companyId));
+    const mergedCompanyMetrics: CompanyMetric[] = [];
+    for (const companyId of companyById.keys()) {
+      const existingForCo = this.snap.metrics.filter((m) => m.companyId === companyId);
+      const incomingForCo = metrics.filter((m) => m.companyId === companyId);
+      mergedCompanyMetrics.push(...reconcileMetrics(existingForCo, incomingForCo));
+    }
+    this.snap.metrics = [...otherMetrics, ...mergedCompanyMetrics];
     const deckUserValues = this.snap.metrics
       .filter(
         (metric) =>
@@ -385,6 +403,14 @@ export class GeminiRepository implements MarketIntelRepository {
     }
   }
 
+  async waitForBackgroundJobs(jobId?: string): Promise<void> {
+    if (jobId) {
+      await this.activeBackgroundJobs.get(jobId);
+    } else {
+      await Promise.all(Array.from(this.activeBackgroundJobs.values()));
+    }
+  }
+
   async createResearchedDeck(
     brief: DeckResearchBrief,
     handlers?: ResearchHandlers,
@@ -411,6 +437,7 @@ export class GeminiRepository implements MarketIntelRepository {
     }
     this.snap.researchJobs = [...this.snap.researchJobs.slice(-49), job];
     this.persist();
+
     const checkpoint = (evt: Parameters<NonNullable<RunResearchOptions['onEvent']>>[0]): void => {
       job.updatedAt = new Date().toISOString();
       if (evt.type === 'status') job.stage = stageForStep(evt.step);
@@ -436,13 +463,18 @@ export class GeminiRepository implements MarketIntelRepository {
       }
       this.persist();
     };
-    let result: ResearchResult;
+
+    let stubsResult: DeckStubsResult;
     try {
-      result = await runDeckResearch(brief, this.client, {
-        apiKey: '', // client already constructed
+      stubsResult = await discoverDeckStubs(brief, this.client, {
+        apiKey: '',
+        signal: controller.signal,
+        targetCompanies: this.targetCompanies,
+        coverage: this.coverage,
+        catalogMax: this.catalogMax,
+        catalogPasses: this.catalogPasses,
         onEvent: (evt) => {
           checkpoint(evt);
-          // Glass-box stream: forward the pipeline's real steps as typed log lines.
           const p = handlers?.onProgress;
           if (!p) return;
           if (evt.type === 'status')
@@ -467,28 +499,8 @@ export class GeminiRepository implements MarketIntelRepository {
               stage: 'catalog',
               kind: 'find',
             });
-          else if (evt.type === 'card') {
-            const c = evt.card;
-            const label = c.company?.name ?? c.card.title ?? 'card';
-            p({
-              message: `+ ${c.card.cardType} card: ${label}${c.card.tier ? ` (T${c.card.tier})` : ''} · ${c.metrics.filter((m) => m.value != null).length} metrics`,
-              stage:
-                c.card.cardType === 'company' ||
-                c.card.cardType === 'infrastructure' ||
-                c.card.cardType === 'distribution'
-                  ? 'summary'
-                  : 'signals',
-              card: c,
-              kind: 'find',
-            });
-          } else if (evt.type === 'warning') p({ message: evt.message, kind: 'warn' });
+          else if (evt.type === 'warning') p({ message: evt.message, kind: 'warn' });
         },
-        signal: controller.signal,
-        targetCompanies: this.targetCompanies,
-        concurrency: this.concurrency,
-        coverage: this.coverage,
-        catalogMax: this.catalogMax,
-        catalogPasses: this.catalogPasses,
       });
     } catch (error) {
       job.status = controller.signal.aborted ? 'cancelled' : 'failed';
@@ -498,6 +510,7 @@ export class GeminiRepository implements MarketIntelRepository {
       this.jobControllers.delete(job.id);
       throw error;
     }
+
     if (job.status === 'cancelled' || controller.signal.aborted) {
       job.status = 'cancelled';
       job.error = 'Cancelled by user.';
@@ -506,15 +519,323 @@ export class GeminiRepository implements MarketIntelRepository {
       this.jobControllers.delete(job.id);
       throw new Error('Research cancelled');
     }
-    job.status = 'completed';
-    job.stage = 'signals';
-    job.market = result.market;
-    job.deck = result.deck;
+
+    // Ingest stub cards into snapshot immediately
+    this.snap.markets = [
+      stubsResult.market,
+      ...this.snap.markets.filter((m) => m.id !== stubsResult.market.id),
+    ];
+    this.snap.decks = [
+      stubsResult.deck,
+      ...this.snap.decks.filter((d) => d.id !== stubsResult.deck.id),
+    ];
+    this.snap.cards = [
+      ...this.snap.cards.filter((c) => c.deckId !== stubsResult.deck.id),
+      ...stubsResult.cards.map((c) => c.card),
+    ];
+    for (const stub of stubsResult.cards) {
+      if (stub.company) {
+        const existingIdx = this.snap.companies.findIndex((c) => c.id === stub.company!.id);
+        if (existingIdx >= 0) this.snap.companies[existingIdx] = stub.company;
+        else this.snap.companies.push(stub.company);
+        this.snap.companyMarket[stub.company.id] = stubsResult.market.name;
+      }
+    }
+
+    job.market = stubsResult.market;
+    job.deck = stubsResult.deck;
+    job.marketPlan = stubsResult.plan;
+    job.catalog = stubsResult.candidates;
+    job.catalogNames = stubsResult.candidates.map((c) => c.name);
+    job.stage = 'summary';
+    job.partialCards = [...stubsResult.cards];
     job.updatedAt = new Date().toISOString();
     this.persist();
-    this.jobControllers.delete(job.id);
-    this.ingest(result);
-    return { market: result.market, deck: result.deck };
+
+    // Continual Background Hydration
+    const backgroundPromise = (async () => {
+      try {
+        await Promise.all([
+          // Track 1: Entity Card Hydration (worker pool concurrency: 3)
+          (async () => {
+            let done = 0;
+            await mapWithConcurrency(
+              stubsResult.candidates,
+              this.concurrency ?? 3,
+              async (candidate) => {
+                throwIfAborted(controller.signal);
+                try {
+                  const stub = stubsResult.cards.find(
+                    (c) => c.company?.name.toLowerCase() === candidate.name.toLowerCase(),
+                  );
+                  const existingCompanyId = stub?.company?.id;
+
+                  const hydrated = await hydrateCompanyCard({
+                    candidate,
+                    client: this.client,
+                    plan: stubsResult.plan,
+                    deckId: stubsResult.deck.id,
+                    companyId: existingCompanyId,
+                    signal: controller.signal,
+                  });
+                  done += 1;
+                  checkpoint({
+                    type: 'status',
+                    step: 'enrich',
+                    message: `Researched ${candidate.name} (${done}/${stubsResult.candidates.length})`,
+                    progress: done / stubsResult.candidates.length,
+                  });
+
+                  // Update company in snap
+                  const coIdx = this.snap.companies.findIndex(
+                    (c) =>
+                      c.id === hydrated.company.id ||
+                      companyKey(c.name) === companyKey(hydrated.company.name),
+                  );
+                  if (coIdx >= 0) {
+                    this.snap.companies[coIdx] = hydrated.company;
+                  } else {
+                    this.snap.companies.push(hydrated.company);
+                  }
+                  this.snap.companyMarket[hydrated.company.id] = stubsResult.market.name;
+
+                  // Reconcile metrics for this company in snap
+                  const otherCompanyMetrics = this.snap.metrics.filter(
+                    (m) => m.companyId !== hydrated.company.id,
+                  );
+                  const existingForCo = this.snap.metrics.filter(
+                    (m) => m.companyId === hydrated.company.id,
+                  );
+                  this.snap.metrics = [
+                    ...otherCompanyMetrics,
+                    ...reconcileMetrics(existingForCo, hydrated.metrics),
+                  ];
+
+                  // Update primary entity card in snap
+                  const updatedCardIds: string[] = [];
+                  const addedCardIds: string[] = [];
+
+                  const cardIdx = this.snap.cards.findIndex(
+                    (c) =>
+                      c.deckId === stubsResult.deck.id &&
+                      (c.companyId === hydrated.company.id ||
+                        (c.companyId &&
+                          this.snap.companies.find((comp) => comp.id === c.companyId)?.name.toLowerCase() ===
+                            hydrated.company.name.toLowerCase())),
+                  );
+
+                  if (cardIdx >= 0) {
+                    const existingCard = this.snap.cards[cardIdx]!;
+                    const updatedCard: Card = {
+                      ...hydrated.primaryCard.card,
+                      id: existingCard.id,
+                      deckId: stubsResult.deck.id,
+                      companyId: hydrated.company.id,
+                    };
+                    this.snap.cards[cardIdx] = updatedCard;
+                    updatedCardIds.push(updatedCard.id);
+                  } else {
+                    this.snap.cards.push(hydrated.primaryCard.card);
+                    addedCardIds.push(hydrated.primaryCard.card.id);
+                  }
+
+                  // Add facet cards (vice / culture) if present
+                  for (const facetCwc of hydrated.cards.slice(1)) {
+                    const existingFacet = this.snap.cards.find(
+                      (c) =>
+                        c.deckId === stubsResult.deck.id &&
+                        c.companyId === hydrated.company.id &&
+                        c.cardType === facetCwc.card.cardType,
+                    );
+                    if (!existingFacet) {
+                      this.snap.cards.push(facetCwc.card);
+                      addedCardIds.push(facetCwc.card.id);
+                    }
+                    if (facetCwc.viceClaims.length > 0) {
+                      this.snap.viceClaims.push(...facetCwc.viceClaims);
+                    }
+                  }
+
+                  // Update job completed entity names
+                  if (!job.completedEntityNames.includes(hydrated.company.name)) {
+                    job.completedEntityNames.push(hydrated.company.name);
+                  }
+                  const pIdx = job.partialCards.findIndex(
+                    (p) => p.company?.name.toLowerCase() === hydrated.company.name.toLowerCase(),
+                  );
+                  if (pIdx >= 0) {
+                    job.partialCards[pIdx] = hydrated.primaryCard;
+                  } else {
+                    job.partialCards.push(hydrated.primaryCard);
+                  }
+
+                  // Invalidate dashboard caches for company
+                  this.snap.dashboards[hydrated.company.id] = {};
+
+                  this.persist();
+
+                  // Real-time live board hydration event
+                  this.emit({
+                    marketId: stubsResult.market.id,
+                    deckId: stubsResult.deck.id,
+                    refreshedAt: new Date().toISOString(),
+                    addedCardIds,
+                    updatedCardIds,
+                    prunedCardIds: [],
+                  });
+
+                  handlers?.onProgress?.({
+                    message: `+ ${hydrated.primaryCard.card.cardType} card: ${hydrated.company.name}${hydrated.primaryCard.card.tier ? ` (T${hydrated.primaryCard.card.tier})` : ''} · ${hydrated.metrics.filter((m) => m.value != null).length} metrics`,
+                    stage: 'summary',
+                    card: hydrated.primaryCard,
+                    kind: 'find',
+                  });
+                } catch (err) {
+                  if (controller.signal.aborted) throw err;
+                  checkpoint({
+                    type: 'warning',
+                    message: `Could not enrich ${candidate.name}; preserving the rest of the deck. ${err instanceof Error ? err.message : 'Research failed.'}`,
+                  });
+                }
+              },
+              controller.signal,
+            );
+          })(),
+
+          // Track 2: Background Macro Signals (BarrierToEntryAgent, MarketInsightAgent)
+          (async () => {
+            checkpoint({
+              type: 'status',
+              step: 'barriers',
+              message: 'Identifying barriers and market insights…',
+            });
+            try {
+              const marketCards = await researchMarketSignals(
+                this.client,
+                stubsResult.plan,
+                stubsResult.deck.id,
+                { signal: controller.signal, coverage: this.coverage },
+              );
+
+              const addedSignalIds: string[] = [];
+              for (const mc of marketCards) {
+                this.snap.cards.push(mc.card);
+                addedSignalIds.push(mc.card.id);
+                job.partialCards.push(mc);
+                handlers?.onProgress?.({
+                  message: `+ ${mc.card.cardType} card: ${mc.card.title ?? 'Macro Signal'}`,
+                  stage: 'signals',
+                  card: mc,
+                  kind: 'find',
+                });
+              }
+
+              this.persist();
+
+              if (addedSignalIds.length > 0) {
+                this.emit({
+                  marketId: stubsResult.market.id,
+                  deckId: stubsResult.deck.id,
+                  refreshedAt: new Date().toISOString(),
+                  addedCardIds: addedSignalIds,
+                  updatedCardIds: [],
+                  prunedCardIds: [],
+                });
+              }
+            } catch (err) {
+              if (controller.signal.aborted) throw err;
+              checkpoint({
+                type: 'warning',
+                message: 'Could not research market-level barriers and insights.',
+              });
+            }
+          })(),
+        ]);
+
+        // Deterministic base tiers & review across whole deck
+        const deckCards = this.snap.cards.filter(
+          (c) => c.deckId === stubsResult.deck.id && c.companyId && c.cardType === 'company',
+        );
+        const deckUserValues = this.snap.metrics
+          .filter((m) => m.metricType === 'users' && m.confidence !== 'unknown' && m.value !== null)
+          .map((m) => m.value as number);
+
+        const baseTiers = new Map<string, MaturityTier>();
+        const reviewRows: { name: string; baseTier: MaturityTier; evidence: string }[] = [];
+        for (const card of deckCards) {
+          const metrics = this.snap.metrics.filter((m) => m.companyId === card.companyId);
+          const base = computeCms(buildCmsInput(metrics), { deckUserValues });
+          if (base.finalTier != null) {
+            baseTiers.set(card.companyId!, base.finalTier);
+            const company = this.snap.companies.find((c) => c.id === card.companyId);
+            reviewRows.push({
+              name: company?.name ?? card.title ?? '',
+              baseTier: base.finalTier,
+              evidence: metrics
+                .map((m) => `${m.metricType}: ${m.value ?? 'unknown'} (${m.confidence})`)
+                .join('; '),
+            });
+          }
+        }
+
+        let reviews = new Map<string, { nudge: -1 | 0 | 1; reason: string | null }>();
+        if (reviewRows.length > 0) {
+          reviews = await reviewTiersBatch(
+            this.client,
+            stubsResult.plan.marketName,
+            reviewRows,
+            controller.signal,
+          );
+        }
+
+        const retieredCardIds: string[] = [];
+        for (const card of deckCards) {
+          const company = this.snap.companies.find((c) => c.id === card.companyId);
+          if (!company) continue;
+          const review = reviews.get(company.name) ?? { nudge: 0 as const, reason: null };
+          const metrics = this.snap.metrics.filter((m) => m.companyId === card.companyId);
+          const scored = computeCms(
+            buildCmsInput(metrics),
+            { deckUserValues },
+            { nudge: review.nudge },
+          );
+          if (scored.finalTier !== card.tier || (review.reason && review.reason !== card.tierReason)) {
+            card.tier = scored.finalTier;
+            card.tierReason = review.reason ?? card.tierReason;
+            retieredCardIds.push(card.id);
+          }
+        }
+
+        if (retieredCardIds.length > 0) {
+          this.persist();
+          this.emit({
+            marketId: stubsResult.market.id,
+            deckId: stubsResult.deck.id,
+            refreshedAt: new Date().toISOString(),
+            addedCardIds: [],
+            updatedCardIds: retieredCardIds,
+            prunedCardIds: [],
+          });
+        }
+
+        job.status = 'completed';
+        job.stage = 'signals';
+        job.updatedAt = new Date().toISOString();
+        this.persist();
+        this.jobControllers.delete(job.id);
+        this.activeBackgroundJobs.delete(job.id);
+      } catch (error) {
+        job.status = controller.signal.aborted ? 'cancelled' : 'failed';
+        job.error = error instanceof Error ? error.message : 'Research failed.';
+        job.updatedAt = new Date().toISOString();
+        this.persist();
+        this.jobControllers.delete(job.id);
+        this.activeBackgroundJobs.delete(job.id);
+      }
+    })();
+
+    this.activeBackgroundJobs.set(job.id, backgroundPromise);
+    return { market: stubsResult.market, deck: stubsResult.deck };
   }
 
   async refreshDeck(marketId: string): Promise<Deck> {

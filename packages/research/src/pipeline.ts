@@ -14,8 +14,10 @@ import type { infer as ZodInfer } from 'zod';
 import {
   buildCmsInput,
   computeCms,
+  type Card,
   type CardType,
   type CardWithCompany,
+  type Company,
   type Deck,
   type Market,
   type MaturityTier,
@@ -45,6 +47,7 @@ import type {
   ResearchCoverage,
   RunResearchOptions,
 } from './types';
+import { faviconUrl } from './logos';
 import { mapWithConcurrency, rootDomain, slugify, throwIfAborted } from './util';
 import {
   hydrateCompanyCard,
@@ -58,6 +61,26 @@ export interface ResearchResult {
   market: Market;
   deck: Deck;
   cards: CardWithCompany[];
+}
+
+export interface DeckStubsResult {
+  plan: MarketPlan;
+  market: Market;
+  deck: Deck;
+  candidates: CompanyCandidate[];
+  cards: CardWithCompany[];
+  rejected: string[];
+  minimumCompaniesSatisfied: boolean;
+}
+
+export interface HydrateDeckCardsOptions {
+  concurrency?: number;
+  coverage?: Partial<ResearchCoverage>;
+  signal?: AbortSignal;
+  onEvent?: OnResearchEvent;
+  onCardHydrated?: (result: HydrateCompanyCardResult) => Promise<void> | void;
+  onMarketSignals?: (cards: CardWithCompany[]) => Promise<void> | void;
+  existingCompletedCards?: CardWithCompany[];
 }
 
 const uid = (prefix: string, slug: string): string =>
@@ -109,12 +132,12 @@ const DEFAULT_COVERAGE: ResearchCoverage = {
   insight: { min: 4, target: 6, max: 10 },
 };
 
-function resolveCoverage(options: RunResearchOptions): ResearchCoverage {
-  const requested = options.coverage ?? {};
+function resolveCoverage(options?: Partial<RunResearchOptions>): ResearchCoverage {
+  const requested = options?.coverage ?? {};
   const companies = requested.companies ?? DEFAULT_COVERAGE.companies;
   // The legacy option is a total entity target. Keep it as a safe override for
   // callers, but never let it reduce the hard company minimum.
-  const targetCompanies = Math.max(options.targetCompanies ?? companies.target, companies.min);
+  const targetCompanies = Math.max(options?.targetCompanies ?? companies.target, companies.min);
   return {
     ...DEFAULT_COVERAGE,
     ...requested,
@@ -397,7 +420,7 @@ export async function discoverWithCoverage(
  * each in isolation. Falls back to "no nudges" on any failure — the
  * deterministic base tier is always a valid answer.
  */
-async function reviewTiersBatch(
+export async function reviewTiersBatch(
   client: LlmClient,
   marketName: string,
   rows: { name: string; baseTier: MaturityTier; evidence: string }[],
@@ -468,122 +491,170 @@ export async function expandDeckResearch(args: {
   });
 }
 
-/** Run the full deck-research pipeline. Streams progress via `onEvent`. */
-export async function runDeckResearch(
+/**
+ * Instant Deck Fast-Boot: Discovers initial candidate stubs (~2-3s).
+ * Returns market, deck, candidates, and stub cards with placeholders so
+ * UI can navigate immediately.
+ */
+export async function discoverDeckStubs(
   brief: { prompt: string; region: string | null },
   client: LlmClient,
-  options: RunResearchOptions,
-): Promise<ResearchResult> {
+  options: Partial<RunResearchOptions> = {},
+): Promise<DeckStubsResult> {
   const emit: OnResearchEvent = options.onEvent ?? (() => {});
   const signal = options.signal;
   const coverage = resolveCoverage(options);
-  // Default concurrency to 3 for higher data throughput and fast fan-out deck generation
-  const concurrency = options.concurrency ?? 3;
-  let plan: MarketPlan;
-  let candidates: CompanyCandidate[];
-  let rejected: string[] = [];
-  let minimumCompaniesSatisfied = true;
-  let market: Market;
-  let deck: Deck;
-  let completedCards: CardWithCompany[] = [];
 
-  if (options.resume) {
-    plan = options.resume.plan;
-    market = options.resume.market;
-    deck = options.resume.deck;
-    completedCards = [...options.resume.completedCards];
-    candidates = [...options.resume.candidates];
-    const completedNames = new Set(
-      completedCards
-        .filter((entry) => entry.company)
-        .map((entry) => entry.company!.name.toLowerCase()),
-    );
-    candidates = candidates.filter(
-      (candidate) => !completedNames.has(candidate.name.toLowerCase()),
-    );
+  emit({ type: 'status', step: 'interpret', message: 'Understanding the market…' });
+  const plan = await interpret(client, brief, signal);
+  emit({ type: 'market', market: plan });
+
+  emit({
+    type: 'status',
+    step: 'discover',
+    message: 'Discovering companies via grounded search…',
+  });
+  const discovery = await discoverWithCoverage(
+    client,
+    plan,
+    coverage,
+    signal,
+    options.catalogMax ?? 50,
+    options.catalogPasses ?? plan.searchThemes.length,
+  );
+  const candidates = discovery.candidates;
+  const rejected = discovery.rejected;
+  const minimumCompaniesSatisfied = discovery.minimumCompaniesSatisfied;
+  if (rejected.length > 0) {
     emit({
-      type: 'status',
-      step: 'enrich',
-      message: `Resuming research with ${candidates.length} remaining players…`,
+      type: 'warning',
+      message: `Skipped ${rejected.length} result${rejected.length === 1 ? '' : 's'} that ${rejected.length === 1 ? 'was' : 'were'} a topic rather than a company: ${rejected.join(', ')}.`,
     });
-    emit({ type: 'market', market: plan });
-    emit({ type: 'candidates', candidates: [...options.resume.candidates] });
-  } else {
-    emit({ type: 'status', step: 'interpret', message: 'Understanding the market…' });
-    plan = await interpret(client, brief, signal);
-    emit({ type: 'market', market: plan });
-
-    emit({
-      type: 'status',
-      step: 'discover',
-      message: 'Discovering companies via grounded search…',
-    });
-    const discovery = await discoverWithCoverage(
-      client,
-      plan,
-      coverage,
-      signal,
-      options.catalogMax ?? 50,
-      options.catalogPasses ?? plan.searchThemes.length,
-    );
-    candidates = discovery.candidates;
-    rejected = discovery.rejected;
-    minimumCompaniesSatisfied = discovery.minimumCompaniesSatisfied;
-    if (rejected.length > 0) {
-      emit({
-        type: 'warning',
-        message: `Skipped ${rejected.length} result${rejected.length === 1 ? '' : 's'} that ${rejected.length === 1 ? 'was' : 'were'} a topic rather than a company: ${rejected.join(', ')}.`,
-      });
-    }
-    if (!minimumCompaniesSatisfied) {
-      emit({
-        type: 'warning',
-        message: `Primary discovery remained below the ${coverage.companies.min}-company minimum after bounded fallback passes. The deck will continue with sourced entities only.`,
-      });
-    }
-    const roleCounts = {
-      company: candidates.filter(
-        (c) => primaryEntityType(c.cardTypes, c.name, c.descriptor, c.primaryRole) === 'company',
-      ).length,
-      infrastructure: candidates.filter(
-        (c) =>
-          primaryEntityType(c.cardTypes, c.name, c.descriptor, c.primaryRole) === 'infrastructure',
-      ).length,
-      distribution: candidates.filter(
-        (c) =>
-          primaryEntityType(c.cardTypes, c.name, c.descriptor, c.primaryRole) === 'distribution',
-      ).length,
-      vice: candidates.filter((c) => c.cardTypes.includes('vice')).length,
-      culture: candidates.filter((c) => c.cardTypes.includes('culture')).length,
-    };
-    for (const [role, count] of Object.entries(roleCounts)) {
-      const minimum = coverage[role as keyof typeof coverage]?.min;
-      if (minimum != null && count < minimum) {
-        emit({
-          type: 'warning',
-          message: `Coverage shortfall for ${role}: found ${count}, minimum is ${minimum}. No unsupported entities were invented.`,
-        });
-      }
-    }
-    emit({ type: 'candidates', candidates });
-
-    const marketSlug = slugify(plan.marketName);
-    market = {
-      id: uid('mkt', marketSlug),
-      name: plan.marketName,
-      scopeDefinition: { vertical: plan.vertical, geography: plan.geography, notes: plan.notes },
-      refreshCadence: 'weekly',
-      createdAt: now(),
-    };
-    deck = {
-      id: uid('dck', marketSlug),
-      marketId: market.id,
-      createdAt: now(),
-      lastRefreshedAt: now(),
-    };
   }
+  if (!minimumCompaniesSatisfied) {
+    emit({
+      type: 'warning',
+      message: `Primary discovery remained below the ${coverage.companies.min}-company minimum after bounded fallback passes. The deck will continue with sourced entities only.`,
+    });
+  }
+  const roleCounts = {
+    company: candidates.filter(
+      (c) => primaryEntityType(c.cardTypes, c.name, c.descriptor, c.primaryRole) === 'company',
+    ).length,
+    infrastructure: candidates.filter(
+      (c) =>
+        primaryEntityType(c.cardTypes, c.name, c.descriptor, c.primaryRole) === 'infrastructure',
+    ).length,
+    distribution: candidates.filter(
+      (c) =>
+        primaryEntityType(c.cardTypes, c.name, c.descriptor, c.primaryRole) === 'distribution',
+    ).length,
+    vice: candidates.filter((c) => c.cardTypes.includes('vice')).length,
+    culture: candidates.filter((c) => c.cardTypes.includes('culture')).length,
+  };
+  for (const [role, count] of Object.entries(roleCounts)) {
+    const minimum = coverage[role as keyof typeof coverage]?.min;
+    if (minimum != null && count < minimum) {
+      emit({
+        type: 'warning',
+        message: `Coverage shortfall for ${role}: found ${count}, minimum is ${minimum}. No unsupported entities were invented.`,
+      });
+    }
+  }
+  emit({ type: 'candidates', candidates });
 
-  // Latency Optimization: Run market signals concurrently alongside entity enrichment via Promise.all
+  const marketSlug = slugify(plan.marketName);
+  const market: Market = {
+    id: uid('mkt', marketSlug),
+    name: plan.marketName,
+    scopeDefinition: { vertical: plan.vertical, geography: plan.geography, notes: plan.notes },
+    refreshCadence: 'weekly',
+    createdAt: now(),
+  };
+  const deck: Deck = {
+    id: uid('dck', marketSlug),
+    marketId: market.id,
+    createdAt: now(),
+    lastRefreshedAt: now(),
+  };
+
+  const stubCards: CardWithCompany[] = candidates.map((candidate) => {
+    const slug = slugify(candidate.name);
+    const companyId = uid('cmp', slug);
+    const domain = candidate.domain ? rootDomain(candidate.domain) ?? candidate.domain : null;
+    const website = candidate.domain ? `https://${candidate.domain}` : null;
+    const logoUrl = faviconUrl(domain);
+    const company: Company = {
+      id: companyId,
+      name: candidate.name,
+      oneLiner: candidate.descriptor || '',
+      logoUrl,
+      hqLocation: null,
+      websiteUrl: website,
+      brandTheme: {
+        primary: '#4f46e5',
+        secondary: '#a5b4fc',
+        accent: '#f59e0b',
+        text: '#0f172a',
+        background: '#ffffff',
+        fontFamily: null,
+        source: 'default',
+      },
+    };
+    const primaryRole =
+      candidate.primaryRole ??
+      primaryEntityType(candidate.cardTypes, candidate.name, candidate.descriptor);
+    const cardId = uid('crd', `${slugify(candidate.name)}-${primaryRole}`);
+    const card: Card = {
+      id: cardId,
+      deckId: deck.id,
+      companyId: company.id,
+      cardType: primaryRole,
+      title: null,
+      summary: candidate.descriptor || null,
+      tier: null,
+      tierReason: null,
+      citations: [],
+      keyPoints: [],
+      createdAt: now(),
+    };
+    return {
+      card,
+      company,
+      metrics: [],
+      viceClaims: [],
+    };
+  });
+
+  return {
+    plan,
+    market,
+    deck,
+    candidates,
+    cards: stubCards,
+    rejected,
+    minimumCompaniesSatisfied,
+  };
+}
+
+/**
+ * Continual Background Hydration: Asynchronously enriches candidate entities with
+ * 4-tier proxy estimation, CMS scoring, and runs macro signal agents.
+ */
+export async function hydrateDeckCards(
+  plan: MarketPlan,
+  deck: Deck,
+  candidates: CompanyCandidate[],
+  client: LlmClient,
+  options: HydrateDeckCardsOptions = {},
+): Promise<CardWithCompany[]> {
+  const emit: OnResearchEvent = options.onEvent ?? (() => {});
+  const signal = options.signal;
+  const coverage = resolveCoverage(options as RunResearchOptions);
+  const concurrency = options.concurrency ?? 3;
+  const completedCards = options.existingCompletedCards ?? [];
+
+  // Concurrently run market signals alongside entity enrichment via Promise.all
   const [marketCards, entityCards] = await Promise.all([
     (async () => {
       emit({
@@ -605,6 +676,10 @@ export async function runDeckResearch(
             });
           }
         }
+        for (const b of mc) {
+          emit({ type: 'card', card: b });
+        }
+        await options.onMarketSignals?.(mc);
         return mc;
       } catch {
         emit({
@@ -643,6 +718,7 @@ export async function runDeckResearch(
                 message: `Researched ${candidate.name} (${done}/${candidates.length})`,
                 progress: done / candidates.length,
               });
+              await options.onCardHydrated?.(result);
               return result;
             } catch (error) {
               if (signal?.aborted) throw error;
@@ -727,11 +803,63 @@ export async function runDeckResearch(
     })(),
   ]);
 
-  for (const b of marketCards) {
-    emit({ type: 'card', card: b });
+  return [...completedCards, ...entityCards, ...marketCards];
+}
+
+/** Run the full deck-research pipeline. Streams progress via `onEvent`. */
+export async function runDeckResearch(
+  brief: { prompt: string; region: string | null },
+  client: LlmClient,
+  options: RunResearchOptions,
+): Promise<ResearchResult> {
+  const emit: OnResearchEvent = options.onEvent ?? (() => {});
+  const signal = options.signal;
+  const coverage = resolveCoverage(options);
+  // Default concurrency to 3 for higher data throughput and fast fan-out deck generation
+  const concurrency = options.concurrency ?? 3;
+  let plan: MarketPlan;
+  let candidates: CompanyCandidate[];
+  let market: Market;
+  let deck: Deck;
+  let completedCards: CardWithCompany[] = [];
+
+  if (options.resume) {
+    plan = options.resume.plan;
+    market = options.resume.market;
+    deck = options.resume.deck;
+    completedCards = [...options.resume.completedCards];
+    candidates = [...options.resume.candidates];
+    const completedNames = new Set(
+      completedCards
+        .filter((entry) => entry.company)
+        .map((entry) => entry.company!.name.toLowerCase()),
+    );
+    candidates = candidates.filter(
+      (candidate) => !completedNames.has(candidate.name.toLowerCase()),
+    );
+    emit({
+      type: 'status',
+      step: 'enrich',
+      message: `Resuming research with ${candidates.length} remaining players…`,
+    });
+    emit({ type: 'market', market: plan });
+    emit({ type: 'candidates', candidates: [...options.resume.candidates] });
+  } else {
+    const stubs = await discoverDeckStubs(brief, client, options);
+    plan = stubs.plan;
+    market = stubs.market;
+    deck = stubs.deck;
+    candidates = stubs.candidates;
   }
 
-  const cards: CardWithCompany[] = [...completedCards, ...entityCards, ...marketCards];
+  const cards = await hydrateDeckCards(plan, deck, candidates, client, {
+    concurrency,
+    coverage,
+    signal,
+    onEvent: emit,
+    existingCompletedCards: completedCards,
+  });
+
   emit({ type: 'done', total: cards.length });
   return { market, deck, cards };
 }
