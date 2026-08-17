@@ -46,7 +46,7 @@ import {
   enrichPrompt,
   structureEnrichPrompt,
 } from './prompts';
-import { faviconUrl } from './logos';
+import { faviconUrl, resolveLogo } from './logos';
 import { rootDomain, slugify, throwIfAborted } from './util';
 import { ViceAgent, extractCultureNote } from './signal-agents';
 import {
@@ -102,6 +102,7 @@ export interface HydrateCompanyCardOptions {
   deckId?: string;
   deckUserValues?: number[];
   signal?: AbortSignal;
+  fetchImpl?: typeof fetch;
   includeUnknowns?: boolean;
   customArrPerFte?: number;
   customFundingMultiplier?: number;
@@ -534,17 +535,28 @@ export async function hydrateCompanyCard(
     { system: STRUCTURE_SYSTEM, signal: options.signal },
   );
 
-  // 3. Company Entity Construction
+  // 3. Company Entity Construction & Inline Logo Resolution
   const slug = slugify(candidate.name);
   const companyId = uid('cmp', slug);
   const website = enrichment.website ?? (candidate.domain ? `https://${candidate.domain}` : null);
   const domain = rootDomain(website) ?? candidate.domain;
 
+  let logoUrl = faviconUrl(domain);
+  try {
+    const logo = await resolveLogo(
+      { name: candidate.name, domain },
+      { signal: options.signal, fetchImpl: options.fetchImpl },
+    );
+    if (logo.url) logoUrl = logo.url;
+  } catch {
+    // Keep favicon fallback
+  }
+
   const company: Company = {
     id: companyId,
     name: candidate.name,
     oneLiner: enrichment.oneLiner || candidate.descriptor,
-    logoUrl: faviconUrl(domain),
+    logoUrl,
     hqLocation: enrichment.hqLocation ?? null,
     websiteUrl: website,
     brandTheme: brandFrom(enrichment.brand ?? null),

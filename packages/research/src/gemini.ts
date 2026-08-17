@@ -24,8 +24,7 @@ export interface GeminiClientConfig {
   /**
    * Proactive pacing, per model, to stay under the free tier's per-MINUTE cap.
    * Measured 2026-07: 15 RPM on the flash line, 30 on flash-lite, 1,500 RPD.
-   * Defaults sit just under those so a fan-out deck run never triggers a 429
-   * storm. Set 0 to disable (tests).
+   * Defaults sit at those caps for maximum throughput. Set 0 to disable (tests).
    */
   groundedRpm?: number;
   structureRpm?: number;
@@ -33,9 +32,9 @@ export interface GeminiClientConfig {
   onCall?: (info: { model: string; kind: 'ground' | 'structure' }) => void;
 }
 
-/** Conservative defaults: leave headroom under the documented free-tier caps. */
-export const DEFAULT_GROUNDED_RPM = 12;
-export const DEFAULT_STRUCTURE_RPM = 24;
+/** Default RPM pacing: 15 grounded / 30 structure. */
+export const DEFAULT_GROUNDED_RPM = 15;
+export const DEFAULT_STRUCTURE_RPM = 30;
 
 // Rolling aliases that always resolve to the current flash line — sunset-proof
 // (gemini-2.5-flash is already blocked for new accounts). Overridable in Settings.

@@ -189,7 +189,7 @@ export class GeminiRepository implements MarketIntelRepository {
     this.client = options.client ?? createGeminiClient(options);
     this.store = options.store;
     this.targetCompanies = options.targetCompanies;
-    this.concurrency = options.concurrency;
+    this.concurrency = options.concurrency ?? 3;
     this.elevator = options.elevator;
     this.coverage = options.coverage;
     this.catalogMax = options.catalogMax;
