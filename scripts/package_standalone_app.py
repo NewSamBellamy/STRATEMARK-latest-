@@ -10,27 +10,38 @@ DESKTOP_DIST = os.path.join(REPO_DIR, r"apps\desktop\dist")
 ICON_ICO = os.path.join(REPO_DIR, r"apps\desktop\build\icon.ico")
 DESKTOP_PATH = r"C:\Users\shann\Desktop"
 
-print("1. Cleaning old release folder...")
-if os.path.exists(RELEASE_DIR):
-    shutil.rmtree(RELEASE_DIR)
-
-print("2. Copying Electron binary distribution...")
-shutil.copytree(ELECTRON_DIST, RELEASE_DIR)
-
-# Rename electron.exe to Stratemark.exe
 exe_path = os.path.join(RELEASE_DIR, "Stratemark.exe")
-os.rename(os.path.join(RELEASE_DIR, "electron.exe"), exe_path)
 
-print("3. Assembling application resources...")
+if not os.path.exists(RELEASE_DIR) or not os.path.exists(exe_path):
+    print("1. Copying Electron binary distribution...")
+    os.makedirs(RELEASE_DIR, exist_ok=True)
+    for item in os.listdir(ELECTRON_DIST):
+        s = os.path.join(ELECTRON_DIST, item)
+        d = os.path.join(RELEASE_DIR, item)
+        if os.path.isdir(s):
+            shutil.copytree(s, d, dirs_exist_ok=True)
+        else:
+            shutil.copy2(s, d)
+    electron_exe = os.path.join(RELEASE_DIR, "electron.exe")
+    if os.path.exists(electron_exe):
+        os.rename(electron_exe, exe_path)
+
+print("2. Assembling application resources...")
 resources_dir = os.path.join(RELEASE_DIR, "resources")
 app_dir = os.path.join(resources_dir, "app")
 os.makedirs(app_dir, exist_ok=True)
 
 # Copy desktop bundle (main.mjs, preload.mjs)
-shutil.copytree(DESKTOP_DIST, os.path.join(app_dir, "dist"))
+dist_target = os.path.join(app_dir, "dist")
+if os.path.exists(dist_target):
+    shutil.rmtree(dist_target)
+shutil.copytree(DESKTOP_DIST, dist_target)
 
 # Copy web-dist to resources/web-dist
-shutil.copytree(WEB_DIST, os.path.join(resources_dir, "web-dist"))
+web_target = os.path.join(resources_dir, "web-dist")
+if os.path.exists(web_target):
+    shutil.rmtree(web_target)
+shutil.copytree(WEB_DIST, web_target)
 
 # Write app/package.json
 package_json = """{
@@ -44,10 +55,10 @@ with open(os.path.join(app_dir, "package.json"), "w", encoding="utf-8") as f:
     f.write(package_json)
 
 # Copy build icon to app
-shutil.copy(ICON_ICO, os.path.join(RELEASE_DIR, "icon.ico"))
+if os.path.exists(ICON_ICO):
+    shutil.copy(ICON_ICO, os.path.join(RELEASE_DIR, "icon.ico"))
 
-print("4. Creating Windows Desktop Shortcut and Launcher...")
-# Create VBScript to make Windows Shortcut (.lnk)
+print("3. Creating Windows Desktop Shortcut and Launcher...")
 vbs_script = f"""
 Set oWS = WScript.CreateObject("WScript.Shell")
 sLinkFile = "{os.path.join(DESKTOP_PATH, 'Stratemark.lnk')}"
@@ -65,7 +76,6 @@ with open(vbs_path, "w", encoding="utf-8") as f:
 subprocess.run(["cscript", "//Nologo", vbs_path], check=True)
 os.remove(vbs_path)
 
-# Also create Launch Stratemark.bat on Desktop
 bat_content = f"""@echo off
 start "" "{exe_path}"
 """

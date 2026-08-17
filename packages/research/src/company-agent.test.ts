@@ -352,6 +352,112 @@ describe('Company Agent — hydrateCompanyCard Full Orchestration', () => {
     expect(result.memory.citations.length).toBeGreaterThan(0);
   });
 
+  it('wires structured enrichment.facts into Grounded Proxy Estimator for private startups', async () => {
+    const client = fakeClient({
+      enrichment: {
+        oneLiner: 'Next-gen private AI infrastructure',
+        hqLocation: 'San Francisco, CA',
+        website: 'https://infra-startup.example',
+        brand: null,
+        metrics: {
+          market_share: null,
+          valuation: null,
+          market_cap: null,
+          arr: null,
+          users: null,
+          employees: null,
+        },
+        facts: {
+          headcount: 25,
+          lastFundingRound: {
+            amount: 20_000_000,
+            roundType: 'Series A',
+          },
+          scrapedPricing: {
+            monthlyPrice: 50,
+            annualPrice: 500,
+          },
+          publicUserFootprint: 5_000,
+          footprintLabel: 'active developers',
+        },
+        viceClaims: [],
+        cultureNote: null,
+      },
+    });
+
+    const candidate: CompanyCandidate = {
+      name: 'Infra Startup',
+      domain: 'infra-startup.example',
+      descriptor: 'Specialized GPU cloud platform',
+      cardTypes: ['infrastructure'],
+    };
+
+    const result = await hydrateCompanyCard({
+      candidate,
+      client,
+      plan: mockPlan,
+    });
+
+    // 1. ARR estimated via facts.headcount (25 * $220k = $5.5M)
+    const arr = result.metrics.find((m) => m.metricType === 'arr')!;
+    expect(arr).toBeDefined();
+    expect(arr.value).toBe(5_500_000);
+    expect(arr.confidence).toBe('estimated');
+    expect(arr.methodNote).toContain('25 FTEs × $220k AI / Infra / Compute benchmark');
+
+    // 2. Valuation estimated via facts.lastFundingRound ($20M * 4.5x = $90M)
+    const val = result.metrics.find((m) => m.metricType === 'valuation')!;
+    expect(val).toBeDefined();
+    expect(val.value).toBe(90_000_000);
+    expect(val.confidence).toBe('estimated');
+    expect(val.methodNote).toContain('$20M Series A announcement');
+
+    // 3. Card summary fallback inherits candidate.descriptor
+    expect(result.card.summary).toBe('Specialized GPU cloud platform');
+  });
+
+  it('ensures facet cards (infrastructure, distribution, culture, vice) inherit descriptor or oneLiner as card.summary', async () => {
+    const client = fakeClient({
+      enrichment: {
+        oneLiner: 'Leading reseller and distributor of foundation models',
+        hqLocation: 'New York, NY',
+        website: 'https://dist-hub.example',
+        brand: null,
+        metrics: {},
+        facts: {},
+        viceClaims: [
+          { text: 'Under regulatory inquiry for content licensing in 2025', sourceIndex: 0 },
+        ],
+        cultureNote: 'Commits 2% of equity to open source AI foundations.',
+      },
+    });
+
+    const candidate: CompanyCandidate = {
+      name: 'Model Hub Dist',
+      domain: 'dist-hub.example',
+      descriptor: 'Global channel distributor for enterprise AI models',
+      cardTypes: ['distribution', 'vice', 'culture'],
+    };
+
+    const result = await hydrateCompanyCard({
+      candidate,
+      client,
+      plan: mockPlan,
+    });
+
+    expect(result.cards).toHaveLength(3);
+    const distCard = result.cards.find((c) => c.card.cardType === 'distribution')!;
+    const viceCard = result.cards.find((c) => c.card.cardType === 'vice')!;
+    const cultureCard = result.cards.find((c) => c.card.cardType === 'culture')!;
+
+    // Distribution card inherits candidate.descriptor / enrichment.oneLiner
+    expect(distCard.card.summary).toBe('Global channel distributor for enterprise AI models');
+    // Vice card inherits fallback summary
+    expect(viceCard.card.summary).toBe('Global channel distributor for enterprise AI models');
+    // Culture card uses cultureNote
+    expect(cultureCard.card.summary).toBe('Commits 2% of equity to open source AI foundations.');
+  });
+
   it('supports positional arguments signature for hydrateCompanyCard', async () => {
     const client = fakeClient();
     const result = await hydrateCompanyCard(mockCandidate, client, mockPlan, {

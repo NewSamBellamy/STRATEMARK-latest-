@@ -560,7 +560,14 @@ export async function hydrateCompanyCard(
       websiteUrl: website,
     },
     rawMetrics,
-    { citations: grounded.citations },
+    {
+      headcount: enrichment.facts?.headcount,
+      lastFundingRound: enrichment.facts?.lastFundingRound,
+      scrapedPricing: enrichment.facts?.scrapedPricing,
+      publicUserFootprint: enrichment.facts?.publicUserFootprint,
+      footprintLabel: enrichment.facts?.footprintLabel,
+      citations: grounded.citations,
+    },
     {
       includeUnknowns: options.includeUnknowns ?? true,
       customArrPerFte: options.customArrPerFte,
@@ -594,17 +601,20 @@ export async function hydrateCompanyCard(
   if (candidate.cardTypes.includes('vice') && sourcedViceClaims.length > 0) emittedTypes.push('vice');
   if (candidate.cardTypes.includes('culture') && cultureNote) emittedTypes.push('culture');
 
+  const defaultSummary = candidate.descriptor || enrichment.oneLiner || company.oneLiner || null;
+
   const deckId = options.deckId ?? '';
   const cards: CardWithCompany[] = emittedTypes.map((cardType) => {
     const isEntity = isEntityCardType(cardType);
     const subCardId = uid('crd', `${slugify(company.name)}-${cardType}`);
+    const summary = cardType === 'culture' ? (cultureNote || defaultSummary) : defaultSummary;
     const subCard: Card = {
       id: subCardId,
       deckId,
       companyId: company.id,
       cardType,
       title: null,
-      summary: cardType === 'culture' ? cultureNote : null,
+      summary,
       tier: cardType === primaryRole ? cmsResult.finalTier : null,
       tierReason: cardType === primaryRole ? (options.nudgeReason ?? null) : null,
       citations: [],

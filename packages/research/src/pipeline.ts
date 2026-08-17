@@ -521,7 +521,14 @@ async function enrichOne(
   const metrics = enrichCompanyWithProxies(
     { id: companyId, name: candidate.name, category: plan.vertical, websiteUrl: website },
     rawMetrics,
-    { citations: grounded.citations },
+    {
+      headcount: enrich.facts?.headcount,
+      lastFundingRound: enrich.facts?.lastFundingRound,
+      scrapedPricing: enrich.facts?.scrapedPricing,
+      publicUserFootprint: enrich.facts?.publicUserFootprint,
+      footprintLabel: enrich.facts?.footprintLabel,
+      citations: grounded.citations,
+    },
   );
   return {
     candidate,
@@ -867,15 +874,19 @@ export async function runDeckResearch(
     if (e.candidate.cardTypes.includes('culture') && cultureNote.length > 0)
       emitted.push('culture');
 
+    const defaultSummary =
+      e.candidate.descriptor || e.enrich.oneLiner || e.company.oneLiner || null;
+
     for (const cardType of emitted) {
       const viceClaims: ViceClaim[] = cardType === 'vice' ? sourcedViceClaims : [];
+      const summary = cardType === 'culture' ? (cultureNote || defaultSummary) : defaultSummary;
       const card: Card = {
         id: uid('crd', `${slugify(e.company.name)}-${cardType}`),
         deckId: deck.id,
         companyId: e.company.id,
         cardType,
         title: null,
-        summary: cardType === 'culture' ? cultureNote : null,
+        summary,
         tier: cardType === primaryEntity ? tier : null,
         tierReason: cardType === primaryEntity ? tierReason : null,
         citations: [],

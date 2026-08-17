@@ -79,6 +79,24 @@ export const enrichmentOutSchema = z.object({
       employees: metricOutSchema.nullish(),
     })
     .default({}),
+  facts: z
+    .object({
+      headcount: z.number().nullable().default(null),
+      lastFundingRound: z
+        .object({ amount: z.number(), roundType: z.string() })
+        .nullable()
+        .default(null),
+      scrapedPricing: z
+        .object({
+          monthlyPrice: z.number().nullable().default(null),
+          annualPrice: z.number().nullable().default(null),
+        })
+        .nullable()
+        .default(null),
+      publicUserFootprint: z.number().nullable().default(null),
+      footprintLabel: z.string().nullable().default(null),
+    })
+    .default({}),
   viceClaims: z
     .array(z.object({ text: z.string(), sourceIndex: z.number().int().nullable().default(null) }))
     .default([]),

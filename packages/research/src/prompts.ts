@@ -132,6 +132,10 @@ export function enrichPrompt(candidate: CompanyCandidate, plan: MarketPlan): str
     `- ARR / annual revenue`,
     `- number of users/customers`,
     `- number of employees`,
+    `- factual proxy anchors for private companies (ALWAYS search for these):`,
+    `  * disclosed employee/team count (LinkedIn / About page / company filings)`,
+    `  * latest venture funding round size & type (e.g. $20M Series A, $60M Series B, Seed)`,
+    `  * scraped pricing tiers (e.g. $20/mo, $50/mo) and public user footprint (installs, active users, GitHub stars, customer count)`,
     candidate.cardTypes.includes('vice')
       ? `- any lawsuits, controversy, or integrity concerns (each MUST have a source)`
       : ``,
@@ -140,7 +144,7 @@ export function enrichPrompt(candidate: CompanyCandidate, plan: MarketPlan): str
       : ``,
     `- the brand's primary colors (hex) from its website if visible`,
     ``,
-    `Report each figure with its source. If a figure isn't disclosed, note whether it can be reasonably estimated (and how) or is simply unknown. Do not fabricate numbers.`,
+    `Report each figure with its source. ALWAYS look for and extract disclosed employee/team count, latest venture funding round (amount & type), scraped pricing tiers, and public user footprint so private companies receive accurate grounded proxy estimates. If a figure isn't disclosed, note whether it can be reasonably estimated (and how) or is simply unknown. Do not fabricate numbers.`,
   ]
     .filter(Boolean)
     .join('\n');
@@ -157,9 +161,16 @@ export function structureEnrichPrompt(
     `{ "oneLiner", "hqLocation"|null, "website"|null, "brand": {"primary","secondary","accent"}|null,`,
     `  "metrics": { "market_share"?, "valuation"?, "market_cap"?, "arr"?, "users"?, "employees"? } where each is`,
     `     { "value": number|null (raw number — dollars for money, count for users/employees, percent for share), "confidence": "verified"|"estimated"|"unknown", "sourceIndex": number|null (index into SOURCES), "method": string|null },`,
+    `  "facts": {`,
+    `     "headcount": number|null (disclosed employee/team count from LinkedIn or About page),`,
+    `     "lastFundingRound": { "amount": number, "roundType": string }|null (latest venture funding round size in USD and type e.g. "Series A", "Series B", "Seed"),`,
+    `     "scrapedPricing": { "monthlyPrice": number|null, "annualPrice": number|null }|null (scraped pricing tier amounts in USD),`,
+    `     "publicUserFootprint": number|null (installs, active users, GitHub stars, or customer count),`,
+    `     "footprintLabel": string|null (label for footprint metric e.g. "active users", "GitHub stars", "customers")`,
+    `  },`,
     `  "viceClaims": [ { "text", "sourceIndex": number|null } ], "cultureNote": string|null }`,
     ``,
-    `Rules: use "verified" only if a SOURCE states the figure; "estimated" with a "method" note if derived; else "unknown" with value null. Every viceClaim MUST have a sourceIndex. Provide only valuation OR market_cap, not both.`,
+    `Rules: use "verified" only if a SOURCE states the figure; "estimated" with a "method" note if derived; else "unknown" with value null. ALWAYS extract disclosed employee/team count, latest venture funding round (amount & type), scraped pricing tiers, and public user footprint into "facts" whenever available. Every viceClaim MUST have a sourceIndex. Provide only valuation OR market_cap, not both.`,
     ``,
     `SOURCES:`,
     sources,

@@ -390,6 +390,24 @@ describe('runDeckResearch (full orchestration, fake LLM)', () => {
     expect(betaVice.metrics).toEqual([]);
     expect(betaVice.viceClaims.length).toBeGreaterThan(0);
   });
+
+  it('populates card.summary for minted entity and facet cards from candidate descriptor or oneLiner', async () => {
+    const result = await runDeckResearch({ prompt: 'test market', region: 'CA' }, fakeClient(), {
+      apiKey: '',
+      coverage: testCoverage,
+      catalogMax: 3,
+      catalogPasses: 0,
+    });
+
+    for (const cwc of result.cards) {
+      // Barrier and insight cards have their own summary from researchMarketSignals
+      // Entity and signal cards should have summary populated rather than null
+      if (cwc.card.cardType !== 'barrier' && cwc.card.cardType !== 'insight') {
+        expect(cwc.card.summary).not.toBeNull();
+        expect((cwc.card.summary ?? '').length).toBeGreaterThan(0);
+      }
+    }
+  });
 });
 
 describe('GeminiRepository (fake client + in-memory store)', () => {
