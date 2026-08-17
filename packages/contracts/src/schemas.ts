@@ -246,6 +246,12 @@ export const orgNodeSchema = z.object({
   parentId: z.string().nullable().catch(null),
   /** One-two sourced sentences about the person, when reporting exists. */
   bio: prose(),
+  /** Reported tenure at the company, when available; never inferred. */
+  tenure: prose().nullable().optional().catch(null),
+  /** Most recent or notable prior company explicitly surfaced by research. */
+  priorCompany: prose().nullable().optional().catch(null),
+  /** Notable project or ownership area explicitly tied to the person. */
+  notableProject: prose().nullable().optional().catch(null),
 });
 export const teamOrgContentSchema = z.object({
   nodes: rows(orgNodeSchema),
