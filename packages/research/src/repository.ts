@@ -11,9 +11,6 @@ import {
   computeCms,
   reconcileMetrics,
   usableCitations,
-  CARD_TYPE_DESCRIPTIONS,
-  TIER_BLURBS,
-  TIER_LABELS,
   type Card,
   type CardFilter,
   type CardWithCompany,
@@ -49,7 +46,8 @@ import {
 } from '@mi/contracts';
 import { createGeminiClient, type GeminiClientConfig } from './gemini';
 import { researchDashboardTab } from './dashboard';
-import { expandDeckResearch, runDeckResearch, type ResearchResult } from './pipeline';
+import { runDeckResearch, type ResearchResult } from './pipeline';
+import { expandDeckWithDeltaAgent } from './delta-agent';
 import { CHAT_SYSTEM, GROUNDED_SYSTEM, STRUCTURE_SYSTEM } from './prompts';
 import { factCheckOutSchema } from './schemas';
 import type { LlmClient, ResearchCoverage, RunResearchOptions } from './types';
@@ -990,26 +988,23 @@ export class GeminiRepository implements MarketIntelRepository {
     const market = this.snap.markets.find((m) => m.id === marketId);
     const deck = this.snap.decks.find((d) => d.marketId === marketId);
     if (!market || !deck) throw new Error(`Market/deck not found: ${marketId}`);
-    const focusPrompt = focus.tier
-      ? `${TIER_LABELS[focus.tier]}-stage companies (${TIER_BLURBS[focus.tier]})`
-      : focus.cardType
-        ? CARD_TYPE_DESCRIPTIONS[focus.cardType]
-        : 'notable companies missed in the first pass';
-    const existing = this.snap.cards
+
+    const existingCompanies = this.snap.cards
       .filter((c) => c.deckId === deck.id && c.companyId)
-      .map((c) => this.snap.companies.find((x) => x.id === c.companyId)?.name ?? '')
-      .filter(Boolean);
+      .map((c) => this.snap.companies.find((x) => x.id === c.companyId))
+      .filter((c): c is Company => Boolean(c));
+
     const deckUserValues = this.snap.metrics
       .filter((m) => m.metricType === 'users' && m.confidence !== 'unknown' && m.value !== null)
       .map((m) => m.value as number);
 
-    const cards = await expandDeckResearch({
+    const cards = await expandDeckWithDeltaAgent({
       client: this.client,
       marketName: market.name,
       vertical: market.scopeDefinition.vertical,
       geography: market.scopeDefinition.geography,
-      focusPrompt,
-      excludeNames: existing,
+      focus,
+      existingCompanies,
       deckId: deck.id,
       deckUserValues,
       target: 3,

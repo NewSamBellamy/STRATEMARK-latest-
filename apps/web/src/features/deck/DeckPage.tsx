@@ -2,7 +2,6 @@ import { useMemo, useEffect, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
-  ChevronDown,
   ChevronRight,
   FileText,
   Layers,
@@ -120,7 +119,7 @@ export default function DeckPage() {
               <h1 className="font-display text-[22px] font-bold tracking-tight text-content sm:text-[28px]">
                 {market.data?.name ?? 'Deck'}
               </h1>
-              {(market.data as any)?.engine === 'cloud' || (all[0]?.card as any)?.engine === 'cloud' ? (
+              {(market.data as { engine?: string } | undefined)?.engine === 'cloud' || (all[0]?.card as { engine?: string } | undefined)?.engine === 'cloud' ? (
                 <span className="inline-flex items-center gap-1 rounded border border-teal-200 bg-teal-50 px-2 py-0.5 text-[11px] font-medium text-teal-700 dark:border-teal-800 dark:bg-teal-950/50 dark:text-teal-300">
                   ☁️ Sentinel Cloud Agent
                 </span>
@@ -202,13 +201,31 @@ export default function DeckPage() {
         {(list) => {
           // Level 2 — Company sub-deck split into 8 tier-decks.
           if (split === 'company') {
-            return <TierSplit cards={list} deckUserValues={userValues} marketId={marketId} />;
+            return (
+              <section>
+                <TypeNav
+                  cards={list}
+                  active="company"
+                  onSelect={(t) => setSplit(t === 'company' ? {} : (t ? { type: t } : {}))}
+                  split={split}
+                  onToggleSplit={() => setSplit({})}
+                />
+                <TierSplit cards={list} deckUserValues={userValues} marketId={marketId} />
+              </section>
+            );
           }
           // Level 1 leaf — a specific non-company sub-deck's cards.
           if (split === 'types' && typeParam) {
             const filtered = list.filter((c) => c.card.cardType === typeParam);
             return (
               <section>
+                <TypeNav
+                  cards={list}
+                  active={typeParam}
+                  onSelect={(t) => setSplit(t ? { type: t } : {})}
+                  split={split}
+                  onToggleSplit={() => setSplit({ split: 'company' })}
+                />
                 <h2 className="mb-3 font-display text-lg text-content">
                   {CARD_TYPE_LABELS[typeParam]} — {filtered.length} card
                   {filtered.length === 1 ? '' : 's'}
@@ -248,6 +265,8 @@ export default function DeckPage() {
                 cards={list}
                 active={defaultType}
                 onSelect={(t) => setSplit(t ? { type: t } : {})}
+                split={split}
+                onToggleSplit={() => setSplit(split === 'company' ? {} : { split: 'company' })}
               />
               <div className="mb-4">
                 <p className="text-[12px] text-muted">
@@ -424,26 +443,31 @@ function TypeNav({
   cards,
   active,
   onSelect,
+  split,
+  onToggleSplit,
 }: {
   cards: CardWithCompany[];
   active: CardType | null;
   onSelect: (t: CardType | null) => void;
+  split?: string | null;
+  onToggleSplit?: () => void;
 }) {
   const counts = new Map<CardType, number>();
   for (const c of cards) counts.set(c.card.cardType, (counts.get(c.card.cardType) ?? 0) + 1);
   const present = CARD_TYPE_ORDER.filter((t) => (counts.get(t) ?? 0) > 0);
-  if (present.length <= 1) return null;
+  if (present.length <= 1 && !onToggleSplit) return null;
 
-  // Entity types (real businesses with metrics) get visible tabs.
-  // Signal/market types (annotations, observations) go in a "More" dropdown.
-  const PRIMARY: readonly CardType[] = ['company', 'infrastructure', 'distribution'];
-  const primaryTabs = present.filter((t) => (PRIMARY as readonly CardType[]).includes(t));
-  const overflowTabs = present.filter((t) => !(PRIMARY as readonly CardType[]).includes(t));
-
-  // If the active filter is inside the overflow menu, show its label on the button.
-  const activeInOverflow = active && overflowTabs.includes(active);
-
-  const Tab = ({ label, count, selected, onClick }: { label: string; count: number; selected: boolean; onClick: () => void }) => (
+  const Tab = ({
+    label,
+    count,
+    selected,
+    onClick,
+  }: {
+    label: string;
+    count: number;
+    selected: boolean;
+    onClick: () => void;
+  }) => (
     <button
       type="button"
       onClick={onClick}
@@ -456,107 +480,46 @@ function TypeNav({
       )}
     >
       {label}
-      <span className={cn('ml-1.5 tabular-nums text-[11px]', selected ? 'text-primary/60' : 'text-faint')}>
+      <span
+        className={cn(
+          'ml-1.5 tabular-nums text-[11px]',
+          selected ? 'text-primary/60' : 'text-faint',
+        )}
+      >
         {count}
       </span>
     </button>
   );
 
   return (
-    <nav
-      data-testid="type-nav"
-      className="mb-5 flex items-center gap-1 overflow-x-auto border-b border-border"
-      aria-label="Filter deck by card type"
-    >
-      {primaryTabs.map((t) => (
-        <Tab
-          key={t}
-          label={CARD_TYPE_LABELS[t]}
-          count={counts.get(t) ?? 0}
-          selected={active === t}
-          onClick={() => onSelect(t)}
-        />
-      ))}
-      {overflowTabs.length > 0 && (
-        <TypeOverflow
-          tabs={overflowTabs}
-          counts={counts}
-          active={active}
-          activeInOverflow={!!activeInOverflow}
-          onSelect={onSelect}
-        />
-      )}
-    </nav>
-  );
-}
-
-/** Dropdown for secondary card types (Culture, Vice, Insight, Barrier). */
-function TypeOverflow({
-  tabs,
-  counts,
-  active,
-  activeInOverflow,
-  onSelect,
-}: {
-  tabs: CardType[];
-  counts: Map<CardType, number>;
-  active: CardType | null;
-  activeInOverflow: boolean;
-  onSelect: (t: CardType | null) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, [open]);
-
-  const label = activeInOverflow && active ? CARD_TYPE_LABELS[active] : 'More';
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className={cn(
-          'flex items-center gap-1 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-all',
-          activeInOverflow
-            ? 'bg-primary text-primary-fg shadow-soft'
-            : 'text-muted hover:bg-surface hover:text-content',
-        )}
-        aria-expanded={open}
-        aria-label="More card types"
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-2 border-b border-border">
+      <nav
+        data-testid="type-nav"
+        className="flex items-center gap-1 overflow-x-auto"
+        aria-label="Filter deck by card type"
       >
-        {label}
-        <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', open && 'rotate-180')} />
-      </button>
-      {open && (
-        <div className="absolute left-0 top-full z-30 mt-2 w-52 rounded-xl border border-border bg-surface p-1 shadow-card">
-          {tabs.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => {
-                onSelect(t);
-                setOpen(false);
-              }}
-              className={cn(
-                'flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[13px] transition-colors',
-                active === t
-                  ? 'bg-surface-2 font-medium text-content'
-                  : 'text-muted hover:bg-surface-2 hover:text-content',
-              )}
-            >
-              <span>{CARD_TYPE_LABELS[t]}</span>
-              <span className="tabular-nums text-[11px] text-faint">{counts.get(t) ?? 0}</span>
-            </button>
-          ))}
-        </div>
+        {present.map((t) => (
+          <Tab
+            key={t}
+            label={CARD_TYPE_LABELS[t]}
+            count={counts.get(t) ?? 0}
+            selected={split !== 'company' && active === t}
+            onClick={() => onSelect(t)}
+          />
+        ))}
+      </nav>
+      {onToggleSplit && (
+        <button
+          type="button"
+          onClick={onToggleSplit}
+          className={cn(
+            'inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-[12px] font-medium text-content transition-colors hover:bg-surface-2 mb-1',
+            split === 'company' && 'border-primary bg-primary/10 text-primary-ink',
+          )}
+        >
+          <Layers className="h-3.5 w-3.5" />
+          {split === 'company' ? 'Ungroup' : 'Group by Tier'}
+        </button>
       )}
     </div>
   );

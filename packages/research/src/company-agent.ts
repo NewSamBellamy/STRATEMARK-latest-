@@ -1,0 +1,819 @@
+/**
+ * Stateful Company Card Hydrator & Multi-Agent Representative (§3 Phase 2 & §4)
+ *
+ * Implements a Deep-Module Clean Architecture for stateful company card hydration,
+ * grounded proxy estimation waterfall integration, CMS scoring, and auditable
+ * multi-agent memory retention under the Stratemark Backend Specification.
+ *
+ * Deep Module Core Principles:
+ *   1. Simple, High-Leverage Interface: `hydrateCompanyCard` and `enrichCompanyWithProxies`
+ *      hide deep mathematical estimation, provenance waterfalls, and CMS renormalization.
+ *   2. 4-Tier Proxy Waterfall Integration:
+ *      - Tier 1: Pricing Tier × Footprint Count
+ *      - Tier 2: Category-Aware Headcount Multiplier ($220k AI, $160k SaaS, $300k Marketplace)
+ *      - Tier 3: VC Funding Dilution Multiplier (Seed 8x, Series A 4.5x, Series B/C 5.5x)
+ *      - Tier 4: Honest Null / Unknown (facts missing, strictly zero fabrication)
+ *   3. Sourced Provenance & CMS Alignment:
+ *      - Full compliance with `@mi/contracts` `enforceMetricsProvenance` & `computeCms`.
+ *      - Weight renormalization across available signals without missing-data penalties.
+ *      - Clean separation: signal cards (Vice, Culture) never borrow entity metrics.
+ */
+
+import {
+  buildCmsInput,
+  classifySource,
+  computeCms,
+  enforceMetricsProvenance,
+  isEntityCardType,
+  type BrandTheme,
+  type Card,
+  type CardType,
+  type CardWithCompany,
+  type CmsResult,
+  type Company,
+  type CompanyMetric,
+  type MetricType,
+  type ViceClaim,
+} from '@mi/contracts';
+import {
+  enrichmentOutSchema,
+  type EnrichmentOut,
+} from './schemas';
+import {
+  CHAT_SYSTEM,
+  GROUNDED_SYSTEM,
+  STRUCTURE_SYSTEM,
+  enrichPrompt,
+  structureEnrichPrompt,
+} from './prompts';
+import { faviconUrl } from './logos';
+import { rootDomain, slugify, throwIfAborted } from './util';
+import { ViceAgent, extractCultureNote } from './signal-agents';
+import {
+  estimateArrFromHeadcount,
+  estimateArrFromPricingAndFootprint,
+  estimateValuationFromFunding,
+  type EstimateOptions,
+  type FundingRoundInput,
+  type PrivateCompanyResearchData,
+} from './proxy-estimator';
+import type {
+  Citation,
+  CompanyCandidate,
+  LlmClient,
+  MarketPlan,
+} from './types';
+
+// ============================================================================
+// 1. Domain Types & State Contracts
+// ============================================================================
+
+export interface ContradictionLog {
+  field: string;
+  previousValue: unknown;
+  newValue: unknown;
+  detectedAt: string;
+  sourceUrl?: string;
+}
+
+export interface CompanyDashboardState {
+  overview?: Record<string, unknown>;
+  metrics?: Record<string, unknown>;
+  techStack?: Record<string, unknown>;
+  keyPeople?: Record<string, unknown>;
+  marketPosition?: Record<string, unknown>;
+  risks?: Record<string, unknown>;
+  opportunity?: Record<string, unknown>;
+  financials?: Record<string, unknown>;
+}
+
+export interface CompanyAgentMemory {
+  companyId: string;
+  companyName: string;
+  domain: string | null;
+  card: CardWithCompany;
+  dashboard: CompanyDashboardState;
+  citations: Citation[];
+  contradictionLog: ContradictionLog[];
+  lastUpdated: string;
+}
+
+export interface HydrateCompanyCardOptions {
+  deckId?: string;
+  deckUserValues?: number[];
+  signal?: AbortSignal;
+  includeUnknowns?: boolean;
+  customArrPerFte?: number;
+  customFundingMultiplier?: number;
+  existingMemory?: CompanyAgentMemory;
+  nudge?: -1 | 0 | 1;
+  nudgeReason?: string | null;
+}
+
+export interface HydrateCompanyCardInput extends HydrateCompanyCardOptions {
+  candidate: CompanyCandidate;
+  client: LlmClient;
+  plan: MarketPlan;
+}
+
+export interface HydrateCompanyCardResult {
+  candidate: CompanyCandidate;
+  company: Company;
+  metrics: CompanyMetric[];
+  enrichment: EnrichmentOut;
+  citations: Citation[];
+  card: Card;
+  cards: CardWithCompany[];
+  primaryCard: CardWithCompany;
+  cmsResult: CmsResult;
+  viceClaims: ViceClaim[];
+  cultureNote: string | null;
+  memory: CompanyAgentMemory;
+}
+
+export interface EnrichCompanyWithProxiesInput {
+  companyId?: string;
+  name: string;
+  category?: string | null;
+  metrics: CompanyMetric[];
+  citations?: Citation[];
+  headcount?: number | null;
+  headcountSource?: string | null;
+  funding?: FundingRoundInput | null;
+  pricingFootprint?: {
+    footprintCount?: number | null;
+    monthlyPrice?: number | null;
+    annualPrice?: number | null;
+    footprintLabel?: string | null;
+  } | null;
+  options?: {
+    includeUnknowns?: boolean;
+    customArrPerFte?: number;
+    customFundingMultiplier?: number;
+    sourceNote?: string;
+  };
+}
+
+// ============================================================================
+// 2. Helper Functions
+// ============================================================================
+
+const uid = (prefix: string, slug: string): string =>
+  `${prefix}_${slug}_${Math.random().toString(36).slice(2, 7)}`;
+
+const now = (): string => new Date().toISOString();
+
+const DEFAULT_BRAND: BrandTheme = {
+  primary: '#4f46e5',
+  secondary: '#a5b4fc',
+  accent: '#f59e0b',
+  text: '#0f172a',
+  background: '#ffffff',
+  fontFamily: null,
+  source: 'default',
+};
+
+export function brandFrom(brand: EnrichmentOut['brand']): BrandTheme {
+  if (!brand || !brand.primary || !brand.secondary || !brand.accent) {
+    return DEFAULT_BRAND;
+  }
+  return {
+    primary: brand.primary,
+    secondary: brand.secondary,
+    accent: brand.accent,
+    text: '#0f172a',
+    background: '#ffffff',
+    fontFamily: null,
+    source: 'scraped',
+  };
+}
+
+export function primaryEntityType(
+  cardTypes: CardType[],
+  name = '',
+  descriptor = '',
+  explicitRole?: 'company' | 'infrastructure' | 'distribution',
+): 'company' | 'infrastructure' | 'distribution' {
+  if (explicitRole) return explicitRole;
+  const roles = cardTypes.filter(
+    (type): type is 'company' | 'infrastructure' | 'distribution' =>
+      type === 'company' || type === 'infrastructure' || type === 'distribution',
+  );
+  if (roles.length <= 1) return roles[0] ?? 'company';
+  const text = `${name} ${descriptor}`.toLowerCase();
+  if (/marketplace|reseller|integrator|channel|retailer|store|distribution|model hub/.test(text))
+    return 'distribution';
+  if (/lab|foundation model|research|model developer|ai company|generative/.test(text))
+    return 'company';
+  if (
+    /chip|gpu|compute|cloud|hardware|infrastructure|hosting|platform|data center|datacenter/.test(
+      text,
+    )
+  )
+    return 'infrastructure';
+  return 'company';
+}
+
+export function metricRows(
+  enrich: EnrichmentOut,
+  citations: Citation[],
+  companyId: string,
+): CompanyMetric[] {
+  const rows: CompanyMetric[] = [];
+  const cited = (idx: number | null | undefined): Citation[] =>
+    idx != null && citations[idx] ? [citations[idx]!] : [];
+  for (const [type, m] of Object.entries(enrich.metrics ?? {})) {
+    if (!m) continue;
+    const attached = cited(m.sourceIndex).map((citation) => ({
+      ...citation,
+      credibility: classifySource(citation.url, citation.title),
+    }));
+    rows.push({
+      id: uid('met', `${companyId}-${type}`),
+      companyId,
+      metricType: type as MetricType,
+      value: m.value ?? null,
+      confidence: m.confidence ?? 'unknown',
+      source: attached[0]?.url ?? null,
+      citations: attached,
+      methodNote: m.method ?? null,
+      capturedAt: now(),
+    });
+  }
+  return enforceMetricsProvenance(rows);
+}
+
+// ============================================================================
+// 3. Grounded Proxy Metric Enrichment Engine
+// ============================================================================
+
+/**
+ * Enriches a company's metric collection with category-aware 4-tier proxy estimates.
+ *
+ * Rules:
+ *   1. Verified ARR or Market Cap/Valuation from primary filings are strictly preserved.
+ *   2. If private ARR is not verified, computes category-aware ARR proxy from headcount (Tier 2)
+ *      or customer pricing footprint (Tier 1).
+ *   3. If valuation is not verified and funding round exists, computes valuation proxy from VC
+ *      dilution benchmarks (Tier 3).
+ *   4. Missing facts honestly resolve to null/unknown with explanatory methodNote (Tier 4).
+ *   5. Preserves all citations and validates results through `enforceMetricsProvenance`.
+ */
+export function enrichCompanyWithProxies(
+  companyOrInput:
+    | {
+        id?: string;
+        name?: string;
+        category?: string | null;
+        websiteUrl?: string | null;
+      }
+    | EnrichCompanyWithProxiesInput,
+  existingMetrics: CompanyMetric[] = [],
+  extraData?: PrivateCompanyResearchData | null,
+  options?: EstimateOptions & {
+    customArrPerFte?: number;
+    customFundingMultiplier?: number;
+    sourceNote?: string;
+  },
+): CompanyMetric[] {
+  const isInputObject = 'metrics' in companyOrInput && Array.isArray(companyOrInput.metrics);
+
+  const company = isInputObject
+    ? {
+        id: companyOrInput.companyId,
+        name: companyOrInput.name || 'Company',
+        category: companyOrInput.category,
+      }
+    : {
+        id: (companyOrInput as { id?: string }).id,
+        name: (companyOrInput as { name?: string }).name || 'Company',
+        category: (companyOrInput as { category?: string | null }).category,
+      };
+
+  const metrics = isInputObject ? companyOrInput.metrics : [...existingMetrics];
+  const citations = isInputObject
+    ? (companyOrInput.citations ?? [])
+    : (extraData?.citations ?? []);
+  const mergedOptions = isInputObject
+    ? (companyOrInput.options ?? {})
+    : (options ?? {});
+
+  const companyId =
+    company.id || `cmp_${slugify(company.name || 'company')}`;
+
+  const existingArr = metrics.find((m) => m.metricType === 'arr');
+  const existingValuation = metrics.find((m) => m.metricType === 'valuation');
+  const existingMarketCap = metrics.find((m) => m.metricType === 'market_cap');
+  const existingEmployees = metrics.find((m) => m.metricType === 'employees');
+
+  // Headcount anchor resolution
+  const explicitHeadcount = isInputObject
+    ? companyOrInput.headcount
+    : extraData?.headcount;
+  const employeeMetricValue =
+    existingEmployees &&
+    existingEmployees.confidence !== 'unknown' &&
+    existingEmployees.value !== null &&
+    existingEmployees.value > 0
+      ? existingEmployees.value
+      : null;
+  const headcount = explicitHeadcount ?? employeeMetricValue;
+
+  const headcountSource = isInputObject
+    ? (companyOrInput.headcountSource ?? existingEmployees?.methodNote ?? undefined)
+    : (extraData?.headcountSource ?? existingEmployees?.methodNote ?? undefined);
+
+  // Pricing footprint anchor resolution
+  const explicitFootprint = isInputObject
+    ? companyOrInput.pricingFootprint
+    : extraData?.scrapedPricing
+      ? {
+          footprintCount: extraData.publicUserFootprint,
+          footprintLabel: extraData.footprintLabel,
+          monthlyPrice: extraData.scrapedPricing.monthlyPrice,
+          annualPrice: extraData.scrapedPricing.annualPrice,
+        }
+      : null;
+
+  // Funding round anchor resolution
+  const explicitFunding = isInputObject
+    ? companyOrInput.funding
+    : extraData?.lastFundingRound;
+
+  // Filter out existing ARR & valuation to replace with grounded waterfall results
+  const resultMetrics = metrics.filter(
+    (m) => m.metricType !== 'arr' && m.metricType !== 'valuation',
+  );
+
+  // --------------------------------------------------------------------------
+  // 1. ARR Estimation Waterfall
+  // --------------------------------------------------------------------------
+  let finalArr: CompanyMetric | null = null;
+  if (
+    existingArr &&
+    existingArr.confidence === 'verified' &&
+    existingArr.value !== null &&
+    existingArr.value > 0
+  ) {
+    // Preserve verified ARR
+    finalArr = existingArr;
+  } else if (headcount !== null && headcount !== undefined && headcount > 0) {
+    // Tier 2: Category-Aware Headcount Multiplier
+    const citationsToUse =
+      citations.length > 0
+        ? citations
+        : existingEmployees?.citations ?? (existingArr?.citations ?? []);
+    finalArr = estimateArrFromHeadcount(
+      headcount,
+      company.category,
+      citationsToUse,
+      {
+        sourceNote: headcountSource,
+        customArrPerFte: mergedOptions.customArrPerFte,
+        companyId,
+      },
+    );
+  } else if (
+    explicitFootprint &&
+    explicitFootprint.footprintCount &&
+    explicitFootprint.footprintCount > 0
+  ) {
+    // Tier 1: Pricing Tier × Footprint
+    finalArr = estimateArrFromPricingAndFootprint(
+      {
+        monthlyPrice: explicitFootprint.monthlyPrice,
+        annualPrice: explicitFootprint.annualPrice,
+      },
+      explicitFootprint.footprintCount,
+      citations,
+      {
+        footprintLabel: explicitFootprint.footprintLabel ?? undefined,
+        companyId,
+      },
+    );
+  } else if (existingArr && existingArr.value !== null && existingArr.confidence === 'estimated') {
+    // Retain existing estimated ARR if no better headcount anchor was discovered
+    finalArr = existingArr;
+  } else if (mergedOptions.includeUnknowns || existingArr) {
+    // Tier 4: Honest Null / Unknown
+    finalArr = {
+      id: existingArr?.id || uid('met', `${companyId}-arr`),
+      companyId,
+      metricType: 'arr',
+      value: null,
+      confidence: 'unknown',
+      source: null,
+      citations: [],
+      methodNote:
+        'Unknown: No verified headcount or customer pricing footprint disclosed for private company ARR proxy.',
+      capturedAt: now(),
+    };
+  }
+
+  if (finalArr) {
+    resultMetrics.push(finalArr);
+  }
+
+  // --------------------------------------------------------------------------
+  // 2. Valuation Estimation Waterfall
+  // --------------------------------------------------------------------------
+  let finalValuation: CompanyMetric | null = null;
+  if (
+    existingValuation &&
+    existingValuation.confidence === 'verified' &&
+    existingValuation.value !== null &&
+    existingValuation.value > 0
+  ) {
+    // Preserve verified valuation
+    finalValuation = existingValuation;
+  } else if (
+    existingMarketCap &&
+    existingMarketCap.confidence === 'verified' &&
+    existingMarketCap.value !== null &&
+    existingMarketCap.value > 0
+  ) {
+    // Public company with verified market cap: no private valuation proxy required
+  } else if (
+    explicitFunding &&
+    explicitFunding.amount !== null &&
+    explicitFunding.amount !== undefined &&
+    explicitFunding.amount > 0
+  ) {
+    // Tier 3: VC Funding Dilution Valuation Model
+    const citationsToUse =
+      citations.length > 0 ? citations : existingValuation?.citations ?? [];
+    finalValuation = estimateValuationFromFunding(explicitFunding, citationsToUse, {
+      customFundingMultiplier: mergedOptions.customFundingMultiplier,
+      companyId,
+    });
+  } else if (
+    existingValuation &&
+    existingValuation.value !== null &&
+    existingValuation.confidence === 'estimated'
+  ) {
+    // Retain existing estimated valuation if present
+    finalValuation = existingValuation;
+  } else if (
+    !existingMarketCap &&
+    (mergedOptions.includeUnknowns || existingValuation)
+  ) {
+    // Tier 4: Honest Null / Unknown
+    finalValuation = {
+      id: existingValuation?.id || uid('met', `${companyId}-valuation`),
+      companyId,
+      metricType: 'valuation',
+      value: null,
+      confidence: 'unknown',
+      source: null,
+      citations: [],
+      methodNote:
+        'Unknown: No verified venture funding rounds disclosed for private company valuation proxy.',
+      capturedAt: now(),
+    };
+  }
+
+  if (finalValuation) {
+    resultMetrics.push(finalValuation);
+  }
+
+  return enforceMetricsProvenance(resultMetrics);
+}
+
+// ============================================================================
+// 4. Stateful Company Card Hydration Engine
+// ============================================================================
+
+/**
+ * Hydrate a complete, verified, and scored company card from grounded search.
+ *
+ * Implements the full lifecycle:
+ *   1. Grounded company research & structured extraction.
+ *   2. Entity formation with logos, branding, and metadata.
+ *   3. 4-tier proxy metric hydration with formula attachments.
+ *   4. Deterministic CMS scoring and tier assignment with weight renormalization.
+ *   5. Sourced controversy and culture extraction.
+ *   6. Assembly into primary entity CardWithCompany and multi-agent memory state.
+ */
+export async function hydrateCompanyCard(
+  inputOrCandidate: HydrateCompanyCardInput | CompanyCandidate,
+  clientOrOptions?: LlmClient | HydrateCompanyCardOptions,
+  planOrOptions?: MarketPlan | HydrateCompanyCardOptions,
+  optionalOptions?: HydrateCompanyCardOptions,
+): Promise<HydrateCompanyCardResult> {
+  let candidate: CompanyCandidate;
+  let client: LlmClient;
+  let plan: MarketPlan;
+  let options: HydrateCompanyCardOptions = {};
+
+  if ('candidate' in inputOrCandidate && 'client' in inputOrCandidate && 'plan' in inputOrCandidate) {
+    candidate = inputOrCandidate.candidate;
+    client = inputOrCandidate.client;
+    plan = inputOrCandidate.plan;
+    options = inputOrCandidate;
+  } else {
+    candidate = inputOrCandidate as CompanyCandidate;
+    client = clientOrOptions as LlmClient;
+    plan = planOrOptions as MarketPlan;
+    options = optionalOptions ?? {};
+  }
+
+  throwIfAborted(options.signal);
+
+  // 1. Grounded Search Research Pass
+  const grounded = await client.ground(enrichPrompt(candidate, plan), {
+    system: GROUNDED_SYSTEM,
+    signal: options.signal,
+  });
+
+  throwIfAborted(options.signal);
+
+  // 2. Structured JSON Extraction Pass
+  const enrichment = await client.structure(
+    structureEnrichPrompt(candidate, grounded.text, grounded.citations),
+    enrichmentOutSchema,
+    { system: STRUCTURE_SYSTEM, signal: options.signal },
+  );
+
+  // 3. Company Entity Construction
+  const slug = slugify(candidate.name);
+  const companyId = uid('cmp', slug);
+  const website = enrichment.website ?? (candidate.domain ? `https://${candidate.domain}` : null);
+  const domain = rootDomain(website) ?? candidate.domain;
+
+  const company: Company = {
+    id: companyId,
+    name: candidate.name,
+    oneLiner: enrichment.oneLiner || candidate.descriptor,
+    logoUrl: faviconUrl(domain),
+    hqLocation: enrichment.hqLocation ?? null,
+    websiteUrl: website,
+    brandTheme: brandFrom(enrichment.brand ?? null),
+  };
+
+  // 4. Metric Extraction & Grounded Proxy Waterfalls
+  const rawMetrics = metricRows(enrichment, grounded.citations, companyId);
+  const metrics = enrichCompanyWithProxies(
+    {
+      id: companyId,
+      name: candidate.name,
+      category: plan.vertical,
+      websiteUrl: website,
+    },
+    rawMetrics,
+    { citations: grounded.citations },
+    {
+      includeUnknowns: options.includeUnknowns ?? true,
+      customArrPerFte: options.customArrPerFte,
+      customFundingMultiplier: options.customFundingMultiplier,
+    },
+  );
+
+  // 5. CMS Calculation & Tier Assignment
+  const cmsInput = buildCmsInput(metrics);
+  const cmsResult = computeCms(
+    cmsInput,
+    { deckUserValues: options.deckUserValues ?? [] },
+    { nudge: options.nudge, nudgeReason: options.nudgeReason },
+  );
+
+  // 6. Sourced Signal Extraction
+  const sourcedViceClaims: ViceClaim[] = ViceAgent.extractClaims(
+    enrichment.viceClaims ?? [],
+    grounded.citations,
+    company.id,
+  );
+
+  const cultureNote = extractCultureNote(enrichment.cultureNote);
+
+  // 7. Card Assembly
+  const primaryRole =
+    candidate.primaryRole ??
+    primaryEntityType(candidate.cardTypes, candidate.name, candidate.descriptor);
+
+  const emittedTypes: CardType[] = [primaryRole];
+  if (candidate.cardTypes.includes('vice') && sourcedViceClaims.length > 0) emittedTypes.push('vice');
+  if (candidate.cardTypes.includes('culture') && cultureNote) emittedTypes.push('culture');
+
+  const deckId = options.deckId ?? '';
+  const cards: CardWithCompany[] = emittedTypes.map((cardType) => {
+    const isEntity = isEntityCardType(cardType);
+    const subCardId = uid('crd', `${slugify(company.name)}-${cardType}`);
+    const subCard: Card = {
+      id: subCardId,
+      deckId,
+      companyId: company.id,
+      cardType,
+      title: null,
+      summary: cardType === 'culture' ? cultureNote : null,
+      tier: cardType === primaryRole ? cmsResult.finalTier : null,
+      tierReason: cardType === primaryRole ? (options.nudgeReason ?? null) : null,
+      citations: [],
+      keyPoints: [],
+      createdAt: now(),
+    };
+    const claims = cardType === 'vice' ? sourcedViceClaims.map((c) => ({ ...c, cardId: subCardId })) : [];
+    return {
+      card: subCard,
+      company,
+      metrics: isEntity ? metrics : [],
+      viceClaims: claims,
+    };
+  });
+
+  const primaryCard = cards[0]!;
+  const primaryCardEntity = primaryCard.card;
+
+  // 8. Multi-Agent Memory State Formation
+  const memory: CompanyAgentMemory = {
+    companyId: company.id,
+    companyName: company.name,
+    domain: candidate.domain ?? null,
+    card: primaryCard,
+    dashboard: {
+      overview: {
+        summary: company.oneLiner,
+        hqLocation: company.hqLocation,
+        websiteUrl: company.websiteUrl,
+      },
+      metrics: {
+        metricsCount: metrics.length,
+        availableSignals: cmsResult.availableSignalCount,
+        tier: cmsResult.finalTier,
+        baseTier: cmsResult.baseTier,
+      },
+      techStack: {},
+      keyPeople: {},
+      marketPosition: {
+        primaryRole,
+        marketShare: metrics.find((m) => m.metricType === 'market_share')?.value ?? null,
+      },
+      risks: {
+        viceClaimsCount: sourcedViceClaims.length,
+      },
+      opportunity: {},
+      financials: {
+        arr: metrics.find((m) => m.metricType === 'arr')?.value ?? null,
+        valuation:
+          metrics.find((m) => m.metricType === 'valuation' || m.metricType === 'market_cap')
+            ?.value ?? null,
+      },
+    },
+    citations: grounded.citations,
+    contradictionLog: options.existingMemory?.contradictionLog ?? [],
+    lastUpdated: now(),
+  };
+
+  return {
+    candidate,
+    company,
+    metrics,
+    enrichment,
+    citations: grounded.citations,
+    card: primaryCardEntity,
+    cards,
+    primaryCard,
+    cmsResult,
+    viceClaims: sourcedViceClaims,
+    cultureNote: cultureNote ?? null,
+    memory,
+  };
+}
+
+// ============================================================================
+// 5. Stateful Agent Execution & Interactive Representative
+// ============================================================================
+
+/**
+ * Execute the company agent autonomously, returning hydrated agent memory.
+ */
+export async function executeCompanyAgent(
+  candidate: CompanyCandidate,
+  client: LlmClient,
+  options?: {
+    plan?: MarketPlan;
+    signal?: AbortSignal;
+    existingMemory?: CompanyAgentMemory;
+    deckId?: string;
+    deckUserValues?: number[];
+  },
+): Promise<CompanyAgentMemory> {
+  const plan: MarketPlan = options?.plan ?? {
+    marketName: 'General Market',
+    vertical: 'Technology',
+    geography: null,
+    notes: null,
+    searchThemes: [],
+  };
+
+  const result = await hydrateCompanyCard({
+    candidate,
+    client,
+    plan,
+    deckId: options?.deckId,
+    deckUserValues: options?.deckUserValues,
+    signal: options?.signal,
+    existingMemory: options?.existingMemory,
+  });
+
+  return result.memory;
+}
+
+/**
+ * Interactive Q&A with the Company Representative agent grounded in memory.
+ */
+export async function askCompanyRepresentative(
+  question: string,
+  memory: CompanyAgentMemory,
+  client?: LlmClient,
+  options?: { signal?: AbortSignal },
+): Promise<{ answer: string; citations: Citation[] }> {
+  if (!client) {
+    const summary = memory.card.company?.oneLiner || 'Operating company';
+    const tier = memory.card.card.tier ? `Tier ${memory.card.card.tier}` : 'Unranked';
+    const metricsStr = memory.card.metrics
+      .filter((m) => m.value !== null)
+      .map((m) => `${m.metricType}: ${m.value}`)
+      .join(', ');
+    return {
+      answer: `${memory.companyName} (${tier}): ${summary}. Financial profile: ${metricsStr || 'No verified metrics'}.`,
+      citations: memory.citations,
+    };
+  }
+
+  const prompt = [
+    `COMPANY DOSSIER:`,
+    `Name: ${memory.companyName}`,
+    `One-Liner: ${memory.card.company?.oneLiner || 'N/A'}`,
+    `HQ: ${memory.card.company?.hqLocation || 'N/A'}`,
+    `Tier: ${memory.card.card.tier ?? 'N/A'}`,
+    `Metrics:`,
+    ...memory.card.metrics.map(
+      (m) =>
+        `- ${m.metricType}: ${m.value ?? 'unknown'} (${m.confidence}${m.methodNote ? `, method: ${m.methodNote}` : ''})`,
+    ),
+    ``,
+    `Question: ${question}`,
+  ].join('\n');
+
+  const g = await client.ground(prompt, {
+    system: CHAT_SYSTEM,
+    signal: options?.signal,
+  });
+
+  return {
+    answer: g.text,
+    citations: g.citations,
+  };
+}
+
+// ============================================================================
+// 6. Stateful CompanyCardHydrator Class Encapsulation
+// ============================================================================
+
+export class CompanyCardHydrator {
+  private candidate: CompanyCandidate;
+  private plan: MarketPlan;
+  private memory?: CompanyAgentMemory;
+
+  constructor(candidate: CompanyCandidate, plan: MarketPlan, existingMemory?: CompanyAgentMemory) {
+    this.candidate = candidate;
+    this.plan = plan;
+    this.memory = existingMemory;
+  }
+
+  async hydrate(
+    client: LlmClient,
+    options?: Partial<HydrateCompanyCardInput>,
+  ): Promise<HydrateCompanyCardResult> {
+    const result = await hydrateCompanyCard({
+      candidate: this.candidate,
+      client,
+      plan: this.plan,
+      existingMemory: this.memory,
+      ...options,
+    });
+    this.memory = result.memory;
+    return result;
+  }
+
+  enrichMetricsWithProxies(
+    metrics: CompanyMetric[],
+    extraData?: PrivateCompanyResearchData,
+    options?: EstimateOptions,
+  ): CompanyMetric[] {
+    return enrichCompanyWithProxies(
+      {
+        id: this.memory?.companyId,
+        name: this.candidate.name,
+        category: this.plan.vertical,
+      },
+      metrics,
+      extraData,
+      options,
+    );
+  }
+
+  getMemory(): CompanyAgentMemory | undefined {
+    return this.memory;
+  }
+}

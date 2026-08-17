@@ -30,13 +30,11 @@ import {
   isEntityCardType,
 } from '@mi/contracts';
 import {
-  marketCardsOutSchema,
   discoveryMinimumOutSchema,
   discoveryOutSchema,
   enrichmentOutSchema,
   marketPlanOutSchema,
   tierReviewBatchOutSchema,
-  tierReviewOutSchema,
   type EnrichmentOut,
 } from './schemas';
 import {
@@ -50,7 +48,6 @@ import {
   structureEnrichPrompt,
   structureMarketPrompt,
   tierReviewBatchPrompt,
-  tierReviewPrompt,
 } from './prompts';
 import type {
   Citation,
@@ -63,6 +60,9 @@ import type {
 } from './types';
 import { faviconUrl, resolveLogo } from './logos';
 import { mapWithConcurrency, rootDomain, slugify, throwIfAborted } from './util';
+import { enrichCompanyWithProxies } from './company-agent';
+import { researchMarketSignals, ViceAgent, extractCultureNote } from './signal-agents';
+import { expandDeckWithDeltaAgent } from './delta-agent';
 
 export interface ResearchResult {
   market: Market;
@@ -517,10 +517,16 @@ async function enrichOne(
     websiteUrl: website,
     brandTheme: brandFrom(enrich.brand ?? null),
   };
+  const rawMetrics = metricRows(enrich, grounded.citations, companyId);
+  const metrics = enrichCompanyWithProxies(
+    { id: companyId, name: candidate.name, category: plan.vertical, websiteUrl: website },
+    rawMetrics,
+    { citations: grounded.citations },
+  );
   return {
     candidate,
     company,
-    metrics: metricRows(enrich, grounded.citations, companyId),
+    metrics,
     enrich,
     citations: grounded.citations,
   };
@@ -560,160 +566,22 @@ async function reviewTiersBatch(
   return out;
 }
 
-async function reviewTier(
-  client: LlmClient,
-  name: string,
-  baseTier: MaturityTier,
-  metrics: CompanyMetric[],
-  signal?: AbortSignal,
-): Promise<{ nudge: -1 | 0 | 1; reason: string | null }> {
-  const evidence = metrics
-    .map((m) => `${m.metricType}: ${m.value ?? 'unknown'} (${m.confidence})`)
-    .join('; ');
-  try {
-    const out = await client.structure(
-      tierReviewPrompt(name, baseTier, evidence),
-      tierReviewOutSchema,
-      { system: STRUCTURE_SYSTEM, signal },
-    );
-    return { nudge: out.nudge ?? 0, reason: out.reason ?? null };
-  } catch {
-    return { nudge: 0, reason: null };
-  }
-}
-
 /**
  * Market-level cards: structural barriers to entry AND the non-obvious dynamics
- * worth remembering (Insight cards). One grounded call feeds both, so the second
- * card type costs nothing extra against the per-minute free-tier ceiling.
- *
- * Neither type belongs to a company, so neither mints one — the same discipline
- * the entity rule now enforces in discovery.
+ * worth remembering (Insight cards). Delegated to the `signal-agents` deep module.
  */
-async function researchMarketCards(
+export async function researchMarketCards(
   client: LlmClient,
   plan: MarketPlan,
   deckId: string,
   signal?: AbortSignal,
 ): Promise<CardWithCompany[]> {
-  const where = plan.geography ? ` in ${plan.geography}` : '';
-  const runPass = async (focus: 'both' | 'barrier' | 'insight') => {
-    const grounded = await client.ground(
-      [
-        `Using Google Search, research the market "${plan.marketName}" (${plan.vertical})${where}.`,
-        focus === 'both' || focus === 'barrier'
-          ? `BARRIERS — find at least 4 and up to 10 structural barriers to entry: regulatory, capital intensity, network effects, brand trust, or supply chain.`
-          : ``,
-        focus === 'both' || focus === 'insight'
-          ? `INSIGHTS — find at least 4 and up to 10 non-obvious dynamics from roughly the last 3-6 months that a smart operator would want to know: a shift underway, a counter-intuitive pattern, or a mismatch between perception and reality.`
-          : ``,
-        `Ground every point in what you actually find. Do not speculate or pad the list with generic claims.`,
-      ]
-        .filter(Boolean)
-        .join('\n'),
-      { system: GROUNDED_SYSTEM, signal },
-    );
-    const out = await client.structure(
-      [
-        `From the notes, output JSON { "barriers": [ { "title", "summary", "sourceIndex", "keyPoints" } ], "insights": [ { "title", "summary", "sourceIndex", "keyPoints" } ] }.`,
-        `Return 4-10 distinct sourced items for each requested category. If the notes do not support four, return fewer rather than inventing.`,
-        `"sourceIndex" is the 0-based index of the source that supports the point, or null if none of the listed sources do.`,
-        `"keyPoints" is 4-8 short entries (1-2 sentences each) carrying the substance behind the headline — concrete specifics drawn ONLY from the notes: figures, named companies, dates, mechanisms. No filler.`,
-        ``,
-        `SOURCES:`,
-        grounded.citations.map((c, i) => `[${i}] ${c.title} — ${c.url}`).join('\n') || '(none)',
-        ``,
-        `NOTES:`,
-        grounded.text,
-      ]
-        .filter(Boolean)
-        .join('\n'),
-      marketCardsOutSchema,
-      { system: STRUCTURE_SYSTEM, signal },
-    );
-    return { out, citations: grounded.citations };
-  };
-  const first = await runPass('both');
-  const barrierCount = first.out.barriers?.length ?? 0;
-  const insightCount = first.out.insights?.length ?? 0;
-  const second =
-    barrierCount < 4 || insightCount < 4
-      ? await runPass(
-          barrierCount < 4 && insightCount < 4 ? 'both' : barrierCount < 4 ? 'barrier' : 'insight',
-        )
-      : null;
-  const citations = [...first.citations, ...(second?.citations ?? [])];
-  const offsetClaims = <T extends { sourceIndex: number | null }>(
-    claims: T[],
-    offset: number,
-  ): T[] =>
-    claims.map((claim) => ({
-      ...claim,
-      sourceIndex: claim.sourceIndex == null ? null : claim.sourceIndex + offset,
-    }));
-  const dedupeClaims = <T extends { title: string }>(claims: T[]): T[] => {
-    const seen = new Set<string>();
-    return claims
-      .filter((claim) => {
-        const key = claim.title
-          .trim()
-          .toLowerCase()
-          .replace(/[^a-z0-9]/g, '');
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      .slice(0, 10);
-  };
-  const out = {
-    barriers: dedupeClaims([
-      ...(first.out.barriers ?? []),
-      ...offsetClaims(second?.out.barriers ?? [], first.citations.length),
-    ]),
-    insights: dedupeClaims([
-      ...(first.out.insights ?? []),
-      ...offsetClaims(second?.out.insights ?? [], first.citations.length),
-    ]),
-  };
-
-  const build = (
-    claim: { title: string; summary: string; sourceIndex: number | null; keyPoints: string[] },
-    cardType: 'barrier' | 'insight',
-  ): CardWithCompany | null => {
-    const cited = claim.sourceIndex != null ? citations[claim.sourceIndex] : undefined;
-    // A market signal without a supporting citation is not a useful card. Drop it
-    // rather than letting polished UI imply that an unsupported claim is research.
-    if (!cited?.url) return null;
-    const evidence = [{ ...cited, credibility: classifySource(cited.url, cited.title) }];
-    return {
-      card: {
-        id: uid('crd', `${slugify(claim.title)}-${cardType}`),
-        deckId,
-        companyId: null,
-        cardType,
-        title: claim.title,
-        summary: claim.summary,
-        tier: null,
-        tierReason: null,
-        citations: evidence,
-        keyPoints: claim.keyPoints ?? [],
-        createdAt: now(),
-      },
-      company: null,
-      metrics: [],
-      viceClaims: [],
-    };
-  };
-
-  return [
-    ...(out.barriers ?? []).map((barrier) => build(barrier, 'barrier')),
-    ...(out.insights ?? []).map((insight) => build(insight, 'insight')),
-  ].filter((card): card is CardWithCompany => card !== null);
+  return researchMarketSignals(client, plan, deckId, { signal });
 }
 
 /**
  * Targeted micro-research to fill a gap in an existing deck (intelligent empty
- * states): one focused grounded discovery + enrichment for a tier or card type.
+ * states): delegates to the Incremental Delta Search Agent (`expandDeckWithDeltaAgent`).
  * Returns fully-assembled cards; the caller stamps deckId and ingests.
  */
 export async function expandDeckResearch(args: {
@@ -729,82 +597,19 @@ export async function expandDeckResearch(args: {
   onEvent?: OnResearchEvent;
   signal?: AbortSignal;
 }): Promise<CardWithCompany[]> {
-  const emit: OnResearchEvent = args.onEvent ?? (() => {});
-  const plan: MarketPlan = {
+  return expandDeckWithDeltaAgent({
+    client: args.client,
     marketName: args.marketName,
     vertical: args.vertical,
     geography: args.geography,
-    notes: null,
-    searchThemes: [args.focusPrompt],
-  };
-  emit({ type: 'status', step: 'discover', message: `Hunting: ${args.focusPrompt}` });
-  const grounded = await args.client.ground(
-    [
-      `Market: ${plan.marketName} — ${plan.vertical}${plan.geography ? ` in ${plan.geography}` : ''}.`,
-      `Using Google Search, find up to ${args.target ?? 3} REAL companies matching this focus: ${args.focusPrompt}.`,
-      `Exclude these already-known companies: ${args.excludeNames.join(', ') || '(none)'}.`,
-      `STRICT: only actual operating companies — no agencies, regulators, trade bodies, or concepts.`,
-    ].join('\n'),
-    { system: GROUNDED_SYSTEM, signal: args.signal },
-  );
-  const out = await args.client.structure(
-    structureDiscoveryPrompt(grounded.text),
-    discoveryOutSchema,
-    { system: STRUCTURE_SYSTEM, signal: args.signal },
-  );
-  const known = new Set(args.excludeNames.map((n) => n.toLowerCase()));
-  const candidates: CompanyCandidate[] = (out.companies ?? [])
-    .filter((c) => !known.has(c.name.trim().toLowerCase()))
-    .slice(0, args.target ?? 3)
-    .map((c) => ({
-      name: c.name.trim(),
-      domain: rootDomain(c.domain),
-      descriptor: c.descriptor ?? '',
-      cardTypes: ['company'],
-    }));
-  emit({ type: 'candidates', candidates });
-
-  const cards: CardWithCompany[] = [];
-  for (const candidate of candidates) {
-    throwIfAborted(args.signal);
-    const e = await enrichOne(args.client, candidate, plan, args.signal);
-    emit({ type: 'status', step: 'enrich', message: `Researched ${candidate.name}` });
-    const base = computeCms(buildCmsInput(e.metrics), { deckUserValues: args.deckUserValues });
-    let tier: MaturityTier | null = base.finalTier;
-    let tierReason: string | null = null;
-    if (base.finalTier != null) {
-      const review = await reviewTier(
-        args.client,
-        e.company.name,
-        base.finalTier,
-        e.metrics,
-        args.signal,
-      );
-      tier = computeCms(
-        buildCmsInput(e.metrics),
-        { deckUserValues: args.deckUserValues },
-        { nudge: review.nudge },
-      ).finalTier;
-      tierReason = review.reason;
-    }
-    const card: Card = {
-      id: uid('crd', `${slugify(e.company.name)}-company`),
-      deckId: args.deckId,
-      companyId: e.company.id,
-      cardType: 'company',
-      title: null,
-      summary: null,
-      tier,
-      tierReason,
-      citations: [],
-      keyPoints: [],
-      createdAt: now(),
-    };
-    const cwc: CardWithCompany = { card, company: e.company, metrics: e.metrics, viceClaims: [] };
-    cards.push(cwc);
-    emit({ type: 'card', card: cwc });
-  }
-  return cards;
+    focusPrompt: args.focusPrompt,
+    excludeNames: args.excludeNames,
+    deckId: args.deckId,
+    deckUserValues: args.deckUserValues,
+    target: args.target,
+    onEvent: args.onEvent,
+    signal: args.signal,
+  });
 }
 
 /** Run the full deck-research pipeline. Streams progress via `onEvent`. */
@@ -1024,23 +829,14 @@ export async function runDeckResearch(
       tier = scored.finalTier;
       tierReason = review.reason;
     }
-    // Every sourced controversy this company actually has. Computed once, because
-    // it decides whether a Vice card is worth minting at all.
-    const sourcedViceClaims: ViceClaim[] = e.enrich.viceClaims
-      .map((vc, i) => {
-        const cite = vc.sourceIndex != null ? e.citations[vc.sourceIndex] : undefined;
-        if (!cite?.url) return null; // grounding discipline: drop unsourced vice claims
-        return {
-          id: uid('vcl', `${e.company.id}-${i}`),
-          cardId: '',
-          claimText: vc.text,
-          sourceUrl: cite.url,
-          sourceTitle: cite.title || null,
-          capturedAt: now(),
-        };
-      })
-      .filter((x): x is ViceClaim => x !== null);
-    const cultureNote = (e.enrich.cultureNote ?? '').trim();
+    // Every sourced controversy this company actually has. Extracted via ViceAgent
+    // with strict grounding (dropping unsourced claims).
+    const sourcedViceClaims: ViceClaim[] = ViceAgent.extractClaims(
+      e.enrich.viceClaims,
+      e.citations,
+      e.company.id,
+    );
+    const cultureNote = extractCultureNote(e.enrich.cultureNote) ?? '';
 
     // ONE entity card per company, plus a signal card only where a signal exists.
     //
@@ -1103,7 +899,10 @@ export async function runDeckResearch(
 
   emit({ type: 'status', step: 'barriers', message: 'Identifying barriers and market insights…' });
   try {
-    const marketCards = await researchMarketCards(client, plan, deck.id, signal);
+    const marketCards = await researchMarketSignals(client, plan, deck.id, {
+      signal,
+      coverage,
+    });
     for (const cardType of ['barrier', 'insight'] as const) {
       const count = marketCards.filter((card) => card.card.cardType === cardType).length;
       if (count < coverage[cardType].min) {

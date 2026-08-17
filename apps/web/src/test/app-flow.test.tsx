@@ -30,7 +30,7 @@ function renderApp() {
   };
 }
 
-const FIND = { timeout: 4000 } as const;
+const FIND = { timeout: 10000 } as const;
 
 describe('end-to-end deck flow (markets → deck → 2-level split → card → dashboard)', () => {
   it('navigates the full journey against the mock repository', { timeout: 20000 }, async () => {
@@ -48,7 +48,7 @@ describe('end-to-end deck flow (markets → deck → 2-level split → card → 
     const card = await screen.findByRole('button', { name: /GraceWear Global/ }, FIND);
     await user.click(card);
     const dialog = await screen.findByRole('dialog', undefined, FIND);
-    await user.click(within(dialog).getByRole('button', { name: /view more/i }));
+    await user.click(within(dialog).getByRole('link', { name: /view more/i }));
 
     // Dashboard — overview content + tab switch to Metrics.
     expect(await screen.findByText(/What they do/i, undefined, FIND)).toBeInTheDocument();

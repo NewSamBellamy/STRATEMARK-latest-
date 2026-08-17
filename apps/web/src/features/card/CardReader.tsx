@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { LayoutDashboard, ExternalLink } from 'lucide-react';
 import { METRIC_TYPE_LABELS, isSignalCardType, publisherOf, type CardWithCompany } from '@mi/contracts';
 import { Modal } from '@/components/ui/Modal';
@@ -29,7 +29,6 @@ export function CardReader({
   deckUserValues: number[];
   marketId?: string;
 }) {
-  const navigate = useNavigate();
   const { chat } = useDeepDive();
   if (!data) return null;
 
@@ -111,19 +110,14 @@ export function CardReader({
             </a>
           )}
         </div>
-        <button
-          type="button"
+        <Link
+          to={`/company/${company.id}/dashboard/overview${marketId ? `?deck=${marketId}` : ''}`}
+          onClick={() => onOpenChange(false)}
           className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-primary px-4 py-2 text-[13px] font-medium text-primary-fg transition-opacity hover:opacity-90"
-          onClick={() => {
-            onOpenChange(false);
-            navigate(
-              `/company/${company.id}/dashboard/overview${marketId ? `?deck=${marketId}` : ''}`,
-            );
-          }}
         >
           <LayoutDashboard className="h-4 w-4" />
           View more
-        </button>
+        </Link>
       </div>
 
       {/* Content: evidence + score side by side on large, stacked on small */}
