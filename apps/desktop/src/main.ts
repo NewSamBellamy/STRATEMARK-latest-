@@ -294,7 +294,7 @@ function createWindow(): void {
     width: 1440,
     height: 900,
     show: false,
-    title: 'Stratemark — Market Intel Deck Builder',
+    title: 'Stratemark',
     icon: appIcon,
     backgroundColor: '#EDECE8',
     webPreferences: {
