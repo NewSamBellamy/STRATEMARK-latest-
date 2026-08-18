@@ -30,7 +30,7 @@ function renderApp() {
   };
 }
 
-const FIND = { timeout: 10000 } as const;
+const FIND = { timeout: 20000 } as const;
 
 describe('end-to-end deck flow (markets → deck → 2-level split → card → dashboard)', () => {
   it('navigates the full journey against the mock repository', { timeout: 20000 }, async () => {

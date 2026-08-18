@@ -542,6 +542,32 @@ export class GeminiRepository implements MarketIntelRepository {
       }
     }
 
+    const initialReportId = `rpt_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+    const initialReport: Report = {
+      id: initialReportId,
+      kind: 'deck',
+      subjectId: stubsResult.deck.id,
+      title: `${stubsResult.market.name} — Market Brief`,
+      markdown: [
+        `## Executive summary`,
+        `Initial competitive landscape research for **${stubsResult.market.name}** (${stubsResult.market.scopeDefinition.vertical}). Discovered ${stubsResult.candidates.length} key participants across operating companies, compute infrastructure, and distribution networks.`,
+        ``,
+        `## Research search themes`,
+        ...stubsResult.plan.searchThemes.map((t) => `- ${t}`),
+        ``,
+        `## Initial market participants`,
+        ...stubsResult.candidates.slice(0, 10).map((c) => `- **${c.name}** (${c.primaryRole ?? 'company'}): ${c.descriptor}`),
+        ``,
+        `*Grounded research in progress — live metrics, proxy valuations, and risk signals are being hydrated continually in the background.*`,
+      ].join('\n'),
+      citations: [],
+      createdAt: now,
+    };
+    this.snap.reports = [
+      initialReport,
+      ...this.snap.reports.filter((r) => r.subjectId !== stubsResult.deck.id),
+    ];
+
     job.market = stubsResult.market;
     job.deck = stubsResult.deck;
     job.marketPlan = stubsResult.plan;
