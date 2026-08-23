@@ -1,16 +1,17 @@
 {
-  "executedAt": "2026-08-23T05:35:47.893Z",
+  "executedAt": "2026-08-23T16:23:03.255Z",
   "query": "Enterprise AI Search & Knowledge Discovery Platforms",
-  "durationSeconds": 17.35,
-  "realCandidatesCount": 10,
+  "durationSeconds": 8.6,
+  "realCandidatesCount": 9,
   "candidates": [
     {
       "name": "Glean",
       "domain": "glean.com",
-      "descriptor": "AI workplace search and knowledge discovery platform that uses semantic search, an enterprise knowledge graph, and retrieval-augmented generation (RAG) across SaaS tools and databases.",
+      "descriptor": "Enterprise AI workplace search and knowledge discovery platform that indexes cross-app corporate data with unified permissioning and agentic RAG.",
       "primaryRole": "company",
       "cardTypes": [
-        "company"
+        "company",
+        "distribution"
       ],
       "vector": "core_operators",
       "vectors": [
@@ -22,9 +23,9 @@
       ]
     },
     {
-      "name": "Elastic",
+      "name": "Elastic N.V.",
       "domain": "elastic.co",
-      "descriptor": "Search and analytics engine provider offering vector database, hybrid search, and information retrieval infrastructure via Elasticsearch.",
+      "descriptor": "Enterprise search and data analytics incumbent providing hybrid lexical/vector search, ELSER embeddings, and RAG retrieval infrastructure via Elasticsearch.",
       "primaryRole": "infrastructure",
       "cardTypes": [
         "infrastructure",
@@ -35,17 +36,36 @@
         "core_operators"
       ],
       "identityKeys": [
-        "elastic",
+        "elasticnv",
         "elastic.co"
       ]
     },
     {
-      "name": "Coveo",
+      "name": "Pinecone Systems",
+      "domain": "pinecone.io",
+      "descriptor": "Developer of a fully managed, serverless vector database purpose-built for high-scale enterprise similarity search, AI agent memory, and retrieval-augmented generation (RAG).",
+      "primaryRole": "infrastructure",
+      "cardTypes": [
+        "infrastructure"
+      ],
+      "vector": "core_operators",
+      "vectors": [
+        "core_operators",
+        "infrastructure_supply"
+      ],
+      "identityKeys": [
+        "pinecone",
+        "pinecone.io"
+      ]
+    },
+    {
+      "name": "Coveo Solutions",
       "domain": "coveo.com",
-      "descriptor": "AI-powered enterprise search and relevance platform delivering generative answering and knowledge retrieval across enterprise workplaces, service desks, and commerce ecosystems.",
+      "descriptor": "Public enterprise relevance and generative answering platform that delivers hybrid search, intelligent ranking, and knowledge discovery across workplace and commerce ecosystems.",
       "primaryRole": "company",
       "cardTypes": [
-        "company"
+        "company",
+        "distribution"
       ],
       "vector": "core_operators",
       "vectors": [
@@ -57,9 +77,9 @@
       ]
     },
     {
-      "name": "Sinequa",
-      "domain": "sinequa.com",
-      "descriptor": "Large-scale enterprise AI and neural search platform engineered for Global 2000 companies needing hybrid, cloud, and on-premises knowledge retrieval across complex IT estates.",
+      "name": "Hebbia",
+      "domain": "hebbia.ai",
+      "descriptor": "AI-native search and multi-agent knowledge extraction platform (Matrix) built to decompose and query complex, unstructured enterprise documents for finance and legal sectors.",
       "primaryRole": "company",
       "cardTypes": [
         "company"
@@ -69,31 +89,31 @@
         "core_operators"
       ],
       "identityKeys": [
-        "sinequa",
-        "sinequa.com"
+        "hebbia",
+        "hebbia.ai"
       ]
     },
     {
-      "name": "Moveworks",
-      "domain": "moveworks.com",
-      "descriptor": "Agentic enterprise search and conversational AI platform that indexes workplace systems to provide grounded information discovery and execute automated employee workflows.",
-      "primaryRole": "company",
+      "name": "Qdrant Solutions GmbH",
+      "domain": "qdrant.tech",
+      "descriptor": "Provider of an open-source, Rust-based vector search engine and database infrastructure offering managed cloud, hybrid, and private-cloud deployments for enterprise AI search and RAG workloads.",
+      "primaryRole": "infrastructure",
       "cardTypes": [
-        "company"
+        "infrastructure"
       ],
-      "vector": "core_operators",
+      "vector": "infrastructure_supply",
       "vectors": [
-        "core_operators"
+        "infrastructure_supply"
       ],
       "identityKeys": [
-        "moveworks",
-        "moveworks.com"
+        "qdrant",
+        "qdrant.tech"
       ]
     },
     {
       "name": "NVIDIA Corporation",
       "domain": "nvidia.com",
-      "descriptor": "Dominant accelerated computing and semiconductor provider delivering foundational hardware, NeMo Retriever microservices, and enterprise RAG reference blueprints for information retrieval at scale.",
+      "descriptor": "Accelerated computing and AI infrastructure provider supplying enterprise retrieval frameworks, GPU hardware, and NIM microservices—including NVIDIA NeMo Retriever—to power enterprise search, document extraction, embeddings, and reranking.",
       "primaryRole": "infrastructure",
       "cardTypes": [
         "infrastructure"
@@ -108,43 +128,27 @@
       ]
     },
     {
-      "name": "Pinecone Systems, Inc.",
-      "domain": "pinecone.io",
-      "descriptor": "Managed serverless vector database platform providing low-latency indexing, embedding storage, and similarity search infrastructure for enterprise RAG pipelines.",
-      "primaryRole": "infrastructure",
+      "name": "Accenture",
+      "domain": "accenture.com",
+      "descriptor": "Global professional services and systems integration giant that packages and deploys enterprise generative AI search, RAG pipelines, and vector database architectures in partnership with major AI model providers and cloud hyperscalers.",
+      "primaryRole": "distribution",
       "cardTypes": [
-        "infrastructure"
+        "distribution",
+        "vice"
       ],
-      "vector": "infrastructure_supply",
+      "vector": "distribution_channel",
       "vectors": [
-        "infrastructure_supply"
+        "distribution_channel"
       ],
       "identityKeys": [
-        "pinecone",
-        "pinecone.io"
+        "accenture",
+        "accenture.com"
       ]
     },
     {
-      "name": "LlamaIndex",
-      "domain": "llamaindex.ai",
-      "descriptor": "Data orchestration and ingestion tooling provider that parses, indexes, and connects unstructured enterprise documents to LLMs for agentic search and retrieval workflows.",
-      "primaryRole": "infrastructure",
-      "cardTypes": [
-        "infrastructure"
-      ],
-      "vector": "infrastructure_supply",
-      "vectors": [
-        "infrastructure_supply"
-      ],
-      "identityKeys": [
-        "llamaindex",
-        "llamaindex.ai"
-      ]
-    },
-    {
-      "name": "Enterprise Knowledge",
-      "domain": "enterprise-knowledge.com",
-      "descriptor": "A specialized knowledge management, semantic data modeling, and GraphRAG consultancy and systems integrator that implements enterprise search architectures.",
+      "name": "Quantiphi",
+      "domain": "quantiphi.com",
+      "descriptor": "AI-first digital engineering and systems integrator that implements enterprise RAG frameworks, vector search systems, and workplace knowledge discovery platforms across major cloud ecosystems.",
       "primaryRole": "distribution",
       "cardTypes": [
         "distribution"
@@ -154,189 +158,192 @@
         "distribution_channel"
       ],
       "identityKeys": [
-        "enterpriseknowledge",
-        "enterprise-knowledge.com"
-      ]
-    },
-    {
-      "name": "Pureinsights",
-      "domain": "pureinsights.com",
-      "descriptor": "An enterprise search and AI systems integrator delivering hybrid search, vector retrieval, and production-grade RAG deployment services.",
-      "primaryRole": "distribution",
-      "cardTypes": [
-        "distribution"
-      ],
-      "vector": "distribution_channel",
-      "vectors": [
-        "distribution_channel"
-      ],
-      "identityKeys": [
-        "pureinsights",
-        "pureinsights.com"
+        "quantiphi",
+        "quantiphi.com"
       ]
     }
   ],
-  "citationsCount": 40,
+  "citationsCount": 45,
   "citations": [
     {
       "title": "youtube.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHtZzMB6haI8UQ2crPh3-D1ZKR-05N08Qi04FMs83r1XJsKfXmRFlWoBAtZPBJ7r9iJtG8mF4G7YNk43FJ2Z-8UrrcsGJgBgoIXy2G5sB-z_3YRoG5Xd5J_kwDnuECktehd"
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFJux6lRUOIRzLkx9mXFCdD2w7udti9GHIzWwSEhhs1zeIaU3GnfzZpvtGkO9V32Bgvo-J3zpiwzb1kk4E5NIE-0LhQr7goaN8VX9O_Xz7A1dQ-F0xpe9X4Lx-v1y_lKEAc"
     },
     {
       "title": "glean.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHkRJA_mOl-xSBcPobwputAFJ_1n8QZBUjlw58TDmddNHJTkwnrvhHGTM6XNAts0-TUfGIAOXHKKAEjQ14iRGL2KjE63e73Z0AkFELBIEVxnp71kwYZ_o0px-1YQqXgpmoagGg="
-    },
-    {
-      "title": "instaclustr.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFUYScFWNKAAEORK5obLk-YFe4Czv_9FST5QaYeCzZJpiyalaOj5Ap6Ap34Gh5T4xD0P97z_Tx-oDAttZkfART-KhEXZAIt46_Di-NDvj7lHkQ8zAiOQ3UkrDqn3y8H54Udns9ToV_DzEcyp_E-WHqEQgGeEU-H-r3zmaMdbQurhFKg3OmMUiy1mnqEnlprP5r4quGdjfw="
-    },
-    {
-      "title": "chapsvision.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEaLdDbkCU8xAwQuJGEdrbMtBabYxNanxTP_xVK7WgLjebvnnZwKvKQ6xIQ5gLcPJm6csD2gvddCJ3LUEadiVdNu4x_sQuqpcbiLwFkKpthwAP2JD61zB7_oHytvvy18RWgorfQlCXeear0bFhBs8okxMQCAL4="
-    },
-    {
-      "title": "gosearch.ai",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGoRXEPpyz93DGZ6wNzTAJcM3vklnH1FZ0nZeeApUMlsqNZHNctXekDsvgKCVjpfPSiSAjrl6s9sgRskohdHmTI26zgUu6EgMXsaHulKrQ-38aVHcgPg2ie762fUizqRYHiinPoTgqA7sSIbEDgP9rKmzmfPKldlMO48F9uTSs="
-    },
-    {
-      "title": "kore.ai",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF18WRUz--8NekAL7Pb-R2BvC-T5KuJgZ1tqjSzh9dOeBKNeTau4uIKsq319bgVT5tz81pFOBQoMO7L1-hIlbI39bL5GQuJFIg58LQMdvGcJVIl9sJqa8th13MqLL1BerAu4-7pIFQI6spzQiDZiA=="
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQH-Hk35bZ2h0vUdL3REkeuCcs2ObTwKwqCt1dKt2mSdINrKYglgcxppK7TOwdoIlykO_47EQPXc-t7cI89FJEDPYdz6BF6djXGzigno_iNIKRYmj9UOwUT7wkeUFfcCLu5nvt2-br9OBvPvvhEGd_LBBJuLiDInKK6b_fyrqZP4pfNbP95bH_rr6vt8"
     },
     {
       "title": "youtube.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEKmJotch85AiMfJY88N6DoI1Aqds8DQFbzFDoeEBSDmpltM31W_rERlBCP8ODnbpexjE8YzqkAt7kAtslKqAIu39D6lJSyvZpmMh-AxVXsFzqFgz2RPEVc8_tRlpkM6yDj"
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQG9U1qKWN859UxVuJ6N_XNUGYWN9xWHD-zcCqcWKPeIGlyWw--PrMrLukh9dXPr1tAOtEyN4CL1KFXp0dCSDC2IQzbhIuV19E8BUmRu7y5laxP0Qo7gVIJbbLp5Hl2Sd5Vz"
+    },
+    {
+      "title": "glean.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHmWkYlY4PmTjAIOtzN3RhN43_s7_KBpjC7J1wX3mjFe9rO1go6ptE1RJjPVIsRDRYi5cfuvim-viQrpiQl2bIBe4EdUNAkvZ3iyLAENB4u8AJnHdjVL6MD-__-MJQXwyzXQxd9TywFdSeRoQkSRF3SQLwx3jQ0euko_D05zm2J0yM4fI9i6VSlKOd9fg=="
+    },
+    {
+      "title": "glean.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQE2V4qDq5hjhTZ9oGXYfq1llfGKxOe4dWLiEsAL-T860M_Smw3R4mCKEKjtUw2l_RT3N2lCY4BrjktXYXYRqj5fgC4oBaagC2Dpb7O31NBdGLkjZei8GEZsYCXHrCo="
+    },
+    {
+      "title": "youtube.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF_NJ6imvCDaE_roxyB5HNJayUdeMc5nYyuhZ6mGzEtNJFEBGvk3GPsCHFJv67-xxoBVpjG6jcSl_whQcSVJtnYZkra899_S9yKE0TlzwpP5u0yTd5h6lz70kNRH5H1HYN4"
+    },
+    {
+      "title": "youtube.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGsocR7Zqey74FawaO0r4qJFy-s2YnfWiAGuIFjo-_Ts-RIPCLB0w02-JiiMuXNk3E3zB4IhCx9Juf1Kt8atnU5S21-7eGShDVzBvdC37OzePyKldnwAtO46Wpf403Q8o2G"
     },
     {
       "title": "elastic.co",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGFMcb5JTQDWkJAprIzHpfT2fAySGSV2I5pYzkQ9Q06oif5BVn1_Xw6PjBZ7f_oED5v7KTEqk8l4qHJPTYm8rZlPG1IN_aSTKD7-8CbalsfiYLAwO4Qasv6ju4yolqN"
-    },
-    {
-      "title": "elastic.co",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFBtMQAUisZx9yQqzAcbmERLxK09-5vHaacWI-rNzz0W6MRM_56XxcL1Tpzozzr36rHXq18luA2cuWef0njjk-oW3LLEZ7R1niY-pBpU35XO5PFrcTTuFGunjWU_Xe8XFArdyCcX7pNuQ=="
-    },
-    {
-      "title": "coveo.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGltL09RERhTwbvyeGPzQrJppyegbS5q4vjZq2J4jcE-xwz3lRoWlEm_62nrRygsBiRWOmcdDfK7gY5ybDscGXAX0urGdO82CS-o3GYcvLVlai5_cjBnrpEKbtD9HiWftwZzzmYF8xtiYRffiVrAguMS77I75Bx"
-    },
-    {
-      "title": "coveo.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEE2sqgbxBVBZQ733yE5uywvQmuEbIFNocV9hpN95fU3EyLZl8cA2QjZzu9MedRhUBJeBwiBZ7pyCrOEKQK7qKvA69YOOI6fkwjR4tJwWvjJDIaO4rawSqBEVrUojPvD0znd-vUnhnaKWjoUXWNF6EYlo9gEIzmQrxD0KblcibM9HBqOm6rDBsc"
-    },
-    {
-      "title": "coveo.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHyTMr-TQQwhw4uJBUlIX5OLwbZiW4BU2l3xrQ4AXNidR3-RL9UF1KlJgIuNgbOkwuQA5twWHUqoroURwyENTJg_bWP0c3lBpkDWw15iMNrPDTPwFymKMP0sWt8ZMyFypy6TBZQJTom1F5m-b0a"
-    },
-    {
-      "title": "coveo.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHHKEl12A5wVh_1a1XHzIlEZw5T8I4xm5TUODRbeDEwbJ_OsPFRfWPl88imcJpRSWIFE7ZAeIf62M1SQ8J3xmcDER1piNJ1-oCidonUkAJv8BL8SzKaS32lfIZGOceqdwF60WvUFubYV9c_ZH_hhJ9UM7cAZblcCK_J"
-    },
-    {
-      "title": "coveo.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQE10K64eDiZlSphHHkjL2kjfI0c_cEO4B5KcSsEpCl4m2ou97LQrJ_Xr931tatLL8snU0NFqlvnc5cD5aari2ShoIL61qhhVFdr1IW263-3VBYzglCmeRWMub4HOyLyv-c="
-    },
-    {
-      "title": "sinequa.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHFDAMAqtRkD568MceyFRGDKlns5_liQoa08Arf776pEslTULLZMP_wkaDh80m6YONaQLb0qkpojtjPC9O0tfDydAUXxnlaCwYdzjbExh4="
-    },
-    {
-      "title": "sinequa.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGiscFR0Y7OL617UDG_McTquAGVJ2RmLGo4xKqFsvAD7P0uEA0c1Sa5KBLbwaPBaKTYOBhX6eQMCX1gFdWS3Ow2YCFEqi8RgS_F5HI1VnkgByUuH0soWXy-MFPGAa0H-9opjXxHCMGK1Q=="
-    },
-    {
-      "title": "sinequa.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEOg604LBBq2CKi3Zune_C50PKZwmDEMZw4eStFT6i2Jvn0PTWDWMyVQSSEQ2yKM7e_J2ONfZ-TB4MRu57HRXuH_RUqsGdXQyWJdnldGvsG_CdX3WkdqslNnO5XDyxjnmF3olnzhRadDHhFzPfZS4g4Sv9xgvHgZm77661kqVKThVTqB-qcyUjELQ=="
-    },
-    {
-      "title": "moveworks.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGRhSOkKMBAAVY7KywU5EQYbSQc2PQ0Qna6GWcYvyNiHtj1RrQjmUCdES4DSWsA45w4k7dIhOWDILBmKDLSVv1TR38Elwn-3uuNwPJf8WBwfBFUn-4ovP-I0jdyHiEgNFr05LeAGZkYNfsu8FfMMN6r"
-    },
-    {
-      "title": "moveworks.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGiqgTY_qvQMYI4uYqWL_YG_Rq7zGYjpuJpLP8BwRtYkV_7Z0zAWI617gXE0YXpIYoFtiEWiThWJF3W46yDWRJ5u4fc7QCYfR_a2jXhzJTCY5GHBgmNgL7jTKB0sv5nuq8rOCBArF_gVZM9LF_IPT7a0StFxUTIHM334KCp787BsU6_lwq4DueEam7r2cLu2IOzu7dbNO4nKw=="
-    },
-    {
-      "title": "moveworks.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFQIyY1UkmynEHaBuzsRqzUSHiS6e7ASx7uc6uThgU2xR1B3oWchuhW-uoQ4nbp1wy9jzhrvpRj0_vDXhG-YP473Y0YR07i4NaryISZj39nFJxYftTsTJvT9Nn1HfrKVQAsheIW7rVTRkRZ4PzTbHYXSCo2g7ntGgA="
-    },
-    {
-      "title": "moveworks.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFT7qW9VvZUy9Y8XDE6tU1GodmG0xeVS4J7okJmj_ndQ3LW_YZ97Cnh8496sCocx1ZgaTX3Ac8dYbQfQxtel68_qe5nkx8H83tiwmRRT_G-u-JXQNvyuDNjh33U4uxnXUV3ySkncpcQRpPJfnXwPoWtqtDOJw7kRZzrAGlKdwU="
-    },
-    {
-      "title": "moveworks.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQG3vigZ1mLl1jG6vTWbrLsdHp05R6LB_J_3ZbbwwdZ_oNAOmz2Ea4-WPm-u4hyXM6XTqfXu3UDb_z_ZtDnDn42aNpul8joYvb4FqbrObfSGxA=="
-    },
-    {
-      "title": "nvidia.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQH_fGpISKmekPj-ICZJvpY2mlazBiFLW6xezrCuC7p_bkw-diNTFFGHK-0Fmt7-kqLwsZbg-fYuDBgn17KN7pnvL_3gAm3jQRay-aI0_nvwuxvWPpALNnhO9gteAhH2a1e7"
-    },
-    {
-      "title": "infoworld.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGJzLORs3ohJilM0FDKat1SXA9cNNmxdjYQaLJKjyUAIa7auj7Q5Bd8OXIOhAYIUvZYPdpIC1LuOfkfNo_C4SESopB_rnyH3lAt_jGTrpZVxN8kVucFYEun_F938s6gZP4nLXp42OJUYfLsfeXuFVFpbXQ4byzabvXyK2omolK_ZX5-EZ32OdUa7kVV0uh28nSY6eouEW3sElHu_ChH5A=="
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFMYW89wDX8LySILwoTm8h84NxYt0RUx7cDS4Ped-pWdhbGLPELj6z1RGXgtEN5XD7Rkm4SjnhuxjCSh-BXz7_HdZ7ZvBoQHSNurvBm4WCbpyKd19dSiBVAIJAifwzD"
     },
     {
       "title": "pinecone.io",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHjnfE2XIRHFgGHx7zzWF7JMRGBWNlm5UOQzZaDc0qyQl6uQnkxCjb26yt4TeheKz6qSjjspAUWTz0QXjHaIb2Fua6ycYB73hj9yDNOZ4U="
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF5NlsR1wp-p3UFb5tBLFpLJNl6Ntbvcm5Y34_yGpcLg7SdV4MQWLIwao1mxNuA-sHFbwrvhUcDf4GgXetHSknkR5ZUqtWJ3oz0JlsCaySI5B-9Dk8sAr3kQuXGeg=="
+    },
+    {
+      "title": "atlan.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGGTugdo9IJlpBswsCsM7j7CccMJv4BcMiIHSfOXmicnnnAu1V94niCUc7s1QvSCOf58ZAnGglDxEdItaLr38ycw4z__P8kstpU658er3OnwJTTWtkvMfkddGHkRf4ER1r8dwQQOU_zKgSWz_p_spg41olGpJy7ltvDuFWMMs1BLQYiVA=="
+    },
+    {
+      "title": "youtube.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHlRLWaYMf0z9chHWwNHpr2dAQEdrFg1wivlZFYLOU9sR9Bd9MY9vOcrXURPKU3di2XcVyB8Z93qEu_bzyjzYfYT35D07co_AM2ppRbcv7uS7WC4TdU5NCsbTqpK1wL0mOv"
+    },
+    {
+      "title": "medium.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQELtxPuwNZjQSBshPeopSnDwuxIj-kwz3cOlSROIb7u9MQ7KIrPflAwQ7UtW-RWNWGHCGpkKAEFwlwFJKI07fMy93adcp-7iglHRN2BkbfWbl83TK0bYffdMU1xFWo_N4_E8qXLJTDDQi5leoAH9uQNTK_eCopmDiNlMiYJN5IMSBBcOtq8swujz03oqQ=="
+    },
+    {
+      "title": "coveo.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGaqrE2hMSRDrWBB1gL0nXsv-1tH7KF5Rvw_9OroJj7cNMtaJuhiIZMb_NEUoVd8oGRgxZT-OTl-A33dUXsCLzuQfq_PFImX4RxF_Qm7zSYH9-sOs4tvD0="
+    },
+    {
+      "title": "coveo.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGw6odYcbtg_RJXvjO5-saGr_JKv6nD8lMqNFwy1Ob1SQv0jJZy_fbrfeReIvMO5DXDKW2Y9Uqe0urNizPlQD47NBuX2YwKJrupa5HxUwb7DayCoN59ATVIwO3TsFel7BB2aDSlB2240NIF8NynVGbC0SBKGIM6Wq9Q-hBwjQdGIyYNUOeC1Zz_"
+    },
+    {
+      "title": "coveo.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFI7nvLm5TlvtLMUDiZAlkc9fWyJ4hIJAokgED-0M_IaanJL1ihHZfGVodwym-KkAFNx5ot1uQ-gJrgKbE6DkT3V4N-n_x7PEixMLPrO7cJKe5DcN-ewtzP2PhNfsYT67xWZ-lQ39-g8NRHpa3Jj8Pf"
+    },
+    {
+      "title": "coveo.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHaipF-HQ_31XSxjCVBYhEIqm9dBkebOAvnzuL8WAGT7_EXIx1JIGHx0TGN-cAWWeLzFRROGnqsv7J_-M6ZIG7svm0Ccox2DWiCXNcw94TSWh-wv3B1tgUPgDDrRuIxP5X5rcgiWO88EhVkiV6C5XVxhmIYehe9Izz0"
+    },
+    {
+      "title": "hebbia.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEl4GgX15As4m7gprcN1MyzYmas9_mUpfSHTPV_JSCgtOQ_f5p2OqIZgtOvU9L0VS914-Q36yzgp2QC1KTH6g9j6jy9DA_L2KdNN1-nm4Ioz1qy2WXTKkdoXyNsTYmuyjGCQOuC0rIUD2ab-nyK7adNPkvi"
+    },
+    {
+      "title": "hebbia.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHR-lzZiaAm1FRpv6I3dWnd2H0psMsCfpL9gPcpepBY4jg-Go9jNBoQwFScMEtspXCDXEHkDbotQIpzT51xzbGOADNZxDjlqR9dYCOhgqsNmxbKAvGzI1XxmlT8hI6M2fVnfjiioE35DTfku5-Wpd7qtkSj6HmhRshaelulPLdKjNYX9WhngwWdVYiCnSA-PDRCydP9"
+    },
+    {
+      "title": "hebbia.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF7UqS0nyuAfJATtqnKvxDAayki0SKyryWemJNkm9gTuI4xzjJRQ93spnvv0yF3mIfD43RHByDY5swo9faEwB536gwNxzrBDb8r5nPJFWAM1hQiRtiJqayWFs_w4p7q_amyERCPbzDIUhaAQzol-Zrg6h8BRBGNER7M"
+    },
+    {
+      "title": "openai.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFj8YO0cDsBf_bbs0vSC7SdDtcIC6iH7K8Ox9UV32YHP-vCqJhNCJ0U3s8LMj4SDP5FnFxofE_QapuKud8XOwcSW3bEKTq3Lgkv7FtGccFzYRWcUhrgkg=="
+    },
+    {
+      "title": "note.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHi1SGUV9fE_j_NsvDEi5r_Oq8pRxHFXdjBZYmZJzU29rI1EwypldI9q-MyhlGgpCmQJoVVKc9tDBcuoD-9SZ-e6N2F9-bq7WWoVGXYz685IgE4IcOdIopK8ci9EhTu_NhB85A="
+    },
+    {
+      "title": "aiexpert.network",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQERxxf8Se2F8YjeSfP2TZAUiqUk3e1mQVorKsP4yY2edG_Ri7wZrdn90oJ47I0mImb3Ue_tduho_TLMJz48sqOiJuvrU0ocBHYts3pILcvZ-ea2SZoMqQ=="
     },
     {
       "title": "pinecone.io",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFOKTdMD4CEGh452vXYatAVbPVwHGHRXK23yLtgOenyCMZns4wPMR7CvhktYCS4NqGZRZZtZB_zlBeovqW3LJhuYlhwQWYh0Yq_0McgLqrBCDFR9V37yVgbcHTXOQ=="
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEwDf1M7AlurnK6Unout4bP6X0ohDCfyNdfBKH-PttlbsENDZECbE-jZLtPI8rWNDBy9j-XrRVvcwXeBRuqoxrhCwozmqGz3W-TNXZLsD4="
     },
     {
-      "title": "pecollective.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEPxh-MdsFFEa6xVSym_82OxgsJxNZgo3y77lDFZRw46K-WDTG-Eoo-qruhK4-S_OWVGj39o-oZ2Cg6R2rYd-jgs_OJQvgeseR1dwLhVgcBIt6EWm2TiqM3E4_VfEIr"
-    },
-    {
-      "title": "llamaindex.ai",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEGfOVv2w6Q4T9cWQJC7Hz2lBDim7NkQb4M5aRUqs3CzWN85xafeXaUI2Y-lWWf6hfKVGpfylBgqQYOxoLavwQot_HMIXxichOfm5k1YnDZ5A=="
-    },
-    {
-      "title": "llamaindex.ai",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGjC4i_-5J9V19br2rPBQ1BHuA-Q-j0Iza-3u3ZHpI58qT0hW_XqfxXW_9ptqL6_d0nz1fJCB1xZkPm2LW0gGxMNZwNuVYZFeo4RkmVRMppiHeSa_qrmcqTDqqHeGANUJa5Af2mLP9Uut1aaz2sQGZCk2Onr_VQsU4QeGBM"
+      "title": "atlan.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFqJ5DQlXxhFww1rY8fcWzhn67rmR4qbrFcfF1K46s3WRiNdKO9nYPqIc1BUVg-QdD1neomnA4Xf0Y83hPgwsKMsWhMLpdYVA2ktBOdmsNYpVNjAHr_gDOt6s-lWyzvYMhyPuuWXIgWffuDJqLNn8tzyodAx0DAlZ8GRSioUZv58IN3iQ=="
     },
     {
       "title": "amazon.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQElESD-j99ZsoJf-8RDH22HImTbYiplivIfN-aWYjsHqxYuMO7LLDeLC_J0aEI_GCthGrL2qSnagZ-3IbmrhobMZWQu7_e9CtgyEyEC6M02Mj9vaszdaVkvsw86nQUEiI6ZW-w-Utj6Q70Ds6CjzVHag9I31_pHBAqZ38kGrB_iSZmemhafrkowWuw90-607qLGWJjy"
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQG5fKlCR0IQy6E8_gCxiL9YR5yUAL0FdDtU7qmZ2I-WCOWkEdO6YMVnedUAbr17pqZFjcCQLZ7Rr_S1snQHXQzdohrWm7gBNFa6HhV_vzVyRSqRcSWhHQK9STw_35ygG3uWCpUvoGn6oWtbJmPKTisXoVE="
+    },
+    {
+      "title": "pecollective.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFDAtg68ntdoOVdl5t4iyZhP94dFKQCBJDT7YvPbDrIHS2fHf3j4FyqhiOH9WdzrLBrwx3_QRPoRnrlD0GqIuIagHpLo2BS1R_1nXebtp54vaoca_Rm6GMGiUoq7uCW"
+    },
+    {
+      "title": "qdrant.tech",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEIB1uHZ8KI4fwfNIYPLjanOsKE4XW0QHrJmC4dAkbWD7pvyypXPYBGjaZ3g2rCaTZ2gOBH8JjMit_hxc9sarmn9hd8F1_D1syMIQ=="
     },
     {
       "title": "github.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEHV7StZhgc5PzJ345dXfo3kXqP7YMLyvQuy1SXtiBtmNHWQIHduETf4Tid8DMGa6_YKgaXdDhqgmsIDcWGesnqZbWDvi8CwfuhhXx3iRkXA5GXNyajl5bHeNypLt3S"
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQH8T68q22nLcqkWfP_EY4y_QcisBVBZZXcb08O7bufq5po0CC44T8UEpLCTddTBMUoA7ZjGPDI3dD32OXDgpXTgD0TTjKuEh-W0cQVtjAZh9c_22z9VNA=="
     },
     {
-      "title": "enterprise-knowledge.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHOk8yJg2tlGN0xliX7sSqaQ-CKwz9RgqOQltl2l2m9NEfVepwp0hgrBYenFT4Ui70sPEPJZSuv7gPHirZ6jb2nhTgWDpaeb_eeY4T43iYPASrIoxXwVA=="
+      "title": "qdrant.tech",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHX70giem7uxJVt2NDzthREySDNkcuQCN2RFwOtDqdH6qUv5IO1IDH14UDXVCaLXNQFFXEK-WVlG-D7leRIYZn61qHLH5EiRs5rRahRMtCVzMY0eRiMOFqTXjPEPa-s3w=="
     },
     {
-      "title": "datavid.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFy68_as5skV_e6M40dzVEAJ-QmuThHs1Ce468-GhWbH594E7Tja0jJIdkTRTdicrC5kiZoDoK6syv4u1HHDGVVNnxlWy2WvtC31xgmGeVFG0loCynyOC9-L3iy-VtzDHi0AOb6QZhxkQAaIbBPCOXR-QYl-7t--YgxK8jiJyoUWrPD_vRcsHxx"
+      "title": "airbyte.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHbQLlUUHYvDKLHshzQhXMcwLxfVvS6xXNwYSY4u26dosgjQFbd7R5BIhrfsEglCE9oom8UzsLAMrX2-NLNw6KUmZrewLyis2i75g59wFNkaC61tajbAQWptTocSZNb_RWICPhPRaSKzqTDDI_jeuw4002khhiNLY9Rr3k="
     },
     {
-      "title": "enterprise-knowledge.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEnHW4lKFobGa1SYrkIeznbafv4UvLFd7htGuRiGWCTQaI_p5BsNhYpnDOZ25nSIfn6Sf42bfKym0GHKaBoGSzCym-AQG9jGFKwPRLL5zb37hu0SP-9j-gSH3fZTVTb9_1VHFe-stmnS6jbhVP_d9Qb4A=="
+      "title": "qdrant.tech",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFeLBX4hxLolg2OLUFSDLQdD9UeaBxE-TNXZcmm3RAhjZaqc0jbcZKzsv__emtDH6E_n1qUZfZoW7WL0XU_BEGJwNHOxmkPKwmf8R3-w1uJJRUZWZMRQpXjn9vmR_W_WvyBN5RyeGiQcw=="
     },
     {
-      "title": "enterprise-knowledge.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF1Iuv3SW2VwhSrKD1RH0pqiFGP32KpgvOify7o5DLFesng6C4AJlJZN2fr9DtHquC_AUOMh3mHy2ksMvSStVzH7pQH9VhL7gb8Is90HJ94zw1yXFELFY-sNwam6lcX1TUSNaVUxd7H_odTweMH-hcZGYNDC2lYu3fDAnCEXErX6hP54VvGDz-BTZgH_UpGNA=="
+      "title": "nvidia.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFYfqCTsiuEvsSb8C2hIQPQ4brLJzatR3n1j1dkGCyrhsA_aRYm-IIYEz8063c0f3Hw0Ut36NNiliAZUDBxd6J6tyRTJNANilb3SO79_s4tqmYJxiEZGN5Q3nnVE3utmA2f"
     },
     {
-      "title": "youtube.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQH0tVUDmilFs_iNDDFUEoX9Hb3qHd1qg22oT7fRqZCi_nIioI_wo_Knt_ljeXHTEQ54NI5IpA5RfyTE3VbZ6dSsF1QrkZf3mJ-r-bVzvr83tOinFtU6eIDgwXQBgYHA7G93"
+      "title": "nvidia.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHBNzWY-b31jCHQnj9oHu35yHPN56lcEVsp5rKPG-UiJeLq5gRvucvXAYuzBo-OAScRyQpELMitG_dtapjwNlBh4XfKkxw63KzJdM5amn-KAsxuoLj_MeQHxamua9SDhjS5m2RDsv8EqRvpcySYhvhRE8ceM-vHSbI="
     },
     {
-      "title": "pureinsights.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQERakv9Xw95WawDUNwgo6uLn9S1EdytVrdXQZYuLHZ1xeuOWBfOWxxGVPbu9lV8NDpYJJOdGpS-sLgolxQyPcDXAHspXt0uYzNPEUmMHRSbM6f_YUfAsrYogJiYzL1d_V0zjDl1VQcz8UtJI6WLL2MFj2g="
+      "title": "cohesity.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQH7_ykLsv0lFSlv-1G_uhhCMGvdxHN0LIkmP3aRwvtDaoZoFMQSSGRsyCaOWgU65C_j0GYRd5n9d7TSADmvU5kNN-0XYEJiBmzynV1JTba0AssLd6dCfeVTfcHB2sG97wcsUFVGLAgHeVvhTYXZLr4ghP7aL41sRrWqEyB68nZ0YHS5XQNKrH3LZScWL5ox7oBdC-JvuA3KLHJly991IHMfktZRUVzF2juoAeszShE="
     },
     {
-      "title": "pureinsights.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGfhIiRHFZGdzr5XWxX6F7Ow_izswkLCLq1SqoFk5uxtVUUlCqo7VAqRfwFNZhrd-pZA0fueKgu7tIGjS2GPLrEYl2skF2lRQiQZ66GWQ5gu6I-lAT1XezcNiBW3LD7lj3kU3dMjaIXNGyaQ8-879I_N_Y_3j92jz_kcaZ0WCs3hushSf0ZikX4sKEFo_ceJw=="
+      "title": "weka.io",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQH9khp-IotYWJMLkRXmsdcKolXbBG5WLWsh9AzeITFUJyrg5sLLhB9kxMeQatcTgKdF8LhzW_YG7ePdRLlioa1MbR6pcu_m6I7cKdFLM1XPg69AsYLfnCUsBkAm1H5jkLnScj1wPtJkrvL4vw=="
     },
     {
-      "title": "pureinsights.com",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHxCG80axQwACieNnKZ9yGM09d-p8KDVzG22PC3vZ76PBwOS5um_cEhMIhBIl28f4k3wO7O6czZ9-aqzCzPlNnriJmd9VHPXKJDh5OvuPPaT6bkaByd_y-e6KMoXdefivrPO3pT-IDQ7_FSL9ZFgBGF_wU03q9_ZRiMHaDLqHw="
+      "title": "spheron.network",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHg5kEURI28pZ77uy7JIiNtSzsO7h9nsvP12AWANes8tpLv7rFghGUL3laU6Mkf-YvpSA-McPr1lpRZKnZX_i5uJpR_p6BoY-TbmlnaVA7FXcgEfVWTRhTGZHWDgSI1AL77POTNtGnMEVnsE263ECVc3X_j6HBkmWw385yWuJbtoWUQzqJdb9NQFdmwrEfCf76HfJ5rGdsf"
     },
     {
-      "title": "wikipedia.org",
-      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFABjZ022DT0rEicfVfmMEem1n4hue4zxE8v5zQ8UAleiEQbCIPvO1M8uLhddTRhls3IKAVWPMpJSJIQRWaeVT_sQv0aiWmYv5llKbhBZQrrgb36Td6xDksyAUgO-6ovYhCKnQnIA1t"
+      "title": "accenture.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGZ6O2qFqcwrcc7Rh12wgIWN9mzpnQtWq2oRADxBcWALmI-BCEQ3Zrmc1uMpzukYxxJ42n2vJEAW2sw3lBQpYBChvmoDnHfLtZpgWFgstdnoF2wTRSi2sAVgRWYxzs25QbX_dzQgsXwka0dFSTgsE4nNKJowg=="
+    },
+    {
+      "title": "accenture.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFQnVj_lWPeh26G0wxLdFbvzjK9R9bBi8KO0S_UolkIC78GrMbP0j_xCtUeHdYRdWMMuxd1NFwMV0eWd7POp2Mp9n91n6BE-6vjOrcBFu5xv9vC0Zy0hKVivNGaLWYQXE_8x-4a7u3ewfDwLq65sNG-czKieouy6s1-cNZKuHKBECdvmEbzJONwHZk2nF0FWu4YutHwCKuuGnlUZaZEqWKtreTNFYoMBbynkcZfMoU7HZm5fVBignj7hwglodwAKtq-uT8ESI3KcdMUZSKvsRIJ__7V-jz_XRJ-jEsxA_6Aq9Y="
+    },
+    {
+      "title": "venturebeat.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFr3Of-Ow0xoqOCq05PrIjrLQDGwNA7WWZYEIORxOeh0XmFl_B_KckiDKp3bisabIZU-Aq4HECcILYdz4kXSJlOplj4-0RqyxzAnYHirpFHkr1P_zllSNgdP_7gTisk1vBodlaBcbesACkGHNJMwR0o4prdwb4uSkFnOcHQFaEJOUwLYiy9dbjZCnj0BT6dLLGvCmxPRg=="
+    },
+    {
+      "title": "quantiphi.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFtlZPGIu7ynU8QcBmZK5kHFJO3thw2lYe93soz1sONwC3NCc_rZIy7LyFbaVWNqI7-XfYvIbaIZhM11Qh29Ke0gzeRcsoqbpF306TAxaAGtIFg_jOGI-LNklT0lHGOYTWBDndWe_Xt2HSvDlqAxq1HRKY6VeFcFffszlOzJO-xLz8="
+    },
+    {
+      "title": "quantiphi.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF3vM-koEpTmBqPhYJJGEcSmJG2u2wAVIjjglchFDxI_FDLq56mlq9Tc33gop7_g6F8NTSuFyofMjik17kXO0_7eFhCM3NPFlh-AlSGWTFq9blu_dL2t8tjwDAI8wAbAcvJtQMW"
+    },
+    {
+      "title": "quantiphi.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFBXHGTlTrxJ1OMzKH83ouUlrTcIMZJMAJuH9ba1Fd6bmL2Wf-iOYsG-5RQuIioXUHxuw_bdoyUB4zZW4RbdAs1eyJdb9lJbtpredtJb-sDhtntSd6PMXEJY-nbsM7Bitx7lZmXiYz7K7ELnmd8yI9QOyFmDCwLNgJRjaz5XKpaNToPu-dxGykp"
+    },
+    {
+      "title": "quantiphi.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHxj87d5Zq_SjEqkXNcUKdmCwdSWcmKKC22e3t4eLpTDL-3TF7KX48zTBLlMpN5GaDtCYHQfgkB7_2ZIkVG-ObNkpiAx1oYpLCydGyTNJkYpkpRUWw2_KAuHMrSFVnzEfIJHJd-2VOeK78Of9ste52dzaSLRFocCQ=="
+    },
+    {
+      "title": "quantiphi.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHnlNwbMjCkglZ07uBzQU-nacXzs8rbYpJxNqVrbx52ka1rNImAd8cM_UiC27bj3Wx2VOAyIYDkdUC1fDIBpavrbnF9rlpfLGrbT1znVXWIneYlkFbWkC6Y5i7pkDgBxfvRTNtzXcdwE4gEyCErZx80Of93pTBXrqSuY47yUv2AxY5wB7WQwDmXuHrcaKKWlLxbaTSyJSeegPIROa3AS9XqLS55gpc6BtiiE5KA5A=="
+    },
+    {
+      "title": "medium.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFzrL39bogc7TKfYMaopu6ykRu3qlJwxy8aiMstgwPisrGLLhYaEwYu3VIHlsM8IYVj0t6hoC6KFtHJw9AUl8PJ0L2d094cePh37mm2cMNXbaBcKNjQd1RkLLtPJlmDkWIlgZYOtBkOwIHJqK7B3LAJV8uoPb9MOlFRrNuWoPRyiIcXn20ROOHTV4pRwtg3FngYqlkr5aVJny1fhFac5HCyH28BUUstXHcjRj4lxuodmVL9dmR7"
     }
   ]
 }

@@ -33,7 +33,13 @@ export function looksLikeGeminiKey(key: string): boolean {
 
 function readLocal(key: string): string {
   try {
-    return localStorage.getItem(key) ?? '';
+    const val = localStorage.getItem(key);
+    if (val) return val;
+    // Fall back to mi.apiKey alias if set
+    if (key === STORAGE_KEY) {
+      return localStorage.getItem('mi.apiKey') ?? '';
+    }
+    return '';
   } catch {
     return '';
   }

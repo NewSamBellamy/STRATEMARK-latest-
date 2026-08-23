@@ -56,8 +56,6 @@ import {
 } from './company-agent';
 import { researchMarketSignals } from './signal-agents';
 import { expandDeckWithDeltaAgent } from './delta-agent';
-import { mapMarketTopology } from './adk/discovery-agent';
-import { createAdkTelemetry } from './adk/telemetry';
 
 export interface ResearchResult {
   market: Market;
