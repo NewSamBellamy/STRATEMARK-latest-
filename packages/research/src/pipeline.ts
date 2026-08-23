@@ -56,6 +56,8 @@ import {
 } from './company-agent';
 import { researchMarketSignals } from './signal-agents';
 import { expandDeckWithDeltaAgent } from './delta-agent';
+import { mapMarketTopology } from './adk/discovery-agent';
+import { createAdkTelemetry } from './adk/telemetry';
 
 export interface ResearchResult {
   market: Market;
@@ -512,19 +514,53 @@ export async function discoverDeckStubs(
   emit({
     type: 'status',
     step: 'discover',
-    message: 'Discovering companies via grounded search…',
+    message: 'Discovering companies via 3-vector Google ADK topology mapping…',
   });
-  const discovery = await discoverWithCoverage(
-    client,
-    plan,
-    coverage,
-    signal,
-    options.catalogMax ?? 50,
-    options.catalogPasses ?? plan.searchThemes.length,
-  );
-  const candidates = discovery.candidates;
-  const rejected = discovery.rejected;
-  const minimumCompaniesSatisfied = discovery.minimumCompaniesSatisfied;
+
+  let candidates: CompanyCandidate[] = [];
+  let rejected: string[] = [];
+  let minimumCompaniesSatisfied = false;
+
+  try {
+    const telemetry = createAdkTelemetry({ rootAuthor: 'discover_deck_stubs', rootBranch: 'root' });
+    const topology = await mapMarketTopology({
+      client,
+      plan,
+      telemetry,
+      signal,
+      targets: {
+        core_operators: Math.min(options.catalogMax ?? 50, coverage.companies.target),
+        infrastructure_supply: coverage.infrastructure.target,
+        distribution_channel: coverage.distribution.target,
+      },
+    });
+    if (topology && topology.candidates.length > 0) {
+      candidates = topology.candidates.map((c) => ({
+        name: c.name,
+        domain: c.domain,
+        descriptor: c.descriptor,
+        primaryRole: c.primaryRole,
+        cardTypes: c.cardTypes,
+      }));
+      minimumCompaniesSatisfied = candidates.length >= coverage.companies.min;
+    }
+  } catch {
+    // Fallback if parallel vector throws
+  }
+
+  if (candidates.length === 0) {
+    const discovery = await discoverWithCoverage(
+      client,
+      plan,
+      coverage,
+      signal,
+      options.catalogMax ?? 50,
+      0,
+    );
+    candidates = discovery.candidates;
+    rejected = discovery.rejected;
+    minimumCompaniesSatisfied = discovery.minimumCompaniesSatisfied;
+  }
   if (rejected.length > 0) {
     emit({
       type: 'warning',

@@ -6,7 +6,7 @@
  * "New Deck" — the running session is still here.
  */
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   ArrowUp,
@@ -379,6 +379,7 @@ function timeLabel(): string {
 }
 
 export default function NewDeckPage() {
+  const navigate = useNavigate();
   const repo = useRepository();
   const { user, getToken } = useAuth();
   const isPro = user?.subscriptionTier === 'pro';
@@ -469,6 +470,7 @@ export default function NewDeckPage() {
         },
       );
       finish(`/markets/${market.id}/deck`, cardCount);
+      navigate(`/markets/${market.id}/deck`);
     } catch (err) {
       fail(err instanceof Error ? err.message : 'Research failed.');
     }
