@@ -644,6 +644,50 @@ export async function discoverDeckStubs(
       candidate.primaryRole ??
       primaryEntityType(candidate.cardTypes, candidate.name, candidate.descriptor);
     const cardId = uid('crd', `${slugify(candidate.name)}-${primaryRole}`);
+    const initialEmployees =
+      primaryRole === 'infrastructure' ? 120 : primaryRole === 'distribution' ? 80 : 35;
+    const initialArr = initialEmployees * 160000;
+    const initialValuation = initialArr * 6;
+    const initialMetrics = [
+      {
+        id: uid('met', `${companyId}-employees`),
+        companyId,
+        metricType: 'employees' as const,
+        value: initialEmployees,
+        confidence: 'estimated' as const,
+        source: 'Tier 2 Proxy (Industry category benchmark)',
+        methodNote: 'FTE category estimate',
+        capturedAt: new Date().toISOString(),
+        citations: [],
+        asOfDate: new Date().toISOString().slice(0, 10),
+      },
+      {
+        id: uid('met', `${companyId}-arr`),
+        companyId,
+        metricType: 'arr' as const,
+        value: initialArr,
+        confidence: 'estimated' as const,
+        source: `Tier 2 Proxy ($160k ARR/FTE × ${initialEmployees})`,
+        methodNote: `$160k × ${initialEmployees} FTE`,
+        capturedAt: new Date().toISOString(),
+        citations: [],
+        asOfDate: new Date().toISOString().slice(0, 10),
+      },
+      {
+        id: uid('met', `${companyId}-valuation`),
+        companyId,
+        metricType: 'valuation' as const,
+        value: initialValuation,
+        confidence: 'estimated' as const,
+        source: 'Tier 3 Proxy (6x ARR Dilution Multiple)',
+        methodNote: '6x ARR Proxy',
+        capturedAt: new Date().toISOString(),
+        citations: [],
+        asOfDate: new Date().toISOString().slice(0, 10),
+      },
+    ];
+
+    const initialCms = computeCms(buildCmsInput(initialMetrics), { deckUserValues: [] });
     const card: Card = {
       id: cardId,
       deckId: deck.id,
@@ -651,8 +695,8 @@ export async function discoverDeckStubs(
       cardType: primaryRole,
       title: null,
       summary: candidate.descriptor || null,
-      tier: null,
-      tierReason: null,
+      tier: initialCms.finalTier ?? 5,
+      tierReason: `Initial proxy estimation based on category benchmark`,
       citations: [],
       keyPoints: [],
       createdAt: now(),
@@ -660,7 +704,7 @@ export async function discoverDeckStubs(
     return {
       card,
       company,
-      metrics: [],
+      metrics: initialMetrics,
       viceClaims: [],
     };
   });

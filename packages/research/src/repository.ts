@@ -533,6 +533,12 @@ export class GeminiRepository implements MarketIntelRepository {
       ...this.snap.cards.filter((c) => c.deckId !== stubsResult.deck.id),
       ...stubsResult.cards.map((c) => c.card),
     ];
+    this.snap.metrics = [
+      ...this.snap.metrics.filter(
+        (m) => !stubsResult.cards.some((c) => c.company?.id === m.companyId),
+      ),
+      ...stubsResult.cards.flatMap((c) => c.metrics),
+    ];
     for (const stub of stubsResult.cards) {
       if (stub.company) {
         const existingIdx = this.snap.companies.findIndex((c) => c.id === stub.company!.id);
