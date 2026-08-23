@@ -200,8 +200,8 @@ function fakeDiscoveryClient(
 }
 
 function detectFocus(prompt: string): string {
-  if (prompt.includes('infrastructure')) return 'infrastructure';
-  if (prompt.includes('distribution')) return 'distribution';
+  if (prompt.includes('focused on infrastructure') || prompt.includes('notes for infrastructure') || prompt.includes('infrastructure providers') || prompt.includes('infrastructure_supply')) return 'infrastructure';
+  if (prompt.includes('focused on distribution') || prompt.includes('notes for distribution') || prompt.includes('distribution/channel') || prompt.includes('distribution_channel')) return 'distribution';
   return 'company';
 }
 

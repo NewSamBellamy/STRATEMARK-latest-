@@ -200,7 +200,7 @@ export async function runSignalWatcher(
       const result = await agent.searchDelta({
         focus,
         target: targetPerIteration,
-        exclude,
+        exclude: [...exclude],
         ...(signal === undefined ? {} : { signal }),
       });
       passSpan.toolResult('delta_agent.search', {

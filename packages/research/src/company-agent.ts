@@ -99,6 +99,7 @@ export interface CompanyAgentMemory {
 }
 
 export interface HydrateCompanyCardOptions {
+  companyId?: string;
   deckId?: string;
   deckUserValues?: number[];
   signal?: AbortSignal;
@@ -537,7 +538,7 @@ export async function hydrateCompanyCard(
 
   // 3. Company Entity Construction & Inline Logo Resolution
   const slug = slugify(candidate.name);
-  const companyId = uid('cmp', slug);
+  const companyId = options.companyId ?? options.existingMemory?.companyId ?? uid('cmp', slug);
   const website = enrichment.website ?? (candidate.domain ? `https://${candidate.domain}` : null);
   const domain = rootDomain(website) ?? candidate.domain;
 
