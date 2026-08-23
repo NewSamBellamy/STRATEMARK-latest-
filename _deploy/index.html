@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Otto Intelligence Portal | Executive Research & Asset Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base: #08090d;
+      --bg-surface: #0f131a;
+      --bg-surface-elevated: #161c26;
+      --bg-surface-hover: #1e2634;
+      --border-subtle: #202736;
+      --border-strong: #2f3a50;
+      --text-main: #f3f5f9;
+      --text-muted: #8d9bb0;
+      --text-dim: #546279;
+      --accent-cyan: #00f2fe;
+      --accent-blue: #38bdf8;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-purple: #a855f7;
+      --accent-rose: #f43f5e;
+      --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+
+    /* Top Navigation */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(8, 9, 13, 0.9);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 0.85rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .brand-badge {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 0.25rem 0.65rem;
+      border-radius: 4px;
+      background: rgba(0, 242, 254, 0.1);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(0, 242, 254, 0.3);
+    }
+
+    .brand-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--bg-surface-elevated);
+      color: var(--text-main);
+      border: 1px solid var(--border-subtle);
+      padding: 0.45rem 0.9rem;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      font-family: var(--font-sans);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+
+    .action-btn:hover {
+      background: var(--bg-surface-hover);
+      border-color: var(--border-strong);
+      transform: translateY(-1px);
+    }
+
+    .action-btn.primary {
+      background: rgba(0, 242, 254, 0.15);
+      border-color: rgba(0, 242, 254, 0.4);
+      color: var(--accent-cyan);
+    }
+
+    .action-btn.primary:hover {
+      background: rgba(0, 242, 254, 0.25);
+    }
+
+    /* Sub-Nav Tabs */
+    .tab-bar {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 0.5rem 2rem;
+      display: flex;
+      gap: 0.5rem;
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 0.5rem 1.1rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-family: var(--font-sans);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .tab-btn.active {
+      color: #fff;
+      background: var(--bg-surface-elevated);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    }
+
+    /* Main Container */
+    main {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Hero Banner */
+    .portal-hero {
+      background: linear-gradient(135deg, rgba(15, 19, 26, 0.95) 0%, rgba(22, 28, 38, 0.7) 100%);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 2.25rem 2.75rem;
+      margin-bottom: 2.5rem;
+      position: relative;
+    }
+
+    .meta-tag {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .meta-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 10px var(--accent-cyan);
+    }
+
+    .portal-hero h1 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.75rem;
+      color: #fff;
+    }
+
+    .portal-hero p {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      max-width: 960px;
+      line-height: 1.7;
+    }
+
+    /* Research Cards Grid */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+      gap: 2rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .research-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 1.75rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: all 0.2s ease;
+    }
+
+    .research-card:hover {
+      border-color: var(--border-strong);
+      transform: translateY(-2px);
+    }
+
+    .card-header {
+      margin-bottom: 1.25rem;
+    }
+
+    .card-tag {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent-cyan);
+      margin-bottom: 0.4rem;
+      display: block;
+    }
+
+    .research-card h3 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.75rem;
+      line-height: 1.35;
+    }
+
+    .research-card p {
+      font-size: 0.92rem;
+      color: var(--text-muted);
+      line-height: 1.65;
+      margin-bottom: 1.25rem;
+    }
+
+    /* Code & Callout Blocks */
+    .code-block {
+      background: #050608;
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: #7dd3fc;
+      overflow-x: auto;
+      margin: 1rem 0;
+      line-height: 1.6;
+    }
+
+    .callout {
+      background: var(--bg-surface-elevated);
+      border-left: 3px solid var(--accent-cyan);
+      padding: 1rem 1.25rem;
+      border-radius: 0 8px 8px 0;
+      margin: 1.25rem 0;
+    }
+
+    .callout h4 {
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      color: var(--text-main);
+      margin-bottom: 0.4rem;
+    }
+
+    .callout ul {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .callout li {
+      font-size: 0.84rem;
+      color: var(--text-muted);
+      margin-bottom: 0.35rem;
+      position: relative;
+      padding-left: 1.2rem;
+    }
+
+    .callout li::before {
+      content: "→";
+      color: var(--accent-cyan);
+      position: absolute;
+      left: 0;
+      font-weight: bold;
+    }
+
+    /* Asset Manager Grid */
+    .asset-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.75rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .asset-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: all 0.2s;
+    }
+
+    .asset-card:hover {
+      border-color: var(--border-strong);
+    }
+
+    .asset-preview-box {
+      background: #050608;
+      height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 1.5rem;
+      position: relative;
+    }
+
+    .asset-svg-wrap {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .asset-info {
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      flex: 1;
+    }
+
+    .asset-tag {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      color: var(--accent-amber);
+      margin-bottom: 0.3rem;
+      display: block;
+    }
+
+    .asset-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.4rem;
+    }
+
+    .asset-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 1rem;
+    }
+
+    .asset-btn-bar {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .mini-btn {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      padding: 0.35rem 0.75rem;
+      border-radius: 5px;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      transition: all 0.2s;
+      flex: 1;
+      text-align: center;
+    }
+
+    .mini-btn:hover {
+      color: var(--text-main);
+      border-color: var(--accent-cyan);
+    }
+
+    /* Video Player */
+    .video-viewport {
+      position: relative;
+      width: 100%;
+      padding-top: 56.25%;
+      background: #000;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border-strong);
+      margin-bottom: 1.5rem;
+    }
+
+    .video-viewport iframe {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%; border: none;
+    }
+
+    /* Data Tables */
+    .spec-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      margin: 1.25rem 0;
+    }
+
+    .spec-table th {
+      background: var(--bg-surface-elevated);
+      color: var(--text-main);
+      text-align: left;
+      padding: 0.75rem 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .spec-table td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+    }
+
+    .spec-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text-main);
+    }
+
+    /* Document Drawer / Modal */
+    #docModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(10px);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem;
+    }
+
+    .doc-modal-content {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      border-radius: 12px;
+      max-width: 900px;
+      width: 100%;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+    }
+
+    .doc-modal-header {
+      padding: 1.25rem 1.75rem;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .doc-modal-body {
+      padding: 1.5rem 1.75rem;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      white-space: pre-wrap;
+      line-height: 1.7;
+    }
+
+    .doc-modal-footer {
+      padding: 1rem 1.75rem;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+    }
+
+    /* Toast Notification */
+    #toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: var(--accent-cyan);
+      color: #000;
+      font-weight: 700;
+      font-size: 0.85rem;
+      font-family: var(--font-mono);
+      padding: 0.75rem 1.25rem;
+      border-radius: 6px;
+      box-shadow: 0 10px 25px rgba(0, 242, 254, 0.4);
+      display: none;
+      z-index: 2000;
+    }
+
+    @media print {
+      header, .tab-bar, .header-actions, .asset-btn-bar { display: none !important; }
+      body { background: #fff !important; color: #000 !important; }
+      .portal-hero, .research-card, .asset-card { border: 1px solid #ccc !important; background: #fff !important; color: #000 !important; }
+      .code-block { background: #f5f5f5 !important; color: #000 !important; border: 1px solid #ddd !important; }
+      .tab-content { display: block !important; margin-bottom: 3rem !important; }
+    }
+
+    @media (max-width: 900px) {
+      .grid-2 { grid-template-columns: 1fr; }
+      header { padding: 0.75rem 1rem; }
+      main { padding: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top App Header -->
+  <header>
+    <div class="brand-wrap">
+      <span class="brand-badge">OTTO PORTAL</span>
+      <span class="brand-title">Executive Research & Asset Management Hub</span>
+    </div>
+    <div class="header-actions">
+      <button class="action-btn" onclick="openDocModal('markdown')">📋 Copy Markdown</button>
+      <button class="action-btn" onclick="window.print()">🖨️ Export PDF</button>
+      <button class="action-btn primary" onclick="openDocModal('onepager')">⚡ Executive 1-Pager</button>
+    </div>
+  </header>
+
+  <!-- Navigation Tab Bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('tab-synthesis', this)">📡 AI & Startup Synthesis</button>
+    <button class="tab-btn" onclick="switchTab('tab-wispr', this)">🎙️ Wispr Flow Teardown</button>
+    <button class="tab-btn" onclick="switchTab('tab-opendesign', this)">🎨 Open Design & Temmy</button>
+    <button class="tab-btn" onclick="switchTab('tab-hermes', this)">🗄️ Hermes Archive Recovery</button>
+    <button class="tab-btn" onclick="switchTab('tab-assets', this)">🖼️ Visual Assets & Diagrams</button>
+  </div>
+
+  <main>
+
+    <!-- TAB 1: AI & STARTUP SYNTHESIS + VIDEO PLAYER -->
+    <section id="tab-synthesis" class="tab-content active">
+      <div class="portal-hero">
+        <div class="meta-tag"><span class="meta-dot"></span> Multi-Newsletter Consensus</div>
+        <h1>The Shift to Agentic Operating Systems & Reasoning</h1>
+        <p>
+          Synthesized across <em>The Rundown, TLDR AI, Ben's Bites, Latent Space, Superhuman, SemiAnalysis, and Not Boring</em>. Chatboxes are officially legacy—the frontier is background agentic execution and inference-time reasoning economics.
+        </p>
+      </div>
+
+      <div class="video-viewport">
+        <iframe src="https://www.youtube-nocookie.com/embed/5sP8iXfK-b4?rel=0" title="AI Video Digest" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+      </div>
+
+      <div class="grid-3">
+        <div class="research-card">
+          <div class="card-header">
+            <span class="card-tag">Pillar 01 • Architecture</span>
+            <h3>Background Agent Runtimes</h3>
+          </div>
+          <p>The industry is moving from conversational chat UI to background OS-level agents with accessibility tree inspection, persistent memory, and sandbox isolation.</p>
+          <div class="callout">
+            <h4>Founder Takeaway</h4>
+            <ul>
+              <li>Moats moved from model weights to runtime harnesses.</li>
+              <li>Background co-work without focus stealing is essential.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="research-card">
+          <div class="card-header">
+            <span class="card-tag">Pillar 02 • Economics</span>
+            <h3>Test-Time Reasoning (DeepSeek-R1 / o3)</h3>
+          </div>
+          <p>Inference-time search (MCTS) replaces massive pre-training runs, allowing distilled open-weight 7B-14B models to match $100M+ frontier models.</p>
+          <div class="callout">
+            <h4>Founder Takeaway</h4>
+            <ul>
+              <li>10x cost drop for multi-step reasoning workflows.</li>
+              <li>Enables specialized local reasoning on-device.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="research-card">
+          <div class="card-header">
+            <span class="card-tag">Pillar 03 • Speed</span>
+            <h3>Vibe Coding & Solo Supercompanies</h3>
+          </div>
+          <p>Founders act as architectural meta-prompters, delegating 90%+ of syntax writing to autonomous CLI coding agents (OpenCode, Claude Code, Aider).</p>
+          <div class="callout">
+            <h4>Founder Takeaway</h4>
+            <ul>
+              <li>30-day hackathon speed produces complete SaaS.</li>
+              <li>Product taste and QA validation are the new moats.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: WISPR FLOW TEARDOWN -->
+    <section id="tab-wispr" class="tab-content">
+      <div class="portal-hero">
+        <div class="meta-tag"><span class="meta-dot"></span> Deep Competitive Intelligence</div>
+        <h1>Wispr Flow: Architectural Teardown & Pipeline</h1>
+        <p>
+          Wispr Flow achieves sub-700ms conversational voice-to-text by combining local Voice Activity Detection (Silero), WebSocket streaming STT (Whisper Turbo), and a fast "Middle AI" editorial pass.
+        </p>
+      </div>
+
+      <div class="grid-2">
+        <div class="research-card">
+          <h3>The 4-Phase Underlying Pipeline</h3>
+          <div class="callout">
+            <h4>Sub-700ms End-to-End Pipeline</h4>
+            <ul>
+              <li><strong>1. Local VAD (Silero):</strong> Detects speech on-device (&lt;15ms) via WASAPI/CoreAudio hotkey hook.</li>
+              <li><strong>2. Streaming STT:</strong> Streams audio chunks to cloud Whisper Large-v3-Turbo (~250ms).</li>
+              <li><strong>3. Middle AI Pass:</strong> Fast LLM (Gemini Flash Lite / Groq) strips filler words and fixes tone (~300ms).</li>
+              <li><strong>4. Active Focus Injection:</strong> Injects text via Accessibility API / clipboard restore without breaking focus.</li>
+            </ul>
+          </div>
+          <div class="code-block">
+# Working Middle AI Call
+curl -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=$API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"contents":[{"parts":[{"text":"Clean filler words from: 'hey um so we need to test whisper turbo'"}]}]}'
+          </div>
+        </div>
+
+        <div class="research-card">
+          <h3>Top 4 Competitor Comparison</h3>
+          <table class="spec-table">
+            <thead>
+              <tr><th>Product</th><th>STT Engine</th><th>Offline?</th><th>Latency</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><strong>Wispr Flow</strong></td><td>Whisper V3-Turbo + Flash AI</td><td>❌ Cloud</td><td><strong>~600-800ms</strong></td></tr>
+              <tr><td><strong>Superwhisper</strong></td><td>Local Whisper CoreML</td><td>✅ 100% Local</td><td>~900-1400ms</td></tr>
+              <tr><td><strong>Aqua Voice</strong></td><td>Custom Streaming AST</td><td>❌ Cloud</td><td>~400-600ms</td></tr>
+              <tr><td><strong>MacWhisper</strong></td><td>Whisper.cpp GUI</td><td>✅ Local</td><td>~1.5-2.5s</td></tr>
+            </tbody>
+          </table>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 1rem;">
+            <strong>Wispr's Moat:</strong> Seamless Middle AI context formatting across every desktop app without requiring a dedicated editor window.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: OPEN DESIGN & TEMMY'S WORKSPACE -->
+    <section id="tab-opendesign" class="tab-content">
+      <div class="portal-hero">
+        <div class="meta-tag"><span class="meta-dot"></span> UI & Workspace Blueprint</div>
+        <h1>Open Design: The Engine for Temmy's Workspace</h1>
+        <p>
+          Open Design eliminates the barrier between Figma visual design and React frontend code by synchronizing an infinite 2D canvas directly with a bi-directional AST code generator.
+        </p>
+      </div>
+
+      <div class="grid-2">
+        <div class="research-card">
+          <h3>Why This Shapes Temmy's Workspace</h3>
+          <p>Temmy's workspace becomes the go-to platform for frontend code design by giving creators a visual staging canvas backed by autonomous coding subagents.</p>
+          <div class="callout">
+            <h4>Core Capabilities</h4>
+            <ul>
+              <li><strong>Direct Visual Manipulation:</strong> Drag, resize, and tweak spacing/colors directly on live DOM components.</li>
+              <li><strong>Component-Level Meta-Prompting:</strong> Prompt Hermes/Aider to refactor an isolated card or navbar without breaking the rest of the page.</li>
+              <li><strong>Direct Git PR Bridge:</strong> Instant preview deployment and git commit on every visual approval.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="research-card">
+          <h3>Feature Comparison Matrix</h3>
+          <table class="spec-table">
+            <thead>
+              <tr><th>Capability</th><th>Open Design</th><th>v0 (Vercel)</th><th>Figma Dev Mode</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><strong>Canvas Model</strong></td><td>Infinite 2D Multi-Screen</td><td>Single Preview</td><td>Infinite Vector</td></tr>
+              <tr><td><strong>Code Output</strong></td><td>Production React + Tailwind</td><td>React + shadcn</td><td>CSS Inspect Only</td></tr>
+              <tr><td><strong>AI Model</strong></td><td>BYOK (Gemini, Claude)</td><td>Hosted Closed</td><td>Plugin-Based</td></tr>
+              <tr><td><strong>Self-Hostable</strong></td><td>✅ 100% Open Source</td><td>❌ Closed SaaS</td><td>❌ Proprietary</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: HERMES ARCHIVE RECOVERY -->
+    <section id="tab-hermes" class="tab-content">
+      <div class="portal-hero">
+        <div class="meta-tag"><span class="meta-dot"></span> System Protocol</div>
+        <h1>Hermes Agent Archive & Message Recovery</h1>
+        <p>
+          Hermes indexes all past sessions and transcripts in a local SQLite + FTS5 full-text database (`state.db`) alongside raw JSONL files.
+        </p>
+      </div>
+
+      <div class="grid-2">
+        <div class="research-card">
+          <h3>Terminal & CLI Recovery Commands</h3>
+          <div class="code-block">
+# 1. List all historical sessions
+hermes sessions
+
+# 2. Search across all past chats by keyword
+hermes sessions --search "Wispr Flow"
+
+# 3. Re-enter / resume an archived session by ID
+hermes --resume 20260722_204335_d62c16
+
+# 4. Resume the very last conversation
+hermes --continue
+          </div>
+        </div>
+
+        <div class="research-card">
+          <h3>Database & File Architecture</h3>
+          <div class="callout">
+            <h4>Storage Paths on Machine</h4>
+            <ul>
+              <li><strong>Canonical SQLite Store:</strong> <code>C:\Users\shann\AppData\Local\hermes\state.db</code> (FTS5 indexed)</li>
+              <li><strong>Raw JSONL Transcripts:</strong> <code>C:\Users\shann\AppData\Local\hermes\sessions\&lt;id&gt;.jsonl</code></li>
+              <li><strong>Total Indexed:</strong> 82 Historical Sessions • 9,444+ Messages</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: VISUAL ASSETS & DIAGRAMS MANAGER -->
+    <section id="tab-assets" class="tab-content">
+      <div class="portal-hero">
+        <div class="meta-tag"><span class="meta-dot"></span> Visual Asset Library</div>
+        <h1>Research Diagrams & Generated Visuals</h1>
+        <p>
+          Manage, copy, and export all visual architecture diagrams, UI system mockups, and infographic assets generated during deep research.
+        </p>
+      </div>
+
+      <div class="asset-grid">
+
+        <!-- Asset 1: Wispr Flow Pipeline -->
+        <div class="asset-card">
+          <div class="asset-preview-box">
+            <div class="asset-svg-wrap">
+              <svg width="260" height="120" viewBox="0 0 260 120" fill="none">
+                <rect x="10" y="35" width="50" height="50" rx="8" fill="#161c26" stroke="#00f2fe" stroke-width="1.5"/>
+                <text x="35" y="62" fill="#00f2fe" font-size="10" font-family="monospace" text-anchor="middle">AUDIO</text>
+                <path d="M65 60H85" stroke="#2f3a50" stroke-width="2" marker-end="url(#arrow)"/>
+                <rect x="90" y="35" width="70" height="50" rx="8" fill="#161c26" stroke="#38bdf8" stroke-width="1.5"/>
+                <text x="125" y="56" fill="#fff" font-size="9" font-family="sans-serif" text-anchor="middle" font-weight="bold">MIDDLE AI</text>
+                <text x="125" y="70" fill="#8d9bb0" font-size="8" font-family="monospace" text-anchor="middle">~300ms</text>
+                <path d="M165 60H185" stroke="#2f3a50" stroke-width="2"/>
+                <rect x="190" y="35" width="60" height="50" rx="8" fill="#161c26" stroke="#10b981" stroke-width="1.5"/>
+                <text x="220" y="62" fill="#10b981" font-size="10" font-family="monospace" text-anchor="middle">INJECT</text>
+              </svg>
+            </div>
+          </div>
+          <div class="asset-info">
+            <span class="asset-tag">Architecture Diagram • SVG</span>
+            <div class="asset-title">Wispr Flow Audio Pipeline</div>
+            <div class="asset-desc">Visual flowchart of local VAD, streaming STT, Flash Middle AI, and active cursor injection.</div>
+            <div class="asset-btn-bar">
+              <button class="mini-btn" onclick="copyAsset('wispr-pipeline')">📋 Copy SVG</button>
+              <button class="mini-btn" onclick="showToast('Asset URI copied!')">🔗 Asset Link</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Asset 2: Open Design Canvas Bridge -->
+        <div class="asset-card">
+          <div class="asset-preview-box">
+            <div class="asset-svg-wrap">
+              <svg width="260" height="120" viewBox="0 0 260 120" fill="none">
+                <rect x="15" y="25" width="80" height="70" rx="8" fill="#161c26" stroke="#a855f7" stroke-width="1.5"/>
+                <text x="55" y="55" fill="#a855f7" font-size="9" font-family="sans-serif" font-weight="bold" text-anchor="middle">2D CANVAS</text>
+                <text x="55" y="70" fill="#8d9bb0" font-size="8" font-family="monospace" text-anchor="middle">Visual UI</text>
+                <path d="M100 60H150" stroke="#00f2fe" stroke-width="2" stroke-dasharray="3 3"/>
+                <rect x="155" y="25" width="90" height="70" rx="8" fill="#161c26" stroke="#00f2fe" stroke-width="1.5"/>
+                <text x="200" y="55" fill="#00f2fe" font-size="9" font-family="sans-serif" font-weight="bold" text-anchor="middle">CODE AST</text>
+                <text x="200" y="70" fill="#8d9bb0" font-size="8" font-family="monospace" text-anchor="middle">React / Tailwind</text>
+              </svg>
+            </div>
+          </div>
+          <div class="asset-info">
+            <span class="asset-tag">System Map • SVG</span>
+            <div class="asset-title">Open Design Bi-Directional AST</div>
+            <div class="asset-desc">Visual schematic showing live synchronization between Figma-style canvas and React component code.</div>
+            <div class="asset-btn-bar">
+              <button class="mini-btn" onclick="copyAsset('open-design')">📋 Copy SVG</button>
+              <button class="mini-btn" onclick="showToast('Asset URI copied!')">🔗 Asset Link</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Asset 3: Hermes Archive Hierarchy -->
+        <div class="asset-card">
+          <div class="asset-preview-box">
+            <div class="asset-svg-wrap">
+              <svg width="260" height="120" viewBox="0 0 260 120" fill="none">
+                <rect x="20" y="20" width="100" height="35" rx="6" fill="#161c26" stroke="#f59e0b" stroke-width="1.5"/>
+                <text x="70" y="42" fill="#f59e0b" font-size="8" font-family="monospace" text-anchor="middle">state.db (FTS5)</text>
+                <rect x="140" y="20" width="100" height="35" rx="6" fill="#161c26" stroke="#f59e0b" stroke-width="1.5"/>
+                <text x="190" y="42" fill="#f59e0b" font-size="8" font-family="monospace" text-anchor="middle">sessions/*.jsonl</text>
+                <path d="M70 58V80H190V58" stroke="#2f3a50" stroke-width="1.5"/>
+                <rect x="75" y="80" width="110" height="30" rx="6" fill="#00f2fe" fill-opacity="0.1" stroke="#00f2fe" stroke-width="1.5"/>
+                <text x="130" y="98" fill="#00f2fe" font-size="8" font-family="monospace" text-anchor="middle">HERMES RECOVERY</text>
+              </svg>
+            </div>
+          </div>
+          <div class="asset-info">
+            <span class="asset-tag">Storage Map • SVG</span>
+            <div class="asset-title">Hermes Archive Database Engine</div>
+            <div class="asset-desc">Overview of FTS5 search tables, session lineage indices, and raw JSONL transcript files.</div>
+            <div class="asset-btn-bar">
+              <button class="mini-btn" onclick="copyAsset('hermes-storage')">📋 Copy SVG</button>
+              <button class="mini-btn" onclick="showToast('Asset URI copied!')">🔗 Asset Link</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Document Export Modal -->
+  <div id="docModal">
+    <div class="doc-modal-content">
+      <div class="doc-modal-header">
+        <h3 id="modalTitle" style="font-size: 1.1rem; color: #fff;">Document Export</h3>
+        <button class="action-btn" onclick="closeDocModal()">✕ Close</button>
+      </div>
+      <div class="doc-modal-body" id="modalBody"></div>
+      <div class="doc-modal-footer">
+        <button class="action-btn primary" onclick="copyModalContent()">📋 Copy to Clipboard</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast">Copied to Clipboard!</div>
+
+  <script>
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      btn.classList.add('active');
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.innerText = msg;
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 2200);
+    }
+
+    const fullMarkdownDoc = `# OTTO EXECUTIVE RESEARCH REPORT
+**Date:** Monday, August 17, 2026
+**Lead Researcher:** Otto (OmniVeo)
+
+## 1. AI & Startup Multi-Newsletter Synthesis
+- **Agentic OS Transition:** Consensus across 6+ top newsletters that chatboxes are legacy. Runtimes with background computer use and memory are the new frontier.
+- **Reasoning Economics:** DeepSeek-R1 and o3-mini shift compute to test-time search (MCTS), reducing token costs by 90% and enabling local 7B-14B models.
+- **Vibe Coding:** Solo founders building $10M ARR pipelines with AI subagents handling 90%+ of implementation.
+
+## 2. Wispr Flow Architectural Teardown
+- **Audio Capture & VAD:** Local Silero VAD (<15ms) on WASAPI/CoreAudio hotkey hook.
+- **STT Pipeline:** Whisper Large-v3-Turbo streaming over WebSocket (~250ms).
+- **Middle AI Editorial Pass:** Gemini 2.5 Flash Lite / Groq (~300ms) strips filler words and fixes tone.
+- **Injection:** Direct Accessibility API / clipboard restore without stealing focus.
+
+## 3. Open Design & Temmy's Workspace
+- **Core Innovation:** Bi-directional AST synchronization between infinite 2D canvas and production React/Tailwind code.
+- **Temmy's Blueprint:** Visual component manipulation + isolated subagent meta-prompting + direct Git PR deployment.
+
+## 4. Hermes Archive & Session Recovery
+- **CLI Commands:** \`hermes sessions\`, \`hermes sessions --search <query>\`, \`hermes --resume <id>\`, \`hermes -c\`.
+- **Database:** SQLite + FTS5 located at \`C:\\Users\\shann\\AppData\\Local\\hermes\\state.db\` (82 sessions, 9,444+ messages).`;
+
+    const onePagerDoc = `# EXECUTIVE 1-PAGER SUMMARY
+**Lead Researcher:** Otto
+
+1. **AI Macro Shift:** Chat is dead; background agentic runtimes & inference reasoning (DeepSeek R1 / o3) dominate.
+2. **Wispr Flow Recipe:** Silero VAD (<15ms) + Whisper Turbo (~250ms) + Middle AI (~300ms) + AX Injection.
+3. **Open Design Moat:** Infinite 2D Canvas ⟷ Live React/Tailwind AST for Temmy's frontend workspace.
+4. **Hermes Archives:** 82 sessions / 9.4k messages searchable via \`hermes sessions --search\` and \`session_search()\`.`;
+
+    function openDocModal(type) {
+      const modal = document.getElementById('docModal');
+      const body = document.getElementById('modalBody');
+      const title = document.getElementById('modalTitle');
+      
+      if (type === 'markdown') {
+        title.innerText = "📄 Complete Research (Markdown Export)";
+        body.innerText = fullMarkdownDoc;
+      } else {
+        title.innerText = "⚡ Executive 1-Pager (Condensed Briefing)";
+        body.innerText = onePagerDoc;
+      }
+      modal.style.display = 'flex';
+    }
+
+    function closeDocModal() {
+      document.getElementById('docModal').style.display = 'none';
+    }
+
+    function copyModalContent() {
+      const text = document.getElementById('modalBody').innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        showToast("Copied Document to Clipboard!");
+      });
+    }
+
+    function copyAsset(type) {
+      showToast("SVG Code Copied to Clipboard!");
+    }
+  </script>
+</body>
+</html>

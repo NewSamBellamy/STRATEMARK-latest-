@@ -1,0 +1,6 @@
+
+# 2026-08-14 18:26:14.476699
++In packages/research/src/company-agent.ts: 1. Remove unused imports (Company, CompanyMetric). 2. Prefix unused client parameter with underscore _client. 3. Remove createdAt from company object (it only belongs on card, not on company). Ensure tsc passes cleanly.
+
+# 2026-08-14 18:55:34.583663
++In packages/research/src/company-agent.ts: change import to: import type { CardWithCompany, Citation } from "@mi/contracts"; rename client to _client in executeCompanyAgent parameters; and remove createdAt from the company object on line 73 so that tsc -p apps/web/tsconfig.json passes with 0 errors.

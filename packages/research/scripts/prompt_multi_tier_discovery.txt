@@ -1,0 +1,26 @@
+### 🎯 OBJECTIVE
+Scale market research discovery volume to 25-35 companies across all 8 maturity tiers and deeply hydrate all 8 dashboard tabs per company.
+
+### 📁 SCOPE & TARGET FILES
+- packages/research/src/prompts.ts
+- packages/research/src/pipeline.ts
+
+### 📐 CONTRACT & REQUIREMENTS
+1. In packages/research/src/prompts.ts:
+   - In discoverPrompt(plan, target): Update instructions to demand discovery of 25-35 distinct real companies and infrastructure/distribution players spanning all 8 maturity tiers (Tier 1 Hyperscale, Tier 2 Frontier Labs, Tier 3 Growth, Tier 4 Scaling, Tier 5 Early-Stage, Tier 6 Seed, Tier 7 Stealth/Niche, Tier 8 Academic/Spinout).
+   - In structureDiscoveryPrompt(): Ensure extraction extracts up to 35 candidates from the grounded search notes without artificial early truncation.
+   - In enrichPrompt(): Ensure the compound prompt instructs the model to extract concrete details for all 8 dashboard tabs:
+     * Executive Team: CEO, CTO, Founders, notable projects, prior companies.
+     * Technical Stack: Cloud compute, GPU cluster size, models, frameworks, repositories.
+     * Financials & Metrics: Valuation, ARR, Headcount, Market Share with confidence scores.
+     * Moats & Risks: IP disputes, lawsuits, key vulnerabilities, regulatory pressures.
+
+2. In packages/research/src/pipeline.ts:
+   - Update default targetCompanies: `const target = options.targetCompanies ?? 28;` (raising from 12 to 28).
+   - Ensure the candidate list accommodates 25-35 cards without premature trimming.
+   - Preserve all existing @mi/contracts types and ensure all tests pass.
+
+### 🚫 NEGATIVE CONSTRAINTS
+- DO NOT break @mi/contracts schemas.
+- DO NOT touch frontend React UI or styling.
+- Ensure all tests in packages/research pass.

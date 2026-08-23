@@ -1,0 +1,610 @@
+{
+  "executedAt": "2026-08-23T05:49:54.313Z",
+  "market": "Autonomous AI Coding Agents & Developer Intelligence Platforms",
+  "totalDurationSeconds": 86.44,
+  "topologyDurationSeconds": 25.65,
+  "signalsDurationSeconds": 18.67,
+  "hydrationDurationSeconds": 42.12,
+  "totalCensusCount": 28,
+  "breakdown": {
+    "operators": 18,
+    "infrastructure": 8,
+    "distribution": 6,
+    "macroSignals": 10,
+    "deepHydratedDossiers": 8
+  },
+  "candidates": [
+    {
+      "name": "GitHub (Microsoft)",
+      "domain": "github.com",
+      "descriptor": "Developer platform operating GitHub Marketplace and the Copilot Extensions ecosystem, distributing third-party AI coding agents, skills, and plugins directly into IDEs and CI/CD pipelines.",
+      "primaryRole": "infrastructure",
+      "cardTypes": [
+        "infrastructure",
+        "vice",
+        "distribution",
+        "culture"
+      ],
+      "vector": "core_operators",
+      "vectors": [
+        "core_operators",
+        "distribution_channel"
+      ],
+      "identityKeys": [
+        "githubmicrosoft",
+        "github.com",
+        "github"
+      ]
+    },
+    {
+      "name": "Anysphere (Cursor)",
+      "domain": "cursor.com",
+      "descriptor": "AI-native code editor and multi-agent workspace offering multi-file codebase reasoning, CLI tools, and background cloud agents.",
+      "primaryRole": "distribution",
+      "cardTypes": [
+        "distribution",
+        "culture"
+      ],
+      "vector": "core_operators",
+      "vectors": [
+        "core_operators"
+      ],
+      "identityKeys": [
+        "anyspherecursor",
+        "cursor.com"
+      ]
+    },
+    {
+      "name": "Cognition AI",
+      "domain": "cognition.ai",
+      "descriptor": "Applied AI lab that built Devin, an autonomous software engineering agent capable of planning, debugging, and executing pull requests.",
+      "primaryRole": "company",
+      "cardTypes": [
+        "company",
+        "culture"
+      ],
+      "vector": "core_operators",
+      "vectors": [
+        "core_operators"
+      ],
+      "identityKeys": [
+        "cognitionai",
+        "cognition.ai"
+      ]
+    },
+    {
+      "name": "OpenAI",
+      "domain": "openai.com",
+      "descriptor": "Frontier AI developer providing reasoning models, Codex/GPT APIs, and the agentic Responses API used across leading AI developer tools and autonomous coding platforms.",
+      "primaryRole": "infrastructure",
+      "cardTypes": [
+        "infrastructure",
+        "vice",
+        "company"
+      ],
+      "vector": "core_operators",
+      "vectors": [
+        "core_operators",
+        "infrastructure_supply"
+      ],
+      "identityKeys": [
+        "openai",
+        "openai.com"
+      ]
+    },
+    {
+      "name": "Anthropic",
+      "domain": "anthropic.com",
+      "descriptor": "AI research laboratory and API provider of the Claude model family (Sonnet, Opus) and the open Model Context Protocol (MCP) powering frontier agentic software engineering.",
+      "primaryRole": "infrastructure",
+      "cardTypes": [
+        "infrastructure",
+        "company",
+        "culture"
+      ],
+      "vector": "core_operators",
+      "vectors": [
+        "core_operators",
+        "infrastructure_supply"
+      ],
+      "identityKeys": [
+        "anthropic",
+        "anthropic.com"
+      ]
+    },
+    {
+      "name": "Codeium (Exafunction)",
+      "domain": "codeium.com",
+      "descriptor": "AI developer toolkit provider behind the Windsurf AI-native editor and Cascade contextual agent workflows.",
+      "primaryRole": "distribution",
+      "cardTypes": [
+        "distribution"
+      ],
+      "vector": "core_operators",
+      "vectors": [
+        "core_operators"
+      ],
+      "identityKeys": [
+        "codeiumexafunction",
+        "codeium.com"
+      ]
+    },
+    {
+      "name": "Tabnine",
+      "domain": "tabnine.com",
+      "descriptor": "Security- and privacy-focused enterprise AI code assistant offering VPC, on-premises, and air-gapped agent deployments trained on permissive licenses.",
+      "primaryRole": "infrastructure",
+      "cardTypes": [
+        "infrastructure"
+      ],
+      "vector": "core_operators",
+      "vectors": [
+        "core_operators"
+      ],
+      "identityKeys": [
+        "tabnine",
+        "tabnine.com"
+      ]
+    },
+    {
+      "name": "Sourcegraph",
+      "domain": "sourcegraph.com",
+      "descriptor": "Enterprise code intelligence platform providing global repository search, graph indexing, and the Cody and Amp agentic coding assistants.",
+      "primaryRole": "infrastructure",
+      "cardTypes": [
+        "infrastructure"
+      ],
+      "vector": "core_operators",
+      "vectors": [
+        "core_operators"
+      ],
+      "identityKeys": [
+        "sourcegraph",
+        "sourcegraph.com"
+      ]
+    },
+    {
+      "name": "Poolside",
+      "domain": "poolside.ai",
+      "descriptor": "Foundation model lab developing code-specialized reasoning models (Laguna) and terminal/desktop agent runtimes built with reinforcement learning.",
+      "primaryRole": "infrastructure",
+      "cardTypes": [
+        "infrastructure"
+      ],
+      "vector": "core_operators",
+      "vectors": [
+        "core_operators"
+      ],
+      "identityKeys": [
+        "poolside",
+        "poolside.ai"
+      ]
+    },
+    {
+      "name": "Magic AI",
+      "domain": "magic.dev",
+      "descriptor": "Frontier AI research company building ultra-long context window models and autonomous AI software engineers.",
+      "primaryRole": "infrastructure",
+      "cardTypes": [
+        "infrastructure"
+      ],
+      "vector": "core_operators",
+      "vectors": [
+        "core_operators"
+      ],
+      "identityKeys": [
+        "magicai",
+        "magic.dev"
+      ]
+    },
+    {
+      "name": "Augment Code",
+      "domain": "augmentcode.com",
+      "descriptor": "Enterprise-grade AI developer platform featuring a large-scale Context Engine indexing hundreds of thousands of files across complex codebases.",
+      "primaryRole": "infrastructure",
+      "cardTypes": [
+        "infrastructure"
+      ],
+      "vector": "core_operators",
+      "vectors": [
+        "core_operators"
+      ],
+      "identityKeys": [
+        "augmentcode",
+        "augmentcode.com"
+      ]
+    },
+    {
+      "name": "Factory AI",
+      "domain": "factory.ai",
+      "descriptor": "Autonomous software development platform deploying specialized \"Droids\" across the full SDLC for multi-day engineering missions, code reviews, and incident triage.",
+      "primaryRole": "infrastructure",
+      "cardTypes": [
+        "infrastructure"
+      ],
+      "vector": "core_operators",
+      "vectors": [
+        "core_operators"
+      ],
+      "identityKeys": [
+        "factoryai",
+        "factory.ai"
+      ]
+    },
+    {
+      "name": "CodeRabbit",
+      "domain": "coderabbit.ai",
+      "descriptor": "AI-powered autonomous code review platform that provides line-by-line PR feedback, AST-level logic verification, and pull request triage.",
+      "primaryRole": "distribution",
+      "cardTypes": [
+        "distribution"
+      ],
+      "vector": "core_operators",
+      "vectors": [
+        "core_operators"
+      ],
+      "identityKeys": [
+        "coderabbit",
+        "coderabbit.ai"
+      ]
+    },
+    {
+      "name": "All-Hands AI (OpenHands)",
+      "domain": "all-hands.dev",
+      "descriptor": "Open-source platform (formerly OpenDevin) and cloud runtime for autonomous coding agents with sandboxed Docker execution.",
+      "primaryRole": "infrastructure",
+      "cardTypes": [
+        "infrastructure",
+        "culture"
+      ],
+      "vector": "core_operators",
+      "vectors": [
+        "core_operators"
+      ],
+      "identityKeys": [
+        "allhandsaiopenhands",
+        "all-hands.dev"
+      ]
+    },
+    {
+      "name": "Replit",
+      "domain": "replit.com",
+      "descriptor": "Cloud-based collaborative software creation platform featuring Replit Agent to autonomously scaffold, deploy, and host full-stack applications.",
+      "primaryRole": "distribution",
+      "cardTypes": [
+        "distribution",
+        "culture"
+      ],
+      "vector": "core_operators",
+      "vectors": [
+        "core_operators"
+      ],
+      "identityKeys": [
+        "replit",
+        "replit.com"
+      ]
+    },
+    {
+      "name": "StackBlitz (Bolt.new)",
+      "domain": "stackblitz.com",
+      "descriptor": "In-browser development operating system powered by WebContainers that runs Bolt.new, an autonomous prompt-to-production web application builder.",
+      "primaryRole": "infrastructure",
+      "cardTypes": [
+        "infrastructure",
+        "distribution"
+      ],
+      "vector": "core_operators",
+      "vectors": [
+        "core_operators"
+      ],
+      "identityKeys": [
+        "stackblitzboltnew",
+        "stackblitz.com"
+      ]
+    },
+    {
+      "name": "Lovable",
+      "domain": "lovable.dev",
+      "descriptor": "Autonomous AI web app builder that generates full-stack software, database schemas, authentication, and GitHub-synced code from plain English prompts.",
+      "primaryRole": "distribution",
+      "cardTypes": [
+        "distribution",
+        "culture"
+      ],
+      "vector": "core_operators",
+      "vectors": [
+        "core_operators"
+      ],
+      "identityKeys": [
+        "lovable",
+        "lovable.dev"
+      ]
+    },
+    {
+      "name": "JetBrains",
+      "domain": "jetbrains.com",
+      "descriptor": "Developer tooling provider whose JetBrains Marketplace serves as a core distribution and monetization channel for autonomous coding agents, third-party LLM plugins, and agentic workflows.",
+      "primaryRole": "distribution",
+      "cardTypes": [
+        "distribution",
+        "culture",
+        "vice"
+      ],
+      "vector": "core_operators",
+      "vectors": [
+        "core_operators",
+        "distribution_channel"
+      ],
+      "identityKeys": [
+        "jetbrains",
+        "jetbrains.com",
+        "jetbrainssro"
+      ]
+    },
+    {
+      "name": "E2B (Execute to Build)",
+      "domain": "e2b.dev",
+      "descriptor": "Provider of open-source Firecracker microVM cloud sandboxes purpose-built for AI agents to safely execute code, shell scripts, and terminal tools in isolated environments.",
+      "primaryRole": "infrastructure",
+      "cardTypes": [
+        "infrastructure",
+        "culture"
+      ],
+      "vector": "infrastructure_supply",
+      "vectors": [
+        "infrastructure_supply"
+      ],
+      "identityKeys": [
+        "e2bexecutetobuild",
+        "e2b.dev"
+      ]
+    },
+    {
+      "name": "Modal Labs",
+      "domain": "modal.com",
+      "descriptor": "Serverless cloud infrastructure platform providing rapid container execution, custom schedulers, and sandboxed runtimes for AI workloads and agentic pipelines.",
+      "primaryRole": "infrastructure",
+      "cardTypes": [
+        "infrastructure",
+        "culture",
+        "vice"
+      ],
+      "vector": "infrastructure_supply",
+      "vectors": [
+        "infrastructure_supply"
+      ],
+      "identityKeys": [
+        "modal",
+        "modal.com"
+      ]
+    },
+    {
+      "name": "Daytona",
+      "domain": "daytona.io",
+      "descriptor": "Development environment management platform delivering stateful, isolated agent runtimes and workspace infrastructure for autonomous coding software.",
+      "primaryRole": "infrastructure",
+      "cardTypes": [
+        "infrastructure",
+        "culture"
+      ],
+      "vector": "infrastructure_supply",
+      "vectors": [
+        "infrastructure_supply"
+      ],
+      "identityKeys": [
+        "daytona",
+        "daytona.io"
+      ]
+    },
+    {
+      "name": "Groq",
+      "domain": "groq.com",
+      "descriptor": "AI compute hardware company offering ultra-low-latency Language Processing Units (LPUs) and cloud inference for high-speed token generation in coding assistants.",
+      "primaryRole": "infrastructure",
+      "cardTypes": [
+        "infrastructure",
+        "culture"
+      ],
+      "vector": "infrastructure_supply",
+      "vectors": [
+        "infrastructure_supply"
+      ],
+      "identityKeys": [
+        "groq",
+        "groq.com"
+      ]
+    },
+    {
+      "name": "Qdrant",
+      "domain": "qdrant.tech",
+      "descriptor": "Open-source Rust-based vector search engine providing high-performance embeddings retrieval and branch-aware indexing for semantic code intelligence systems.",
+      "primaryRole": "infrastructure",
+      "cardTypes": [
+        "infrastructure",
+        "culture"
+      ],
+      "vector": "infrastructure_supply",
+      "vectors": [
+        "infrastructure_supply"
+      ],
+      "identityKeys": [
+        "qdrant",
+        "qdrant.tech"
+      ]
+    },
+    {
+      "name": "Pinecone",
+      "domain": "pinecone.io",
+      "descriptor": "Managed serverless vector database providing scalable vector indexing and retrieval infrastructure for developer intelligence platforms and codebase RAG pipelines.",
+      "primaryRole": "infrastructure",
+      "cardTypes": [
+        "infrastructure",
+        "culture"
+      ],
+      "vector": "infrastructure_supply",
+      "vectors": [
+        "infrastructure_supply"
+      ],
+      "identityKeys": [
+        "pinecone",
+        "pinecone.io"
+      ]
+    },
+    {
+      "name": "Amazon Web Services (AWS)",
+      "domain": "aws.amazon.com",
+      "descriptor": "Cloud hyper-scaler leveraging AWS Marketplace to distribute, monetize, and govern enterprise AI coding agents, Amazon Bedrock AgentCore integrations, and developer MCP toolkits.",
+      "primaryRole": "distribution",
+      "cardTypes": [
+        "distribution",
+        "vice"
+      ],
+      "vector": "distribution_channel",
+      "vectors": [
+        "distribution_channel"
+      ],
+      "identityKeys": [
+        "amazonwebaws",
+        "aws.amazon.com",
+        "amazon.com"
+      ]
+    },
+    {
+      "name": "Eclipse Foundation",
+      "domain": "open-vsx.org",
+      "descriptor": "Open-source foundation operating the Open VSX Registry, providing an open, vendor-neutral extension marketplace to distribute AI coding agents, panels, and MCP servers across VS Code-compatible editors.",
+      "primaryRole": "distribution",
+      "cardTypes": [
+        "distribution",
+        "culture"
+      ],
+      "vector": "distribution_channel",
+      "vectors": [
+        "distribution_channel"
+      ],
+      "identityKeys": [
+        "eclipsefoundation",
+        "open-vsx.org"
+      ]
+    },
+    {
+      "name": "Accenture plc",
+      "domain": "accenture.com",
+      "descriptor": "Global systems integrator acting as a channel partner to package and deploy autonomous engineering agents, forward-deployed developer pipelines, and frontier model partnerships (e.g., Anthropic Claude Code) inside large enterprises.",
+      "primaryRole": "distribution",
+      "cardTypes": [
+        "distribution",
+        "vice"
+      ],
+      "vector": "distribution_channel",
+      "vectors": [
+        "distribution_channel"
+      ],
+      "identityKeys": [
+        "accenture",
+        "accenture.com"
+      ]
+    },
+    {
+      "name": "Cognizant Technology Solutions",
+      "domain": "cognizant.com",
+      "descriptor": "Global IT services firm and systems integrator operationalizing enterprise AI coding agent deployments, partnering with OpenAI (Codex) and Rubrik to deliver governed, agentic software engineering at scale.",
+      "primaryRole": "distribution",
+      "cardTypes": [
+        "distribution",
+        "vice"
+      ],
+      "vector": "distribution_channel",
+      "vectors": [
+        "distribution_channel"
+      ],
+      "identityKeys": [
+        "cognizant",
+        "cognizant.com"
+      ]
+    }
+  ],
+  "citationsCount": 102,
+  "citations": [
+    {
+      "title": "github.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGUUqGzscTuAcILDgv6IMB7AbIu0ciOeIzbCspBuLWnjPewib31jU6Bkfc2n6a-ZkpdjKYF-brRkd_EfQy2QxiaqIEUn7ZGEC2BRa6BjKbHZR7g0Jfk6M2fK0D3KJNxJsvmgyWjrC-M1LYblErGfIHMpfQ="
+    },
+    {
+      "title": "usecarly.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHvrErZzGbqlaw7_wirlOGrmhiRLfrkjyUzMGIuLaDGXKF4CsOVqSGCBLyYdL2HfRkKwZPwQXk2IcUNyE9iKOJo1Xa9oz5O0E-P7Hq6AN-7CbWhmU7ICNPCS8Mey3HbJi97e0GyQP4Q"
+    },
+    {
+      "title": "valueaddvc.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEAAJZJEiRW7kEOs1oZd2xzB-QL7QMG-ar_iCehAfY5AbrYZIS0mo9rr6UVB7MnuPTFLiIjt2IWfhE0v4mSHCnWNG9J8DX-Zm7cTomKUS2NjyXksrpv71XN99f45bcvOh1eI0vmitjm1zQ32-nE66rDMdROdtc5g88fUCjUa_psljRNHePTPHnm-w3VzoNyG-tuz3uim0Vm2KK1U0JD"
+    },
+    {
+      "title": "wikipedia.org",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEeKQC7W4WmLGcyqHcf7kBfoh3Oha4y8xcDshmf8kDlLa9w5aTqV23NpGfN2xXlvHEVSBRDK3QYz3kuKIzix11XUs3f8TLp0-C60AqoQXMXDqLeGsIo4fStRKTeQVIxVw=="
+    },
+    {
+      "title": "cursor.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGuNieR5VUf8meIv4CllNH7CjlvoFtL88YZ0DcpmjCWiVvPgBBCJtjwejwj-eS2rmUVPLHuqRzKjUZFw47fKVYDMg0J-E-pZhiv8Cb6F2865m8gO02uHT1YwA=="
+    },
+    {
+      "title": "cursor.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFlng7WN_60GQHq9Q38-UN3xiiefT4MSb1t1zyh7SLHAVMupjcLoC1Qr9YgmC1Iv7pmnWWwlbBigCJ7hjbRMz0FH1oE3m1VsUR9"
+    },
+    {
+      "title": "cursor.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGKeFvzdKdu1xvmERxghvmuQ8vjY0p7txO_AfBnVwy2qziVCts5OlsbJvmqNRH7gVCDtVq26vp4ecaRCMicfjb6qLRbnBc8bhDdJvpcj4C36edun3nYzw=="
+    },
+    {
+      "title": "youtube.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEbl-n2mLU-CwhkEb-hF64ZwiN7U5MZ-N4Ich5YL2maQ__do3mVNtsVB99TCaJmHHFUvmq9DnwHLeXwfBXDN5wQiIIVdeTODhkJ0FcM0NJkerBYzd0jOQdXZzyEjOUrFS9q"
+    },
+    {
+      "title": "cognition.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFtRx-6-Bg5whCb0fGKA91jklIg5u2UVNH4UTLHtE07opnsyVMmjLzCyvt1Uwrd7MZUETcKKlAHY_C_YHk-7KXNT7Y_q2TI5ZV0IHIn"
+    },
+    {
+      "title": "youtube.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQH3DP-2kE50WSiuUbQB2pUIvSCCnQAn8wFyUQwzaoEmB4HdmUIw2ax5nqoJpZNbJTHfvF11kesvIQU8Od1MkoToezHsy3SxsdJvLUwCpIMJ3Nkc87dzUj8wRa3UvzwHvYRz"
+    },
+    {
+      "title": "youtube.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFyvbR4coF_nNydwdjpj1RcbSGLXM8Mmt0MFIDXB0Q2JsUvVyYHKqfy8FRq0rmfvC7BPrr8v55EYIMsri8lLmBrUP1Qh9i6Kw5CoPXu0tAbzBHa1vF-PROLA22R_bmjr-mJ"
+    },
+    {
+      "title": "medium.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFMY0XfKym3MGhHmpupDXYDMP0taBrC35vGu0V79_nKu5immlMgwqBUi03bs_10zrPMjLHVss7t7nz1OT6VrBrJgIR5j03DFditNj0hmWRrgzdlJYVdNUcuc5RZYmKVYIatFyLw539WM6b1yY7db_13cuB04uVUyLJ4UJHb0wPYG4EFeS7cE6u8ePPowZBjJETuc8NiuRxxain-t5ASyYDwQ0RNIQ=="
+    },
+    {
+      "title": "medium.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF62gmBys96P_E3cKFvv2z_U3YgV03q4LVToZq-A-xNVTdJd3VJgo9waHsrFXjHnIiGO8qYrDyrLPdUe_XdGFB2l3tu8ZkXFmdEUctegRp4MTw4C9MDi0nqOKhnyffG2M5NtS2iRq5sbhsUhxbYDR-lvnTUBjHhGfYyhUpjFedKLB2waT33hUBNT6v_wmV6_zHoUlc3HS2nuMGPiA=="
+    },
+    {
+      "title": "mojoauth.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHH0vtCtykzl1SMmgNEC6xfxvbTFxduHstW9G7THfDuLoPbnL-FBZQKmGX2CgV9MMGS-Sw6VsnsZehEWXPf0mfeZcb7y2Opm-4ClgzEbujb8evYadtOydU3lZDPLEFH6_kie08K"
+    },
+    {
+      "title": "github.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEede00bS4bKp_X7ytYaOACWD6YeQa8ouZumSW9mrYsQi4sxM6XSdM-B_mGMUKhHRasbGwDHan_J9BT-iGPFs7S2zYNpVz08QUBS5dQopHIrJV93My8tRjUwmxMdkMvsEkHA3xUTgQ="
+    },
+    {
+      "title": "tabnine.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHl2ut5XU5iW_DvbelRdUsNM02Wb4Av4MQ_7Yo3juGrXXkZ8dBckrBLMQXXpX-wVRebOqNHjF4krv95LNZ4Hn6570pVYnnmYYOND-axWaw="
+    },
+    {
+      "title": "augmentcode.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQH9CuOcLcbwYd-G_LbGBqc1H5ZQQSPoi_0xrhTKhMNT2ZxjsKEpdZwt5BiZ0gsYBcjetfKqZ1xq1n6GKwgUi8rB-bClnPkgMeLqio1tghxVHfYVJkA5MANHDL3lA_hMDF-6hPWNAUVYR0Q0WBE0dTzM2AqZm788y0DQTgGokrdFj2sXGSL4p4-0yJb_PkTGY3aM8FRCbJA="
+    },
+    {
+      "title": "amplifilabs.com",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQH8t0FOWgYUx5QN19sEAhLskhSiqjb7I5bkBdSFhoKmgKc4C2T37XpNwRhKPXPR5rwJBBaReYng3iLJJsf1zh4VxYZfrOtYe3IB2TmTjnOeJJ7OCaYOCqAOOcaEb0yYdTtms3cBNDups7mmQmTRholuKI4E8IA-OOQ1-K8lKHB9U_w7keaybktVBHB8Lb5YE96x"
+    },
+    {
+      "title": "poolside.ai",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEjw8W5qKDR8DfX6E_6ilhT0aw7ej9tYMI-v-GbyYV2qpOcCZQ4YAUfFz7RUEMLrRD8Eb-vsUnt8qo-ajyamUyLadEJGl7HQFxCXAgtieJ8WQ=="
+    },
+    {
+      "title": "poolside.ai",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGAkbS8USTdEaDT3cEPANaYRxHXJxAROqo87ey-RWuqxoFUy9jhNpjTB1e-L2vWHp1urQISHpVazlNqw87AAle0XpJIXtGaWMDvyLL_XIp3XaKlOeU0KbGOhQCGsILRlPx7uWQ="
+    }
+  ]
+}
