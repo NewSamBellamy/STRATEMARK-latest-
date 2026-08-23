@@ -8,10 +8,13 @@ import { fileURLToPath, URL } from 'node:url';
 // self-contained public demo (works with the user's own key, client-side).
 const singleFile = process.env.SINGLEFILE === '1';
 
+// Relative asset base under Electron/file:// or singlefile; root '/' for web deployments and deep routing.
+const isElectron = process.env.ELECTRON === '1';
+const base = isElectron || singleFile ? './' : '/';
+
 export default defineConfig({
   plugins: [react(), ...(singleFile ? [viteSingleFile()] : [])],
-  // Relative asset base so the built bundle loads under Electron via file:// (spec: Electron-ready).
-  base: './',
+  base,
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
