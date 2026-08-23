@@ -56,6 +56,8 @@ import {
 } from './company-agent';
 import { researchMarketSignals } from './signal-agents';
 import { expandDeckWithDeltaAgent } from './delta-agent';
+import { mapMarketTopology } from './adk/discovery-agent';
+import { createAdkTelemetry } from './adk/telemetry';
 
 export interface ResearchResult {
   market: Market;
@@ -583,7 +585,10 @@ export async function discoverDeckStubs(
     const companyId = uid('cmp', slug);
     const domain = candidate.domain ? rootDomain(candidate.domain) ?? candidate.domain : null;
     const website = candidate.domain ? `https://${candidate.domain}` : null;
-    const logoUrl = faviconUrl(domain);
+    const logoUrl =
+      faviconUrl(domain) ??
+      faviconUrl('example.com') ??
+      'https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://example.com&size=128';
     const company: Company = {
       id: companyId,
       name: candidate.name,
