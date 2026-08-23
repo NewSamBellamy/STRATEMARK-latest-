@@ -10,3 +10,5 @@ export * from './schemas';
 export * from './types';
 export * from './repository';
 export * from './ipc';
+export * from './adk-trace';
+export * from './living-deck';
