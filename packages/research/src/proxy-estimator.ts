@@ -731,6 +731,7 @@ export const estimateGroundedProxies = (company: {
   const valMetric = metrics.find((m) => m.metricType === 'valuation');
 
   return {
+    companyId: company.companyId,
     arr: arrMetric,
     valuation: valMetric,
     metrics,
@@ -812,9 +813,20 @@ export function inferScaleFromEntity(
     };
   }
 
-  // Unicorn Leaders (Tier 6)
+  // Unicorn Leaders & High-Scale AI Infrastructure (Tier 6)
+  if (/openrouter|openrouter\.ai/.test(text)) {
+    return {
+      scaleCategory: 'unicorn_leader',
+      headcount: 65,
+      arr: 95000000,
+      valuation: 4500000000,
+      tierReason:
+        'Dominant AI Model Gateway & Unicorn Leader ($4.5B+ Valuation | $95M+ ARR)',
+    };
+  }
+
   if (
-    /cursor|anysphere|cognition|mistral|scale ai|cohere|replit|canva|figma|procore|gitlab/.test(
+    /cursor|anysphere|cognition|mistral|scale ai|cohere|replit|canva|figma|procore|gitlab|together ai|together\.ai|anyscale|fireworks|groq/.test(
       text,
     )
   ) {
@@ -830,7 +842,7 @@ export function inferScaleFromEntity(
 
   // Growth Operators (Tier 5)
   if (
-    /deepseek|tabnine|sourcegraph|codeium|poolside|magic\.dev|magic ai|augment|factory\.ai|pinecone|qdrant|modal|groq|e2b|buildertrend|safetyculture|fieldwire|plangrid/.test(
+    /deepseek|tabnine|sourcegraph|codeium|poolside|magic\.dev|magic ai|augment|factory\.ai|pinecone|qdrant|modal|buildertrend|safetyculture|fieldwire|plangrid/.test(
       text,
     )
   ) {
@@ -845,7 +857,9 @@ export function inferScaleFromEntity(
 
   // Category Contenders (Tier 4)
   if (
-    /series b|200m valuation|100m valuation|coderabbit|sweep|daytona|raken|hammertech/.test(text)
+    /series b|200m valuation|100m valuation|coderabbit|sweep|raken|hammertech/.test(
+      text,
+    )
   ) {
     return {
       scaleCategory: 'category_contender',
@@ -857,7 +871,11 @@ export function inferScaleFromEntity(
   }
 
   // Early Scaling (Tier 3)
-  if (/series a|50m valuation|seed extension|cascadia|north spore|far west/.test(text)) {
+  if (
+    /series a|50m valuation|seed extension|cascadia|north spore|far west|e2b|daytona|lovable|bolt\.new/.test(
+      text,
+    )
+  ) {
     return {
       scaleCategory: 'early_scaling',
       headcount: 18,
@@ -868,6 +886,16 @@ export function inferScaleFromEntity(
   }
 
   // Emerging Seed (Tier 2 - Default for private startups)
+  if (/aider|openhands|sweep ai/.test(text)) {
+    return {
+      scaleCategory: 'emerging_seed',
+      headcount: 8,
+      arr: 800000,
+      valuation: 8000000,
+      tierReason: 'Seed-Stage Emerging Contender ($5M–$20M Valuation)',
+    };
+  }
+
   return {
     scaleCategory: 'emerging_seed',
     headcount: 8,
