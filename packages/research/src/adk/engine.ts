@@ -47,7 +47,7 @@ import {
 import { createRateLimiter, type RateLimiter } from '../util';
 import type { LlmClient, MarketPlan } from '../types';
 import type { HydrateCompanyCardResult } from '../company-agent';
-import { AdkTelemetryHub, createAdkTelemetry } from './telemetry';
+import { createAdkTelemetry, type AdkTelemetryHub } from './telemetry';
 import { AdkSession, runAdkTaskGraph, type AdkTaskNode } from './task-graph';
 import {
   DISCOVERY_NODE_ID,
