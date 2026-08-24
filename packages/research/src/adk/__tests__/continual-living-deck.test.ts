@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { inferScaleFromEntity } from '../../proxy-estimator';
 import { createGeminiClient } from '../../gemini';
-import { LivingDeckEngine } from '../engine';
+import { LivingDeckEngine, type LivingDeckEngineOptions } from '../engine';
 import { createAdkTelemetry } from '../telemetry';
 
 describe('🚀 Continual Living Deck & Balanced 8-Tier Swarm Architecture', () => {
@@ -44,18 +44,32 @@ describe('🚀 Continual Living Deck & Balanced 8-Tier Swarm Architecture', () =
     const client = createGeminiClient({ apiKey, model: 'gemini-3.7-flash' });
     const telemetry = createAdkTelemetry({ rootAuthor: 'continual_living_deck_test' });
 
-    const engine = new LivingDeckEngine({
+    // `satisfies` is load-bearing here: the previous version of this test passed
+    // an `options: { batchSize, maxCompanies, enableDeltaWatcher }` object that
+    // does not exist on LivingDeckEngineOptions, and the API-key early-return
+    // above meant the assertions never ran — so the shape drift stayed invisible
+    // while the suite reported green. This pins the real constructor contract.
+    const options = {
       deckId: 'deck_test_123',
       client,
       telemetry,
-      options: {
-        batchSize: 4,
-        maxCompanies: 15,
-        enableDeltaWatcher: true,
+      plan: {
+        marketName: 'AI Developer Tooling',
+        vertical: 'developer tools',
+        geography: null,
+        notes: null,
+        searchThemes: ['AI code review', 'agentic IDEs'],
       },
-    });
+      maxCandidates: 15,
+      enrichmentConcurrency: 4,
+      watch: true,
+    } satisfies LivingDeckEngineOptions;
+
+    const engine = new LivingDeckEngine(options);
 
     expect(engine).toBeDefined();
     expect(typeof engine.run).toBe('function');
+    expect(engine.getState().deckId).toBe('deck_test_123');
+    expect(engine.getState().status).toBe('idle');
   });
 });
