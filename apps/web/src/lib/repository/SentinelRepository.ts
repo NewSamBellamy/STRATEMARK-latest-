@@ -7,8 +7,10 @@
  */
 import type {
   AskResearchInput,
+  Card,
   CardFilter,
   CardWithCompany,
+  Citation,
   Company,
   CompanyMetric,
   CreateMarketInput,
@@ -35,8 +37,28 @@ import type {
   Unsubscribe,
   ViceClaim,
 } from '@mi/contracts';
-import { MockRepository } from '@mi/mocks';
+import { MockRepository, type SeedSnapshot } from '@mi/mocks';
 import sampleSnapshot from '@/sample/frontier-snapshot.json';
+
+/** A Market/Deck object that optionally carries a runtime `engine` tag. */
+interface CloudTagged {
+  engine?: string;
+}
+type CloudMarket = Market & CloudTagged;
+type CloudDeck = Deck & CloudTagged;
+
+/** Shape of a raw record returned by the Sentinel Cloud API for a market or deck. */
+type CloudRecord = Record<string, unknown>;
+
+/** Payload shape passed to mapCloudCards — the union of all callers' shapes. */
+interface CloudCardPayload {
+  cards?: CloudRecord[];
+  result?: { cards?: CloudRecord[] };
+  deck?: CloudRecord;
+  companies?: CloudRecord[];
+  metrics?: CloudRecord[];
+  viceClaims?: CloudRecord[];
+}
 import {
   deleteCloudDeck,
   getCloudDeck,
@@ -60,7 +82,7 @@ export class SentinelRepository implements MarketIntelRepository {
   constructor() {
     this.fallbackRepo = new MockRepository({
       latencyMs: 0,
-      seedSnapshot: sampleSnapshot as any,
+      seedSnapshot: sampleSnapshot as unknown as SeedSnapshot,
     });
   }
 
@@ -72,20 +94,20 @@ export class SentinelRepository implements MarketIntelRepository {
       ]);
       const marketList = cloudMarkets.length > 0 ? cloudMarkets : cloudDecks;
       if (marketList && marketList.length > 0) {
-        const remoteMarkets: Market[] = marketList.map((d: any) => {
-          const marketId = d.marketId || d.id || `mkt_${d.id}`;
-          const market: Market = {
+        const remoteMarkets: Market[] = marketList.map((d: CloudRecord) => {
+          const marketId = String(d.marketId || d.id || `mkt_${String(d.id)}`);
+          const market: CloudMarket = {
             id: marketId,
-            name: d.marketName || d.name || d.title || d.prompt || 'Sentinel Cloud Market',
+            name: String(d.marketName || d.name || d.title || d.prompt || 'Sentinel Cloud Market'),
             scopeDefinition: {
-              vertical: d.vertical || 'Competitive Market Intelligence',
-              geography: d.region || d.geography || null,
-              notes: d.notes || null,
+              vertical: String(d.vertical || 'Competitive Market Intelligence'),
+              geography: (d.region || d.geography || null) as string | null,
+              notes: (d.notes || null) as string | null,
             },
             refreshCadence: 'weekly',
-            createdAt: d.createdAt || new Date().toISOString(),
+            createdAt: String(d.createdAt || new Date().toISOString()),
+            engine: 'cloud',
           };
-          (market as any).engine = 'cloud';
           this.memoryMarkets.set(marketId, market);
           return market;
         });
@@ -116,7 +138,7 @@ export class SentinelRepository implements MarketIntelRepository {
     try {
       const remote = await getCloudMarket(id);
       if (remote) {
-        const market: Market = {
+        const market: CloudMarket = {
           id: (remote.id || remote.marketId || id) as string,
           name: (remote.name || remote.marketName || 'Sentinel Cloud Market') as string,
           scopeDefinition: {
@@ -126,8 +148,8 @@ export class SentinelRepository implements MarketIntelRepository {
           },
           refreshCadence: 'weekly',
           createdAt: (remote.createdAt || new Date().toISOString()) as string,
+          engine: 'cloud',
         };
-        (market as any).engine = 'cloud';
         this.memoryMarkets.set(id, market);
         return market;
       }
@@ -195,14 +217,14 @@ export class SentinelRepository implements MarketIntelRepository {
     try {
       const cloudPayload = await getCloudDeck(marketId);
       if (cloudPayload && cloudPayload.deck) {
-        const d = cloudPayload.deck as any;
-        const deck: Deck = {
-          id: d.id || `dck_${marketId}`,
-          marketId: d.marketId || marketId,
-          createdAt: d.createdAt || new Date().toISOString(),
-          lastRefreshedAt: d.lastRefreshedAt || new Date().toISOString(),
+        const d: CloudRecord = cloudPayload.deck;
+        const deck: CloudDeck = {
+          id: String(d.id || `dck_${marketId}`),
+          marketId: String(d.marketId || marketId),
+          createdAt: String(d.createdAt || new Date().toISOString()),
+          lastRefreshedAt: String(d.lastRefreshedAt || new Date().toISOString()),
+          engine: 'cloud',
         };
-        (deck as any).engine = 'cloud';
         this.memoryDecks.set(marketId, deck);
 
         // Process cards if returned in payload
@@ -241,31 +263,34 @@ export class SentinelRepository implements MarketIntelRepository {
       throw new Error(res.error || 'Sentinel Cloud Agent failed to create research deck.');
     }
 
-    const m = (res.market || res.result?.market || res.deck) as any;
-    const marketId = m?.id || m?.marketId || `mkt_${Date.now().toString(36)}`;
-    const marketName = m?.name || brief.prompt;
+    const rawM = res.market ?? res.result?.market ?? res.deck;
+    const m: CloudRecord = (rawM as CloudRecord | undefined) ?? {};
+    const marketId = String(m.id || m.marketId || `mkt_${Date.now().toString(36)}`);
+    const marketName = String(m.name || brief.prompt);
+    const scopeDef = m.scopeDefinition as CloudRecord | undefined;
 
-    const market: Market = {
+    const market: CloudMarket = {
       id: marketId,
       name: marketName,
       scopeDefinition: {
-        vertical: m?.scopeDefinition?.vertical || brief.prompt,
+        vertical: String(scopeDef?.vertical || brief.prompt),
         geography: brief.region || null,
         notes: null,
       },
       refreshCadence: 'weekly',
       createdAt: new Date().toISOString(),
+      engine: 'cloud',
     };
-    (market as any).engine = 'cloud';
 
-    const deckId = (res.deck as any)?.id || res.result?.deck?.id || `dck_${marketId}`;
-    const deck: Deck = {
+    const deckRecord: CloudRecord = (res.deck as CloudRecord | undefined) ?? {};
+    const deckId = String(deckRecord.id || res.result?.deck?.id || `dck_${marketId}`);
+    const deck: CloudDeck = {
       id: deckId,
       marketId,
       createdAt: new Date().toISOString(),
       lastRefreshedAt: new Date().toISOString(),
+      engine: 'cloud',
     };
-    (deck as any).engine = 'cloud';
 
     this.memoryMarkets.set(market.id, market);
     this.memoryDecks.set(market.id, deck);
@@ -418,35 +443,35 @@ export class SentinelRepository implements MarketIntelRepository {
     } catch {
       /* fallback to local mock repository */
     }
-    return (this.fallbackRepo as any).askResearch(input);
+    return (this.fallbackRepo as MarketIntelRepository).askResearch!(input);
   }
 
   async listResearchThreads(filter?: { deckId?: string; companyId?: string }): Promise<ResearchThread[]> {
-    return (this.fallbackRepo as any).listResearchThreads(filter);
+    return (this.fallbackRepo as MarketIntelRepository).listResearchThreads!(filter);
   }
 
   async getResearchThread(id: string): Promise<ResearchThread | null> {
-    return (this.fallbackRepo as any).getResearchThread(id);
+    return (this.fallbackRepo as MarketIntelRepository).getResearchThread!(id);
   }
 
   async saveThreadAsReport(threadId: string, focus?: string | null): Promise<Report> {
-    return (this.fallbackRepo as any).saveThreadAsReport(threadId, focus);
+    return (this.fallbackRepo as MarketIntelRepository).saveThreadAsReport!(threadId, focus);
   }
 
   async listResearchJobs(): Promise<ResearchJob[]> {
-    return (this.fallbackRepo as any).listResearchJobs();
+    return (this.fallbackRepo as MarketIntelRepository).listResearchJobs!();
   }
 
   async getResearchJob(id: string): Promise<ResearchJob | null> {
-    return (this.fallbackRepo as any).getResearchJob(id);
+    return (this.fallbackRepo as MarketIntelRepository).getResearchJob!(id);
   }
 
   async cancelResearchJob(id: string): Promise<ResearchJob | null> {
-    return (this.fallbackRepo as any).cancelResearchJob(id);
+    return (this.fallbackRepo as MarketIntelRepository).cancelResearchJob!(id);
   }
 
   async resumeResearchJob(id: string): Promise<ResearchJob | null> {
-    return (this.fallbackRepo as any).resumeResearchJob(id);
+    return (this.fallbackRepo as MarketIntelRepository).resumeResearchJob!(id);
   }
 
   async generateReport(request: ReportRequest): Promise<Report> {
@@ -465,46 +490,47 @@ export class SentinelRepository implements MarketIntelRepository {
     return () => {};
   }
 
-  private mapCloudCards(payload: any): CardWithCompany[] {
-    const rawCards = payload.cards || payload.result?.cards || [];
-    const rawCompanies = payload.companies || [];
-    const rawMetrics = payload.metrics || [];
-    const rawViceClaims = payload.viceClaims || [];
+  private mapCloudCards(payload: CloudCardPayload): CardWithCompany[] {
+    const rawCards: CloudRecord[] = payload.cards || payload.result?.cards || [];
+    const rawCompanies: CloudRecord[] = payload.companies || [];
+    const rawMetrics: CloudRecord[] = payload.metrics || [];
+    const rawViceClaims: CloudRecord[] = payload.viceClaims || [];
 
     const companyMap = new Map<string, Company>();
     for (const comp of rawCompanies) {
       if (comp.id) {
-        companyMap.set(comp.id, {
-          id: comp.id,
-          name: comp.name || 'Company',
-          oneLiner: comp.oneLiner || comp.descriptor || '',
-          websiteUrl: comp.websiteUrl || `https://${comp.domain || 'example.com'}`,
-          logoUrl: comp.logoUrl || null,
-          hqLocation: comp.hqLocation || null,
-          brandTheme: comp.brandTheme || {
+        const compId = String(comp.id);
+        companyMap.set(compId, {
+          id: compId,
+          name: String(comp.name || 'Company'),
+          oneLiner: String(comp.oneLiner || comp.descriptor || ''),
+          websiteUrl: String(comp.websiteUrl || `https://${String(comp.domain || 'example.com')}`),
+          logoUrl: (comp.logoUrl || null) as string | null,
+          hqLocation: (comp.hqLocation || null) as string | null,
+          brandTheme: (comp.brandTheme as Company['brandTheme']) || {
             primary: '#0F766E',
             secondary: '#14B8A6',
             accent: '#14B8A6',
             text: '#0F172A',
             background: '#F8FAFC',
             fontFamily: null,
-            source: 'default',
+            source: 'default' as const,
           },
         });
       }
     }
 
-    return rawCards.map((c: any) => {
-      const companyId = c.companyId || `comp_${c.id}`;
+    return rawCards.map((c: CloudRecord) => {
+      const companyId = String(c.companyId || `comp_${String(c.id)}`);
       let company = companyMap.get(companyId);
       if (!company) {
         company = {
           id: companyId,
-          name: c.companyName || c.title || 'Target Company',
-          oneLiner: c.summary || c.descriptor || '',
-          websiteUrl: c.websiteUrl || 'https://example.com',
-          logoUrl: c.logoUrl || null,
-          hqLocation: c.hqLocation || null,
+          name: String(c.companyName || c.title || 'Target Company'),
+          oneLiner: String(c.summary || c.descriptor || ''),
+          websiteUrl: String(c.websiteUrl || 'https://example.com'),
+          logoUrl: (c.logoUrl || null) as string | null,
+          hqLocation: (c.hqLocation || null) as string | null,
           brandTheme: {
             primary: '#0F766E',
             secondary: '#14B8A6',
@@ -517,23 +543,26 @@ export class SentinelRepository implements MarketIntelRepository {
         };
       }
 
-      const card = {
-        id: c.id,
-        deckId: c.deckId || payload.deck?.id || 'dck_cloud',
+      const card: Card & { engine: string } = {
+        id: String(c.id),
+        deckId: String(c.deckId || payload.deck?.id || 'dck_cloud'),
         companyId: company.id,
-        cardType: c.cardType || 'company',
-        title: c.title || company.name,
-        summary: c.summary || company.oneLiner,
-        tier: c.tier ?? null,
-        tierReason: c.tierReason || null,
-        citations: c.citations || [],
-        createdAt: c.createdAt || new Date().toISOString(),
+        cardType: (c.cardType || 'company') as Card['cardType'],
+        title: String(c.title || company.name),
+        summary: String(c.summary || company.oneLiner),
+        tier: (c.tier ?? null) as Card['tier'],
+        tierReason: (c.tierReason || null) as string | null,
+        citations: (c.citations ?? []) as unknown as Citation[],
+        keyPoints: (c.keyPoints ?? []) as string[],
+        createdAt: String(c.createdAt || new Date().toISOString()),
         engine: 'cloud', // Visual distinction flag
       };
 
       const companyObj = company;
-      const metrics = rawMetrics.filter((m: any) => m.companyId === companyObj.id);
-      const viceClaims = rawViceClaims.filter((vc: any) => vc.cardId === c.id || vc.companyId === companyObj.id);
+      const metrics = rawMetrics
+        .filter((m: CloudRecord) => m.companyId === companyObj.id) as unknown as CompanyMetric[];
+      const viceClaims = rawViceClaims
+        .filter((vc: CloudRecord) => vc.cardId === c.id || vc.companyId === companyObj.id) as unknown as ViceClaim[];
 
       return {
         card,
