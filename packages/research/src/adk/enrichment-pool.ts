@@ -25,7 +25,7 @@
  */
 import type { LivingDeckDelta } from '@mi/contracts';
 import { hydrateCompanyCard, type HydrateCompanyCardResult } from '../company-agent';
-import { throwIfAborted, type RateLimiter } from '../util';
+import { sleep, throwIfAborted, type RateLimiter } from '../util';
 import type { CompanyCandidate, LlmClient, MarketPlan } from '../types';
 import { toTraceError, type AdkSpan, type AdkTelemetryHub } from './telemetry';
 import type { AdkTaskNode } from './task-graph';
@@ -69,6 +69,12 @@ export interface EnrichmentPoolOptions {
    */
   failureRateThreshold?: number;
   minAttemptsBeforeEscalate?: number;
+  /**
+   * Cooldown granularity for adaptive back-pressure, in ms. Each retryable
+   * failure adds one step before a worker takes new work; each success removes
+   * one. Injectable so tests can exercise the behavior without real waits.
+   */
+  backpressureStepMs?: number;
   /** Streams each hydrated card as it completes. */
   onCard?: (result: HydrateCompanyCardResult) => void;
   /** Streams deck deltas; only emitted when `deckId` is supplied. */
@@ -177,18 +183,55 @@ export async function runEnrichmentPool(
   let escalated = false;
   let deltaSeq = 0;
 
+  /**
+   * Identity keys already claimed by a worker. The candidate list can contain
+   * the same entity twice — the delta agent adds an entity the initial pass
+   * already knew — and without this, two workers hydrate it in parallel and the
+   * deck gets two cards for one company. Claiming is synchronous, so there is
+   * no window between the check and the claim.
+   */
+  const claimed = new Set<string>();
+  const identityOf = (candidate: CompanyCandidate): string =>
+    (candidate.domain ?? candidate.name).trim().toLowerCase();
+
+  /**
+   * Adaptive back-pressure. A 429 means the limiter's guess about our real
+   * quota was too optimistic, so every retryable failure buys an increasing
+   * cooldown and every success pays it back down. Without this the pool keeps
+   * hammering at the same rate that just got rejected.
+   */
+  let penalty = 0;
+  const PENALTY_STEP_MS = options.backpressureStepMs ?? 1_500;
+  const MAX_PENALTY = 8;
+
   const shouldEscalate = (): boolean =>
     attempts >= minAttempts && failures.length / attempts >= failureRateThreshold;
 
   const worker = async (workerIndex: number): Promise<void> => {
     for (;;) {
       if (escalated || signal?.aborted) return;
-      const index = cursor;
-      if (index >= candidates.length) return;
-      cursor += 1;
 
-      const candidate = candidates[index];
+      // Claim the next unclaimed candidate.
+      let candidate: CompanyCandidate | undefined;
+      let index = -1;
+      while (cursor < candidates.length) {
+        const next = candidates[cursor];
+        index = cursor;
+        cursor += 1;
+        if (next === undefined) continue;
+        const key = identityOf(next);
+        if (claimed.has(key)) continue;
+        claimed.add(key);
+        candidate = next;
+        break;
+      }
       if (candidate === undefined) return;
+
+      if (penalty > 0) {
+        // Back off before taking on new work, not after failing at it.
+        await sleep(Math.min(penalty, MAX_PENALTY) * PENALTY_STEP_MS, signal).catch(() => undefined);
+        if (signal?.aborted) return;
+      }
 
       const workerSpan = poolSpan.child(`worker.${workerIndex}`, 'pool_worker', {
         branchSegment: `worker-${workerIndex}`,
@@ -233,6 +276,9 @@ export async function runEnrichmentPool(
           for (const delta of deltas) onDelta(delta);
         }
 
+        // A clean pass earns back some of the cooldown a 429 imposed.
+        if (penalty > 0) penalty -= 1;
+
         workerSpan.chunk(`hydrated ${candidate.name}`, {
           company: candidate.name,
           metrics: result.metrics.length,
@@ -248,6 +294,17 @@ export async function runEnrichmentPool(
         });
 
         if (error.name === 'AbortError') return;
+
+        // Retryable means rate-limited or upstream-degraded: slow down.
+        if (error.retryable && penalty < MAX_PENALTY) {
+          penalty += 1;
+          poolSpan.event(
+            'state_delta',
+            `back-pressure engaged (penalty ${penalty})`,
+            { penalty, company: candidate.name },
+            { severity: 'warn' },
+          );
+        }
 
         if (!escalated && shouldEscalate()) {
           escalated = true;

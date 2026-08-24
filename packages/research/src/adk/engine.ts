@@ -72,6 +72,25 @@ import {
 } from './delta-agent';
 
 // ============================================================================
+// 0. Defaults
+// ============================================================================
+
+/**
+ * Default proactive pacing. Sized for the Gemini free tier, whose per-MINUTE
+ * ceiling is the binding constraint on a research run (daily volume never is).
+ * Raise it when running on a paid tier — check your project's real limit in AI
+ * Studio rather than guessing, since Google no longer publishes per-model RPM.
+ */
+export const DEFAULT_REQUESTS_PER_MINUTE = 12;
+
+/**
+ * Default nodes in flight in the top-level DAG. Matches `runAdkTaskGraph`'s own
+ * default — these were 2 and 4 respectively, so the engine silently serialized
+ * graph nodes that the executor was willing to run in parallel.
+ */
+export const DEFAULT_GRAPH_CONCURRENCY = 4;
+
+// ============================================================================
 // 1. Events
 // ============================================================================
 
@@ -95,7 +114,7 @@ export interface LivingDeckEngineOptions {
   deckId: string;
   telemetry?: AdkTelemetryHub;
   signal?: AbortSignal;
-  /** Nodes in flight in the top-level DAG. Defaults to 2. */
+  /** Nodes in flight in the top-level DAG. Defaults to DEFAULT_GRAPH_CONCURRENCY. */
   graphConcurrency?: number;
   /** Hydration workers. Defaults to 3. */
   enrichmentConcurrency?: number;
@@ -106,8 +125,15 @@ export interface LivingDeckEngineOptions {
   /** Enable the growth loop. Defaults to true. */
   watch?: boolean;
   watchIterations?: number;
-  /** Proactive pacing, in requests per minute. Omit to disable. */
+  /**
+   * Proactive pacing, in requests per minute.
+   *
+   * Defaults to {@link DEFAULT_REQUESTS_PER_MINUTE}. Pass `0` to explicitly
+   * disable pacing — omitting this used to mean "no limiter at all", so the
+   * safe path required knowing about an option you had no reason to look for.
+   */
   requestsPerMinute?: number;
+  /** Supply a limiter SHARED with other engines to pace a whole process. */
   rateLimiter?: RateLimiter;
   onEvent?: OnLivingDeckEvent;
   onTrace?: AdkTraceSink;
@@ -222,11 +248,14 @@ export class LivingDeckEngine {
     const telemetry = this.telemetry;
     const watchEnabled = this.options.watch !== false;
 
+    // Pacing is ON by default. Previously an unset `requestsPerMinute` meant no
+    // limiter at all, so the default configuration fired every discovery vector
+    // and every hydration worker as fast as the event loop allowed — a wall of
+    // 429s followed by backoff, which reads to a user as "slow and flaky".
+    // `0` is the explicit opt-out; `undefined` now gets the safe default.
+    const rpm = this.options.requestsPerMinute ?? DEFAULT_REQUESTS_PER_MINUTE;
     const rateLimiter =
-      this.options.rateLimiter ??
-      (this.options.requestsPerMinute
-        ? createRateLimiter(this.options.requestsPerMinute)
-        : undefined);
+      this.options.rateLimiter ?? (rpm > 0 ? createRateLimiter(rpm) : undefined);
 
     telemetry.startInvocation('living deck run started', {
       deckId,
@@ -320,7 +349,7 @@ export class LivingDeckEngine {
       nodes,
       telemetry,
       session,
-      concurrency: this.options.graphConcurrency ?? 2,
+      concurrency: this.options.graphConcurrency ?? DEFAULT_GRAPH_CONCURRENCY,
       ...(signal === undefined ? {} : { signal }),
       onNodeState: (status) => this.setStatus(status),
     });
