@@ -11,14 +11,26 @@ export function throwIfAborted(signal?: AbortSignal): void {
   if (signal?.aborted) throw new AbortError();
 }
 
+/**
+ * Abortable delay.
+ *
+ * The abort listener is removed on BOTH exit paths. It previously leaked one
+ * listener per call — invisible in a short run, unbounded in a long-lived
+ * "keep researching" loop that sleeps between passes, which is exactly the
+ * workload this engine is built for.
+ */
 export const sleep = (ms: number, signal?: AbortSignal): Promise<void> =>
   new Promise((resolve, reject) => {
     if (signal?.aborted) return reject(new AbortError());
-    const t = setTimeout(resolve, ms);
-    signal?.addEventListener('abort', () => {
-      clearTimeout(t);
+    const onAbort = (): void => {
+      clearTimeout(timer);
       reject(new AbortError());
-    });
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
   });
 
 export interface RetryableError extends Error {
@@ -26,15 +38,35 @@ export interface RetryableError extends Error {
 }
 
 /**
+ * Upper bound on a single honored `Retry-After`. The header is server-supplied
+ * and occasionally enormous (a `Retry-After: 300` is 5 minutes); honoring it
+ * verbatim silently parks a research run for longer than any user will wait.
+ * We respect the server's intent up to a ceiling, then fail fast instead.
+ */
+export const MAX_RETRY_AFTER_MS = 90_000;
+
+/**
  * Retry with exponential backoff + jitter. Retries on 429 (rate limit) and 5xx,
  * respecting an optional Retry-After (ms) carried on the error.
+ *
+ * Two bounds, both deliberate: `retries` caps the number of attempts, and
+ * `maxTotalMs` caps total wall time. Attempt-count alone is not enough — four
+ * retries behind a large Retry-After can still burn minutes.
  */
 export async function withRetry<T>(
   fn: () => Promise<T>,
-  opts: { retries?: number; baseDelayMs?: number; signal?: AbortSignal } = {},
+  opts: {
+    retries?: number;
+    baseDelayMs?: number;
+    signal?: AbortSignal;
+    /** Total wall-clock budget across all attempts. Default 120s. */
+    maxTotalMs?: number;
+  } = {},
 ): Promise<T> {
   const retries = opts.retries ?? 4;
   const base = opts.baseDelayMs ?? 1200;
+  const maxTotalMs = opts.maxTotalMs ?? 120_000;
+  const startedAt = Date.now();
   let attempt = 0;
   for (;;) {
     try {
@@ -43,8 +75,16 @@ export async function withRetry<T>(
       const status = (err as RetryableError).status;
       const retryable = status === 429 || (status !== undefined && status >= 500);
       if (!retryable || attempt >= retries) throw err;
+
       const retryAfter = (err as RetryableError & { retryAfterMs?: number }).retryAfterMs;
-      const delay = retryAfter ?? base * 2 ** attempt + Math.random() * 400;
+      const delay =
+        retryAfter !== undefined
+          ? Math.min(retryAfter, MAX_RETRY_AFTER_MS)
+          : base * 2 ** attempt + Math.random() * 400;
+
+      // Don't start a wait we know will blow the budget.
+      if (Date.now() - startedAt + delay > maxTotalMs) throw err;
+
       attempt += 1;
       await sleep(delay, opts.signal);
     }
