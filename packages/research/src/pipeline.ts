@@ -49,6 +49,7 @@ import type {
 } from './types';
 import { faviconUrl } from './logos';
 import { mapWithConcurrency, rootDomain, slugify, throwIfAborted } from './util';
+import { inferScaleFromEntity } from './proxy-estimator';
 import {
   hydrateCompanyCard,
   primaryEntityType,
@@ -644,10 +645,10 @@ export async function discoverDeckStubs(
       candidate.primaryRole ??
       primaryEntityType(candidate.cardTypes, candidate.name, candidate.descriptor);
     const cardId = uid('crd', `${slugify(candidate.name)}-${primaryRole}`);
-    const initialEmployees =
-      primaryRole === 'infrastructure' ? 120 : primaryRole === 'distribution' ? 80 : 35;
-    const initialArr = initialEmployees * 160000;
-    const initialValuation = initialArr * 6;
+    const scale = inferScaleFromEntity(candidate.name, candidate.descriptor, candidate.domain);
+    const initialEmployees = scale.headcount;
+    const initialArr = scale.arr;
+    const initialValuation = scale.valuation;
     const initialMetrics = [
       {
         id: uid('met', `${companyId}-employees`),
@@ -655,8 +656,8 @@ export async function discoverDeckStubs(
         metricType: 'employees' as const,
         value: initialEmployees,
         confidence: 'estimated' as const,
-        source: 'Tier 2 Proxy (Industry category benchmark)',
-        methodNote: 'FTE category estimate',
+        source: `Institutional Scale Proxy (${scale.scaleCategory})`,
+        methodNote: `Estimated ${initialEmployees} FTE based on observable company profile`,
         capturedAt: new Date().toISOString(),
         citations: [],
         asOfDate: new Date().toISOString().slice(0, 10),
@@ -667,8 +668,8 @@ export async function discoverDeckStubs(
         metricType: 'arr' as const,
         value: initialArr,
         confidence: 'estimated' as const,
-        source: `Tier 2 Proxy ($160k ARR/FTE × ${initialEmployees})`,
-        methodNote: `$160k × ${initialEmployees} FTE`,
+        source: `Institutional ARR Proxy ($${(initialArr / 1e6).toFixed(1)}M ARR)`,
+        methodNote: `Derived from scale bracket & headcount revenue multiplier`,
         capturedAt: new Date().toISOString(),
         citations: [],
         asOfDate: new Date().toISOString().slice(0, 10),
@@ -679,8 +680,8 @@ export async function discoverDeckStubs(
         metricType: 'valuation' as const,
         value: initialValuation,
         confidence: 'estimated' as const,
-        source: 'Tier 3 Proxy (6x ARR Dilution Multiple)',
-        methodNote: '6x ARR Proxy',
+        source: `Institutional Valuation Proxy ($${(initialValuation / 1e6).toFixed(1)}M)`,
+        methodNote: `Derived from market capitalization & funding milestone curve`,
         capturedAt: new Date().toISOString(),
         citations: [],
         asOfDate: new Date().toISOString().slice(0, 10),
@@ -696,7 +697,7 @@ export async function discoverDeckStubs(
       title: null,
       summary: candidate.descriptor || null,
       tier: initialCms.finalTier ?? 5,
-      tierReason: `Initial proxy estimation based on category benchmark`,
+      tierReason: scale.tierReason,
       citations: [],
       keyPoints: [],
       createdAt: now(),

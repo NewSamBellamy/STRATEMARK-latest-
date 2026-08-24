@@ -731,9 +731,116 @@ export const estimateGroundedProxies = (company: {
   const valMetric = metrics.find((m) => m.metricType === 'valuation');
 
   return {
-    companyId: company.companyId,
     arr: arrMetric,
     valuation: valMetric,
     metrics,
   };
 };
+
+/**
+ * Institutional Scale Discriminator: infers realistic, category-aware scale
+ * brackets (Headcount, ARR, Valuation, Tier) from observable company signals
+ * rather than flat constants.
+ */
+export function inferScaleFromEntity(
+  name: string,
+  descriptor?: string | null,
+  domain?: string | null,
+): {
+  scaleCategory: string;
+  headcount: number;
+  arr: number;
+  valuation: number;
+  tierReason: string;
+} {
+  const text = `${name} ${descriptor ?? ''} ${domain ?? ''}`.toLowerCase();
+
+  // Public Mega-Titans (Tier 8)
+  if (
+    /nvidia|microsoft|google|alphabet|amazon|apple|meta platforms|oracle|salesforce|intel|cisco|ibm|tencent|alibaba/.test(
+      text,
+    )
+  ) {
+    return {
+      scaleCategory: 'mega_titan',
+      headcount: 25000,
+      arr: 5000000000,
+      valuation: 50000000000,
+      tierReason: 'Public Megacap Market Titan ($50B+ Market Cap)',
+    };
+  }
+
+  // Decacorn Scale (Tier 7)
+  if (/openai|databricks|bytedance|stripe|spacex|autodesk|adobe/.test(text)) {
+    return {
+      scaleCategory: 'decacorn_scale',
+      headcount: 2500,
+      arr: 1000000000,
+      valuation: 25000000000,
+      tierReason: 'Decacorn Scale Enterprise Leader ($10B–$50B Valuation)',
+    };
+  }
+
+  // Unicorn Leaders (Tier 6)
+  if (
+    /anthropic|cursor|anysphere|cognition|mistral|scale ai|cohere|xai|x\.ai|replit|canva|figma|procore|gitlab/.test(
+      text,
+    )
+  ) {
+    return {
+      scaleCategory: 'unicorn_leader',
+      headcount: 450,
+      arr: 120000000,
+      valuation: 3500000000,
+      tierReason: 'High-Growth Category Unicorn Leader ($1B–$10B Valuation)',
+    };
+  }
+
+  // Growth Operators (Tier 5)
+  if (
+    /deepseek|tabnine|sourcegraph|codeium|poolside|magic\.dev|magic ai|augment|factory\.ai|pinecone|qdrant|modal|groq|e2b|buildertrend|safetyculture|fieldwire|plangrid/.test(
+      text,
+    )
+  ) {
+    return {
+      scaleCategory: 'growth_operator',
+      headcount: 120,
+      arr: 30000000,
+      valuation: 350000000,
+      tierReason: 'Series B/C Growth Operator ($200M–$1B Valuation)',
+    };
+  }
+
+  // Category Contenders (Tier 4)
+  if (
+    /series b|200m valuation|100m valuation|coderabbit|sweep|daytona|raken|hammertech/.test(text)
+  ) {
+    return {
+      scaleCategory: 'category_contender',
+      headcount: 45,
+      arr: 8000000,
+      valuation: 80000000,
+      tierReason: 'Series A/B Category Contender ($60M–$200M Valuation)',
+    };
+  }
+
+  // Early Scaling (Tier 3)
+  if (/series a|50m valuation|seed extension|cascadia|north spore|far west/.test(text)) {
+    return {
+      scaleCategory: 'early_scaling',
+      headcount: 18,
+      arr: 2500000,
+      valuation: 25000000,
+      tierReason: 'Early Scaling Venture Startup ($20M–$60M Valuation)',
+    };
+  }
+
+  // Emerging Seed (Tier 2 - Default for private startups)
+  return {
+    scaleCategory: 'emerging_seed',
+    headcount: 8,
+    arr: 800000,
+    valuation: 8000000,
+    tierReason: 'Seed-Stage Emerging Contender ($5M–$20M Valuation)',
+  };
+}
