@@ -341,39 +341,43 @@ export async function discoverWithCoverage(
     ).length;
   const countSignal = (role: 'vice' | 'culture') =>
     candidates.filter((c) => c.cardTypes.includes(role)).length;
-  if (catalogPasses > 0) {
-    const fallbackPasses: { role: DiscoveryFocus; needed: number; target: number }[] = [
-      { role: 'company', needed: coverage.companies.min, target: coverage.companies.target },
-      {
-        role: 'infrastructure',
-        needed: coverage.infrastructure.min,
-        target: coverage.infrastructure.target,
-      },
-      {
-        role: 'distribution',
-        needed: coverage.distribution.min,
-        target: coverage.distribution.target,
-      },
-      { role: 'vice', needed: coverage.vice.min, target: coverage.vice.target },
-      { role: 'culture', needed: coverage.culture.min, target: coverage.culture.target },
-    ];
-    for (const pass of fallbackPasses) {
-      const current =
-        pass.role === 'vice' || pass.role === 'culture'
-          ? countSignal(pass.role)
-          : countRole(pass.role as 'company' | 'infrastructure' | 'distribution');
-      if (current >= pass.needed) continue;
-      const fallback = await discover(
-        client,
-        plan,
-        Math.min(pass.target, pass.needed - current + 2),
-        signal,
-        pass.role,
-        candidates.map((c) => c.name),
-      );
-      candidates = mergeCandidates(candidates, fallback.candidates);
-      rejected.push(...fallback.rejected);
-    }
+  // Role-coverage fallbacks are deliberately INDEPENDENT of catalog search
+  // angles. They used to sit behind `catalogPasses > 0`, which is derived from
+  // `plan.searchThemes.length` — so any plan whose interpreter returned no
+  // search themes (schemas.ts defaults searchThemes to []) silently skipped
+  // every fallback pass and shipped a deck with zero infrastructure and zero
+  // distribution entities. Coverage minimums are a contract, not an optimization.
+  const fallbackPasses: { role: DiscoveryFocus; needed: number; target: number }[] = [
+    { role: 'company', needed: coverage.companies.min, target: coverage.companies.target },
+    {
+      role: 'infrastructure',
+      needed: coverage.infrastructure.min,
+      target: coverage.infrastructure.target,
+    },
+    {
+      role: 'distribution',
+      needed: coverage.distribution.min,
+      target: coverage.distribution.target,
+    },
+    { role: 'vice', needed: coverage.vice.min, target: coverage.vice.target },
+    { role: 'culture', needed: coverage.culture.min, target: coverage.culture.target },
+  ];
+  for (const pass of fallbackPasses) {
+    const current =
+      pass.role === 'vice' || pass.role === 'culture'
+        ? countSignal(pass.role)
+        : countRole(pass.role as 'company' | 'infrastructure' | 'distribution');
+    if (current >= pass.needed) continue;
+    const fallback = await discover(
+      client,
+      plan,
+      Math.min(pass.target, pass.needed - current + 2),
+      signal,
+      pass.role,
+      candidates.map((c) => c.name),
+    );
+    candidates = mergeCandidates(candidates, fallback.candidates);
+    rejected.push(...fallback.rejected);
   }
 
   // Catalog expansion searches each market angle independently. Stop when the
