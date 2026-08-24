@@ -98,7 +98,7 @@ describe('Institutional 30-Company Market Census Live Benchmark', () => {
 
     console.log('📋 COMPLETE 3-TIER ENTITY CENSUS:');
     topology.candidates.forEach((c, i) => {
-      console.log(`  [${(i + 1).toString().padStart(2, ' ')}] ${c.name.padEnd(28)} | Role: ${c.primaryRole.padEnd(14)} | Domain: ${c.domain || 'none'}`);
+      console.log(`  [${(i + 1).toString().padStart(2, ' ')}] ${c.name.padEnd(28)} | Role: ${(c.primaryRole ?? 'unknown').padEnd(14)} | Domain: ${c.domain || 'none'}`);
     });
 
     const fullReceipt = {

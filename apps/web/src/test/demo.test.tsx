@@ -138,6 +138,10 @@ describe('NewDeckPage Deck Creation in Demo Mode', () => {
                     <Routes>
                       <Route path="/markets/new" element={<NewDeckPage />} />
                       <Route path="/research/:taskId" element={<div>Live Research Task View</div>} />
+                      {/* Fast-boot auto-navigates straight to the deck. Without
+                          this route the destination renders nothing and the
+                          assertion silently has nothing to find. */}
+                      <Route path="/markets/:id/deck" element={<div>Live Deck View</div>} />
                     </Routes>
                     <UpgradeModal />
                   </MemoryRouter>
@@ -162,7 +166,11 @@ describe('NewDeckPage Deck Creation in Demo Mode', () => {
 
     await submitDeckPrompt(user, 'AI code-review startups');
 
-    expect(await screen.findByText(/Your deck is ready/i)).toBeInTheDocument();
+    // Fast-boot builds the deck and navigates to it. The transient "deck is
+    // ready" panel is NOT observable here — NewDeckPage calls finish() then
+    // navigate() immediately, so asserting on the panel tests a frame that no
+    // real user sees. The navigation is the actual contract.
+    expect(await screen.findByText(/Live Deck View/i)).toBeInTheDocument();
   });
 
   it('allows deck creation on last query and opens UpgradeModal warning', async () => {
@@ -173,8 +181,8 @@ describe('NewDeckPage Deck Creation in Demo Mode', () => {
 
     await submitDeckPrompt(user, 'Precision fermentation companies');
 
-    // Builds deck
-    expect(await screen.findByText(/Your deck is ready/i)).toBeInTheDocument();
+    // Builds deck and navigates to it (see note above).
+    expect(await screen.findByText(/Live Deck View/i)).toBeInTheDocument();
 
     // And upgrade modal pops up warning that was the last demo query
     expect(screen.getByText('Unlock Stratemark Pro')).toBeInTheDocument();
@@ -191,8 +199,10 @@ describe('NewDeckPage Deck Creation in Demo Mode', () => {
 
     await submitDeckPrompt(user, 'Non-alcoholic spirits brands');
 
-    // Does NOT build deck
-    expect(screen.queryByText(/Your deck is ready/i)).not.toBeInTheDocument();
+    // Does NOT build deck — asserting the absence of the NAVIGATION is the real
+    // check. The previous assertion looked for a panel that never renders in
+    // this flow either way, so it passed regardless of whether the block worked.
+    expect(screen.queryByText(/Live Deck View/i)).not.toBeInTheDocument();
     expect(screen.getByText('What market should we dive into?')).toBeInTheDocument();
 
     // UpgradeModal pops up blocking research

@@ -6,6 +6,9 @@ import { CardGridSkeleton } from '@/components/states/Skeleton';
 import { EmptyState } from '@/components/states/EmptyState';
 import type { Market } from '@mi/contracts';
 
+/** Market objects returned by SentinelRepository carry an optional runtime `engine` tag. */
+type MarketWithEngine = Market & { engine?: string };
+
 export default function MarketsListPage() {
   const markets = useMarkets();
   const deleteDeck = useDeleteDeck();
@@ -82,8 +85,8 @@ export default function MarketsListPage() {
         }
       >
         {(list) => {
-          const cloudDecks = list.filter((m) => (m as any).engine === 'cloud');
-          const localDecks = list.filter((m) => (m as any).engine !== 'cloud');
+          const cloudDecks = (list as MarketWithEngine[]).filter((m) => m.engine === 'cloud');
+          const localDecks = (list as MarketWithEngine[]).filter((m) => m.engine !== 'cloud');
 
           return (
             <div className="space-y-8">

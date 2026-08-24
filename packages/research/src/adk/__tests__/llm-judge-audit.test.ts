@@ -4,12 +4,19 @@ import * as path from 'path';
 
 describe('⚖️ Independent LLM-as-a-Judge Audit (Institutional Partner Persona)', () => {
   it('evaluates Stratemark data provenance, speed, financial accuracy, and OpenAI release readiness', async () => {
-    const apiKey = process.env.GEMINI_API_KEY || '';
-    expect(apiKey).toBeTruthy();
+    // Live, API-key-gated audit. It must SKIP without a key rather than fail:
+    // asserting the key exists turns "not configured" into a red suite, which
+    // is what left CI unable to gate anything. Matches the skip pattern used by
+    // live-gemini-search and live-30-company-census.
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || '';
+    if (!apiKey) {
+      console.warn('Skipping LLM-as-a-Judge audit — no API key in environment.');
+      return;
+    }
 
     const repoRoot = path.resolve('../..');
     const censusReceiptPath = path.join(repoRoot, 'packages/research/audit_artifacts/live_30_company_census_receipt.json');
-    let censusData: any = {};
+    let censusData: Record<string, unknown> = {};
     if (fs.existsSync(censusReceiptPath)) {
       censusData = JSON.parse(fs.readFileSync(censusReceiptPath, 'utf8'));
     }
@@ -92,9 +99,16 @@ Return ONLY valid JSON matching this schema:
       })
     });
 
-    const data: any = await response.json();
+    // Minimal shape of the Gemini generateContent response this test reads.
+    interface GeminiJudgeResponse {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    }
+    const data = (await response.json()) as GeminiJudgeResponse;
     const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
     expect(rawText).toBeTruthy();
+    // `expect` does not narrow for the compiler; fail loudly rather than
+    // handing `undefined` to JSON.parse.
+    if (!rawText) throw new Error('LLM judge returned no text content.');
 
     const judgeResult = JSON.parse(rawText);
 
