@@ -36,10 +36,9 @@ export interface GeminiClientConfig {
 export const DEFAULT_GROUNDED_RPM = 15;
 export const DEFAULT_STRUCTURE_RPM = 30;
 
-// Rolling aliases that always resolve to the current flash line — sunset-proof
-// (gemini-2.5-flash is already blocked for new accounts). Overridable in Settings.
-export const DEFAULT_GROUNDED_MODEL = 'gemini-flash-latest';
-export const DEFAULT_STRUCTURE_MODEL = 'gemini-flash-lite-latest';
+// Rolling aliases and cutting-edge Gemini 3.x frontier models (2026).
+export const DEFAULT_GROUNDED_MODEL = 'gemini-3.1-pro-preview';
+export const DEFAULT_STRUCTURE_MODEL = 'gemini-3.1-flash-lite-preview';
 
 interface GeminiPart {
   text?: string;
