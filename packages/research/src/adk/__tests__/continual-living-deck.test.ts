@@ -1,40 +1,54 @@
 import { describe, it, expect } from 'vitest';
-import { inferScaleFromEntity } from '../../proxy-estimator';
+import { estimatePrivateCompanyMetrics } from '../../proxy-estimator';
 import { createGeminiClient } from '../../gemini';
 import { LivingDeckEngine, type LivingDeckEngineOptions } from '../engine';
 import { createAdkTelemetry } from '../telemetry';
 
 describe('🚀 Continual Living Deck & Balanced 8-Tier Swarm Architecture', () => {
-  it('accurately classifies OpenRouter as a High-Scale AI Model Gateway & Inference Aggregator', () => {
-    const scale = inferScaleFromEntity(
-      'OpenRouter',
-      'Unified AI model gateway and inference aggregator that resells and routes API access across hundreds of models',
-      'openrouter.ai'
-    );
+  // These two tests replace a pair that called inferScaleFromEntity and asserted
+  // its hardcoded figures — e.g. `expect(scale.valuation).toBeGreaterThanOrEqual(1e9)`
+  // for OpenRouter — as CORRECT. That function is deleted; a company's scale must
+  // come from grounded evidence, never from a regex over its name. These tests now
+  // pin the invariant that was being violated.
 
-    expect(scale.scaleCategory).toBe('unicorn_leader');
-    expect(scale.valuation).toBeGreaterThanOrEqual(1_000_000_000); // At least $1B - $8B valuation bracket
-    expect(scale.arr).toBeGreaterThanOrEqual(50_000_000); // At least $50M+ ARR
-    expect(scale.tierReason).toContain('Unicorn Leader');
+  it('returns NO figures for a company with no grounded evidence — honest null, not a guess', () => {
+    // A real private company about which the research pass found nothing usable.
+    const metrics = estimatePrivateCompanyMetrics('Stealth Robotics Co', 'general_tech', null);
+
+    // Tier 4 of the waterfall is "honest null". Either nothing is emitted, or what
+    // is emitted is explicitly unknown with a null value. What must NEVER happen is
+    // a concrete number appearing from nowhere.
+    for (const metric of metrics) {
+      if (metric.confidence === 'unknown') {
+        expect(metric.value).toBeNull();
+      } else {
+        expect(metric.value).not.toBeNull();
+        expect(metric.methodNote).toBeTruthy();
+      }
+    }
+
+    const invented = metrics.filter((m) => m.value !== null && !m.methodNote);
+    expect(invented).toEqual([]);
   });
 
-  it('provides balanced 8-tier discrimination across all maturity brackets', () => {
-    const testEntities = [
-      { name: 'NVIDIA', desc: 'GPU accelerator and AI computing hardware giant', domain: 'nvidia.com', expectedTier: 'mega_titan' },
-      { name: 'OpenAI', desc: 'Frontier AI research lab and creator of ChatGPT and GPT-4o', domain: 'openai.com', expectedTier: 'decacorn_scale' },
-      { name: 'Anthropic', desc: 'Frontier AI safety and research lab creator of Claude', domain: 'anthropic.com', expectedTier: 'decacorn_scale' },
-      { name: 'OpenRouter', desc: 'Unified AI model gateway and inference aggregator', domain: 'openrouter.ai', expectedTier: 'unicorn_leader' },
-      { name: 'Cursor (Anysphere)', desc: 'AI code editor and IDE', domain: 'cursor.com', expectedTier: 'unicorn_leader' },
-      { name: 'DeepSeek', desc: 'Open-weights reasoning model lab', domain: 'deepseek.com', expectedTier: 'growth_operator' },
-      { name: 'CodeRabbit', desc: 'AI-first code review tool', domain: 'coderabbit.ai', expectedTier: 'category_contender' },
-      { name: 'E2B', desc: 'Code interpreting sandboxes for AI agents', domain: 'e2b.dev', expectedTier: 'early_scaling' },
-      { name: 'Aider', desc: 'AI pair programming in your terminal', domain: 'aider.chat', expectedTier: 'emerging_seed' },
-    ];
+  it('derives an estimate only from observable evidence, and always shows its work', () => {
+    const metrics = estimatePrivateCompanyMetrics('Evidence Labs', 'b2b_vertical_saas', {
+      headcount: 40,
+      headcountSource: 'Company careers page, 40 listed employees',
+      citations: [{ title: 'evidencelabs.com/careers', url: 'https://evidencelabs.com/careers' }],
+    });
 
-    for (const entity of testEntities) {
-      const result = inferScaleFromEntity(entity.name, entity.desc, entity.domain);
-      expect(result.scaleCategory).toBe(entity.expectedTier);
-    }
+    const arr = metrics.find((m) => m.metricType === 'arr');
+    expect(arr).toBeDefined();
+    expect(arr?.value).toBeGreaterThan(0);
+
+    // A derived figure is an ESTIMATE, never "verified" — verified is reserved for
+    // a directly reported figure with a usable citation.
+    expect(arr?.confidence).toBe('estimated');
+
+    // And it must carry an auditable formula, so a reader can recompute it.
+    expect(arr?.methodNote).toBeTruthy();
+    expect(arr?.methodNote).toContain('40');
   });
 
   it('executes continuous living deck auto-hydration and topology expansion', async () => {
