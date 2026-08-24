@@ -745,9 +745,17 @@ describe('Progressive Fast-Boot & Continual Background Research Architecture', (
       expect(cwc.company!.name).toBeTruthy();
       expect(cwc.company!.logoUrl).toContain('faviconV2');
       expect(cwc.card.deckId).toBe(result.deck.id);
-      expect(cwc.card.tier).toBeGreaterThanOrEqual(1);
-      expect(cwc.card.tierReason).toBeDefined();
-      expect(cwc.metrics.length).toBeGreaterThan(0);
+      // Clean-metrics policy: a fast-boot stub is explicitly unranked and
+      // unhydrated. A tier here would be a guess, so it stays null until a
+      // background subagent has actually scored the company.
+      expect(cwc.card.tier).toBeNull();
+      expect(cwc.card.tierReason).toBeNull();
+      // A stub may only carry figures the grounding pass actually reported —
+      // never a placeholder, default, or zero-fill.
+      for (const metric of cwc.metrics) {
+        expect(metric.value).not.toBeNull();
+        expect(metric.source).toBeTruthy();
+      }
       expect(cwc.viceClaims).toEqual([]);
     }
 
@@ -842,8 +850,12 @@ describe('Progressive Fast-Boot & Continual Background Research Architecture', (
     for (const stub of stubCompanyCards) {
       expect(stub.company?.name).toBeTruthy();
       expect(stub.company?.logoUrl).toContain('faviconV2');
-      expect(stub.card.tier).toBeGreaterThanOrEqual(1);
-      expect(stub.metrics.length).toBeGreaterThan(0);
+      // Unhydrated means unranked — see the clean-metrics policy above.
+      expect(stub.card.tier).toBeNull();
+      for (const metric of stub.metrics) {
+        expect(metric.value).not.toBeNull();
+        expect(metric.source).toBeTruthy();
+      }
     }
 
     // 3. Wait for continual background worker pool to finish
