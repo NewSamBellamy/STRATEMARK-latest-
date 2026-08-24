@@ -883,6 +883,11 @@ describe('enrichment pool', () => {
       telemetry: hub,
       concurrency: 1,
       candidates: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map(makeCandidate),
+      // This test is about the escalation threshold, not about back-pressure
+      // timing. Adaptive back-pressure now inserts a real cooldown after each
+      // retryable (429) failure, so without shrinking the step the eight
+      // deliberate failures would spend ~9s sleeping and time the test out.
+      backpressureStepMs: 1,
     });
 
     expect(result.escalated).toBe(true);
