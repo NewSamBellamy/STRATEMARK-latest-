@@ -75,7 +75,7 @@ export function discoverPrompt(
     ``,
     // Barrier and Insight are market-level and researched in their own pass, so
     // they are deliberately absent from the roles offered here.
-    `Using Google Search, identify the REAL companies in this market. Find up to ${target} operating entities spanning maturity from tiny startups to dominant incumbents. ${focusText} Explicitly search for canonical category leaders and major entities; when relevant, do not omit obvious leaders such as OpenAI or DeepMind simply because smaller companies are easier to find. Note any documented controversy or notable community signal attached to a company you already list. For each entity give its name, website root domain, a one-line descriptor, and the role(s) it plays: ${DISCOVERABLE_ROLES.map((r) => CARD_TYPE_LABELS[r]).join(', ')}. Only include entities you can actually find in search results.`,
+    `Using Google Search, identify the REAL companies in this market. Find up to ${target} operating entities spanning maturity from tiny startups to dominant incumbents. ${focusText} Explicitly search for canonical category leaders and major entities; when relevant, do not omit obvious leaders such as OpenAI, Anthropic, or NVIDIA simply because smaller companies are easier to find. For each entity, find: (1) official name & website domain, (2) one-line descriptor, (3) primary market role (${DISCOVERABLE_ROLES.map((r) => CARD_TYPE_LABELS[r]).join(', ')}), (4) latest reported valuation OR market cap (USD), (5) latest reported ARR or annual revenue (USD), (6) employee headcount, and (7) latest venture funding round (e.g. $4B from Amazon, $150M Series B). Only include entities you can actually find in search results.`,
     excludeNames.length ? `Already known — do not repeat: ${excludeNames.join(', ')}.` : ``,
     ``,
     `STRICT: include only actual operating companies/organizations. Government agencies, regulators, trade associations, events, and abstract concepts or debates are NOT companies — omit them entirely (do not force them into any category).`,
@@ -89,8 +89,8 @@ export function structureDiscoveryPrompt(
   focus: DiscoveryFocus = 'all',
 ): string {
   return [
-    `From these research notes, output JSON: { "companies": [ { "name", "domain" (root domain or null), "descriptor", "primaryRole", "cardTypes" } ] }.`,
-    `Deduplicate. Keep only real entities named in the notes.`,
+    `From these research notes, output JSON: { "companies": [ { "name", "domain" (root domain or null), "descriptor", "primaryRole", "cardTypes", "reportedValuation" (number in USD or null), "reportedArr" (number in USD or null), "reportedHeadcount" (number or null), "fundingStage" (string or null) } ] }.`,
+    `Deduplicate. Keep only real entities named in the notes. Extract any reported valuation, market cap, annual revenue/ARR, or employee counts explicitly mentioned in the notes.`,
     focus !== 'all'
       ? `This pass is focused on ${focus}; prefer entities that satisfy that role.`
       : ``,

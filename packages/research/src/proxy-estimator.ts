@@ -761,37 +761,69 @@ export function inferScaleFromEntity(
       text,
     )
   ) {
+    const isNvidia = /nvidia/.test(text);
     return {
       scaleCategory: 'mega_titan',
-      headcount: 25000,
-      arr: 5000000000,
-      valuation: 50000000000,
-      tierReason: 'Public Megacap Market Titan ($50B+ Market Cap)',
+      headcount: isNvidia ? 30000 : 80000,
+      arr: isNvidia ? 120000000000 : 60000000000,
+      valuation: isNvidia ? 3200000000000 : 2000000000000,
+      tierReason: 'Public Megacap Market Titan (Tier 8 Titan)',
     };
   }
 
-  // Decacorn Scale (Tier 7)
-  if (/openai|databricks|bytedance|stripe|spacex|autodesk|adobe/.test(text)) {
+  // Mega Decacorns & Frontier Leaders (Tier 7/8)
+  if (/openai/.test(text)) {
     return {
       scaleCategory: 'decacorn_scale',
       headcount: 2500,
+      arr: 3700000000,
+      valuation: 157000000000,
+      tierReason: 'Global AI Frontier Leader ($157B Valuation | $3.7B+ ARR)',
+    };
+  }
+
+  if (/anthropic/.test(text)) {
+    return {
+      scaleCategory: 'decacorn_scale',
+      headcount: 1200,
       arr: 1000000000,
-      valuation: 25000000000,
+      valuation: 18400000000,
+      tierReason: 'Frontier AI Research Leader ($18.4B+ Valuation | $1B+ ARR)',
+    };
+  }
+
+  if (/xai|x\.ai/.test(text)) {
+    return {
+      scaleCategory: 'decacorn_scale',
+      headcount: 600,
+      arr: 500000000,
+      valuation: 50000000000,
+      tierReason: 'Frontier Compute & Model Lab ($50B Valuation)',
+    };
+  }
+
+  if (/databricks|bytedance|stripe|spacex|autodesk|adobe/.test(text)) {
+    return {
+      scaleCategory: 'decacorn_scale',
+      headcount: 7000,
+      arr: 2400000000,
+      valuation: 43000000000,
       tierReason: 'Decacorn Scale Enterprise Leader ($10B–$50B Valuation)',
     };
   }
 
   // Unicorn Leaders (Tier 6)
   if (
-    /anthropic|cursor|anysphere|cognition|mistral|scale ai|cohere|xai|x\.ai|replit|canva|figma|procore|gitlab/.test(
+    /cursor|anysphere|cognition|mistral|scale ai|cohere|replit|canva|figma|procore|gitlab/.test(
       text,
     )
   ) {
+    const isMistral = /mistral/.test(text);
     return {
       scaleCategory: 'unicorn_leader',
-      headcount: 450,
-      arr: 120000000,
-      valuation: 3500000000,
+      headcount: isMistral ? 350 : 250,
+      arr: isMistral ? 100000000 : 75000000,
+      valuation: isMistral ? 6200000000 : 2500000000,
       tierReason: 'High-Growth Category Unicorn Leader ($1B–$10B Valuation)',
     };
   }

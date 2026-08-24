@@ -32,6 +32,10 @@ const discoveryCompanySchema = z.object({
   descriptor: z.string().default(''),
   primaryRole: z.enum(['company', 'infrastructure', 'distribution']).nullable().default(null),
   cardTypes: z.array(cardTypeSchema).default(['company']),
+  reportedValuation: z.number().nullable().default(null),
+  reportedArr: z.number().nullable().default(null),
+  reportedHeadcount: z.number().nullable().default(null),
+  fundingStage: z.string().nullable().default(null),
 });
 
 export const discoveryOutSchema = z.preprocess(

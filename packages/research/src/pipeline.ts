@@ -646,18 +646,25 @@ export async function discoverDeckStubs(
       primaryEntityType(candidate.cardTypes, candidate.name, candidate.descriptor);
     const cardId = uid('crd', `${slugify(candidate.name)}-${primaryRole}`);
     const scale = inferScaleFromEntity(candidate.name, candidate.descriptor, candidate.domain);
-    const initialEmployees = scale.headcount;
-    const initialArr = scale.arr;
-    const initialValuation = scale.valuation;
+    const initialEmployees = candidate.reportedHeadcount ?? scale.headcount;
+    const initialArr = candidate.reportedArr ?? scale.arr;
+    const initialValuation = candidate.reportedValuation ?? scale.valuation;
+    const isValuationReported = candidate.reportedValuation != null;
+    const isArrReported = candidate.reportedArr != null;
+    const isHeadcountReported = candidate.reportedHeadcount != null;
     const initialMetrics = [
       {
         id: uid('met', `${companyId}-employees`),
         companyId,
         metricType: 'employees' as const,
         value: initialEmployees,
-        confidence: 'estimated' as const,
-        source: `Institutional Scale Proxy (${scale.scaleCategory})`,
-        methodNote: `Estimated ${initialEmployees} FTE based on observable company profile`,
+        confidence: isHeadcountReported ? ('verified' as const) : ('estimated' as const),
+        source: isHeadcountReported
+          ? 'Reported in search grounding results'
+          : `Institutional Scale Proxy (${scale.scaleCategory})`,
+        methodNote: isHeadcountReported
+          ? 'Disclosed team headcount'
+          : `Estimated ${initialEmployees} FTE based on observable company profile`,
         capturedAt: new Date().toISOString(),
         citations: [],
         asOfDate: new Date().toISOString().slice(0, 10),
@@ -667,9 +674,13 @@ export async function discoverDeckStubs(
         companyId,
         metricType: 'arr' as const,
         value: initialArr,
-        confidence: 'estimated' as const,
-        source: `Institutional ARR Proxy ($${(initialArr / 1e6).toFixed(1)}M ARR)`,
-        methodNote: `Derived from scale bracket & headcount revenue multiplier`,
+        confidence: isArrReported ? ('verified' as const) : ('estimated' as const),
+        source: isArrReported
+          ? 'Reported in search grounding results'
+          : `Institutional ARR Proxy ($${(initialArr / 1e6).toFixed(1)}M ARR)`,
+        methodNote: isArrReported
+          ? 'Disclosed annual revenue/run-rate'
+          : `Derived from scale bracket & headcount revenue multiplier`,
         capturedAt: new Date().toISOString(),
         citations: [],
         asOfDate: new Date().toISOString().slice(0, 10),
@@ -679,9 +690,13 @@ export async function discoverDeckStubs(
         companyId,
         metricType: 'valuation' as const,
         value: initialValuation,
-        confidence: 'estimated' as const,
-        source: `Institutional Valuation Proxy ($${(initialValuation / 1e6).toFixed(1)}M)`,
-        methodNote: `Derived from market capitalization & funding milestone curve`,
+        confidence: isValuationReported ? ('verified' as const) : ('estimated' as const),
+        source: isValuationReported
+          ? 'Reported in search grounding results'
+          : `Institutional Valuation Proxy ($${(initialValuation / 1e6).toFixed(1)}M)`,
+        methodNote: isValuationReported
+          ? 'Disclosed valuation/market cap'
+          : `Derived from market capitalization & funding milestone curve`,
         capturedAt: new Date().toISOString(),
         citations: [],
         asOfDate: new Date().toISOString().slice(0, 10),

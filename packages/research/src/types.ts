@@ -56,6 +56,10 @@ export interface CompanyCandidate {
   primaryRole?: 'company' | 'infrastructure' | 'distribution';
   /** Which card type(s) this entity belongs to. */
   cardTypes: CardType[];
+  reportedValuation?: number | null;
+  reportedArr?: number | null;
+  reportedHeadcount?: number | null;
+  fundingStage?: string | null;
 }
 
 /** Progress events streamed to the UI so cards appear as they are researched. */
