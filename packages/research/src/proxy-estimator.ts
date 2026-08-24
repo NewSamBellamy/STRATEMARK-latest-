@@ -738,169 +738,22 @@ export const estimateGroundedProxies = (company: {
   };
 };
 
-/**
- * Institutional Scale Discriminator: infers realistic, category-aware scale
- * brackets (Headcount, ARR, Valuation, Tier) from observable company signals
- * rather than flat constants.
- */
-export function inferScaleFromEntity(
-  name: string,
-  descriptor?: string | null,
-  domain?: string | null,
-): {
-  scaleCategory: string;
-  headcount: number;
-  arr: number;
-  valuation: number;
-  tierReason: string;
-} {
-  const text = `${name} ${descriptor ?? ''} ${domain ?? ''}`.toLowerCase();
-
-  // Public Mega-Titans (Tier 8)
-  if (
-    /nvidia|microsoft|google|alphabet|amazon|apple|meta platforms|oracle|salesforce|intel|cisco|ibm|tencent|alibaba/.test(
-      text,
-    )
-  ) {
-    const isNvidia = /nvidia/.test(text);
-    return {
-      scaleCategory: 'mega_titan',
-      headcount: isNvidia ? 30000 : 80000,
-      arr: isNvidia ? 120000000000 : 60000000000,
-      valuation: isNvidia ? 3200000000000 : 2000000000000,
-      tierReason: 'Public Megacap Market Titan (Tier 8 Titan)',
-    };
-  }
-
-  // Mega Decacorns & Frontier Leaders (Tier 7/8)
-  if (/openai/.test(text)) {
-    return {
-      scaleCategory: 'decacorn_scale',
-      headcount: 2500,
-      arr: 3700000000,
-      valuation: 157000000000,
-      tierReason: 'Global AI Frontier Leader ($157B Valuation | $3.7B+ ARR)',
-    };
-  }
-
-  if (/anthropic/.test(text)) {
-    return {
-      scaleCategory: 'decacorn_scale',
-      headcount: 1200,
-      arr: 1000000000,
-      valuation: 18400000000,
-      tierReason: 'Frontier AI Research Leader ($18.4B+ Valuation | $1B+ ARR)',
-    };
-  }
-
-  if (/xai|x\.ai/.test(text)) {
-    return {
-      scaleCategory: 'decacorn_scale',
-      headcount: 600,
-      arr: 500000000,
-      valuation: 50000000000,
-      tierReason: 'Frontier Compute & Model Lab ($50B Valuation)',
-    };
-  }
-
-  if (/databricks|bytedance|stripe|spacex|autodesk|adobe/.test(text)) {
-    return {
-      scaleCategory: 'decacorn_scale',
-      headcount: 7000,
-      arr: 2400000000,
-      valuation: 43000000000,
-      tierReason: 'Decacorn Scale Enterprise Leader ($10B–$50B Valuation)',
-    };
-  }
-
-  // Unicorn Leaders & High-Scale AI Infrastructure (Tier 6)
-  if (/openrouter|openrouter\.ai/.test(text)) {
-    return {
-      scaleCategory: 'unicorn_leader',
-      headcount: 65,
-      arr: 95000000,
-      valuation: 4500000000,
-      tierReason:
-        'Dominant AI Model Gateway & Unicorn Leader ($4.5B+ Valuation | $95M+ ARR)',
-    };
-  }
-
-  if (
-    /cursor|anysphere|cognition|mistral|scale ai|cohere|replit|canva|figma|procore|gitlab|together ai|together\.ai|anyscale|fireworks|groq/.test(
-      text,
-    )
-  ) {
-    const isMistral = /mistral/.test(text);
-    return {
-      scaleCategory: 'unicorn_leader',
-      headcount: isMistral ? 350 : 250,
-      arr: isMistral ? 100000000 : 75000000,
-      valuation: isMistral ? 6200000000 : 2500000000,
-      tierReason: 'High-Growth Category Unicorn Leader ($1B–$10B Valuation)',
-    };
-  }
-
-  // Growth Operators (Tier 5)
-  if (
-    /deepseek|tabnine|sourcegraph|codeium|poolside|magic\.dev|magic ai|augment|factory\.ai|pinecone|qdrant|modal|buildertrend|safetyculture|fieldwire|plangrid/.test(
-      text,
-    )
-  ) {
-    return {
-      scaleCategory: 'growth_operator',
-      headcount: 120,
-      arr: 30000000,
-      valuation: 350000000,
-      tierReason: 'Series B/C Growth Operator ($200M–$1B Valuation)',
-    };
-  }
-
-  // Category Contenders (Tier 4)
-  if (
-    /series b|200m valuation|100m valuation|coderabbit|sweep|raken|hammertech/.test(
-      text,
-    )
-  ) {
-    return {
-      scaleCategory: 'category_contender',
-      headcount: 45,
-      arr: 8000000,
-      valuation: 80000000,
-      tierReason: 'Series A/B Category Contender ($60M–$200M Valuation)',
-    };
-  }
-
-  // Early Scaling (Tier 3)
-  if (
-    /series a|50m valuation|seed extension|cascadia|north spore|far west|e2b|daytona|lovable|bolt\.new/.test(
-      text,
-    )
-  ) {
-    return {
-      scaleCategory: 'early_scaling',
-      headcount: 18,
-      arr: 2500000,
-      valuation: 25000000,
-      tierReason: 'Early Scaling Venture Startup ($20M–$60M Valuation)',
-    };
-  }
-
-  // Emerging Seed (Tier 2 - Default for private startups)
-  if (/aider|openhands|sweep ai/.test(text)) {
-    return {
-      scaleCategory: 'emerging_seed',
-      headcount: 8,
-      arr: 800000,
-      valuation: 8000000,
-      tierReason: 'Seed-Stage Emerging Contender ($5M–$20M Valuation)',
-    };
-  }
-
-  return {
-    scaleCategory: 'emerging_seed',
-    headcount: 8,
-    arr: 800000,
-    valuation: 8000000,
-    tierReason: 'Seed-Stage Emerging Contender ($5M–$20M Valuation)',
-  };
-}
+// ============================================================================
+// Removed: inferScaleFromEntity (institutional scale discriminator)
+// ============================================================================
+//
+// This function returned hardcoded `headcount` / `arr` / `valuation` figures
+// matched from a regex over the company NAME, with a catch-all handing ANY
+// unrecognized company arr: 800_000 / valuation: 8_000_000. Those numbers
+// carried no citation, no confidence tag, and no methodNote.
+//
+// It was never wired into the card pipeline — its only callers were tests,
+// which asserted the fabricated figures as CORRECT. That made it a landmine
+// with a green light on it: one import away from putting invented financials
+// on a card, in a product whose entire premise is that no figure is invented.
+//
+// Scale and tier must be derived from grounded, cited metrics via
+// estimatePrivateCompanyMetrics + the CMS scoring in @mi/contracts. A prior
+// inferred from a company name is model recall, not evidence, and must not
+// influence a tier. If a bracket hint is ever needed again, it must return
+// null values with confidence: "unknown" and an explicit methodNote.
