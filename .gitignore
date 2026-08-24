@@ -14,3 +14,11 @@ storybook-static/
 
 # local visual-capture artifacts
 apps/web/shots/
+
+# AI coding-tool artifacts. `.aider.chat.history.md` is a verbatim transcript of
+# an assistant session — it does not belong in a public repository, and the
+# tag cache is a large binary that churns on every run.
+.aider*
+.claude/
+.cursor/
+*.session.json
