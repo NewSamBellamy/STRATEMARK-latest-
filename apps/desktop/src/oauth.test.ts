@@ -46,44 +46,89 @@ describe('Desktop Google OAuth Loopback Flow', () => {
     );
   });
 
-  it('launches OAuth server on 127.0.0.1, opens consent URL, and resolves user upon callback with encoded user param', async () => {
+  /**
+   * This replaces a test that asserted the callback would RESOLVE A USER from a
+   * `?user=<json>` query parameter. That was an authentication bypass: any page
+   * able to redirect the browser to the loopback callback could assert an
+   * arbitrary identity. The test enshrined it as correct — and because
+   * apps/desktop has no `test:run` script, it never ran, so nothing flagged it.
+   */
+  it('refuses a forged identity supplied via the user query parameter', async () => {
     process.env.GOOGLE_CLIENT_ID = 'test-client-id.apps.googleusercontent.com';
 
-    const mockUser = {
-      id: 'google_user_123',
-      name: 'Desktop Analyst',
-      email: 'desktop@stratemark.ai',
+    const forged = {
+      id: 'attacker_1',
+      name: 'Not The Owner',
+      email: 'attacker@example.com',
     };
 
     const flowPromise = performGoogleOAuthFlow();
+    flowPromise.catch(() => {});
 
-    // Give server a moment to start and call shell.openExternal
     await new Promise((r) => setTimeout(r, 50));
-
-    expect(shell.openExternal).toHaveBeenCalledWith(
-      expect.stringContaining('https://accounts.google.com/o/oauth2/v2/auth'),
-    );
 
     const activeServer = getActiveOAuthServer();
     expect(activeServer).not.toBeNull();
 
     if (activeServer) {
       const address = activeServer.address() as { port: number };
-      const encodedUser = encodeURIComponent(JSON.stringify(mockUser));
+      const encoded = encodeURIComponent(JSON.stringify(forged));
 
-      // Trigger the local callback endpoint
       await new Promise<void>((resolve, reject) => {
         http
-          .get(`http://127.0.0.1:${address.port}/callback?user=${encodedUser}`, (res) => {
-            expect(res.statusCode).toBe(200);
+          .get(`http://127.0.0.1:${address.port}/callback?user=${encoded}`, (res) => {
+            // No state nonce => rejected outright.
+            expect(res.statusCode).toBe(400);
             resolve();
           })
           .on('error', reject);
       });
     }
 
-    const user = await flowPromise;
-    expect(user).toEqual(mockUser);
+    // Crucially: it must NOT resolve as the forged user.
+    await expect(flowPromise).rejects.toThrow(/state mismatch/i);
+  });
+
+  it('sends a state nonce on the consent URL', async () => {
+    process.env.GOOGLE_CLIENT_ID = 'test-client-id.apps.googleusercontent.com';
+
+    const flowPromise = performGoogleOAuthFlow();
+    flowPromise.catch(() => {});
+    await new Promise((r) => setTimeout(r, 50));
+
+    const url = vi.mocked(shell.openExternal).mock.calls[0]?.[0] ?? '';
+    expect(url).toContain('https://accounts.google.com/o/oauth2/v2/auth');
+
+    const state = new URL(url).searchParams.get('state');
+    expect(state).toBeTruthy();
+    // 32 random bytes, base64url — long enough not to be guessable.
+    expect((state ?? '').length).toBeGreaterThanOrEqual(32);
+  });
+
+  it('rejects a callback whose state does not match, even with a code present', async () => {
+    process.env.GOOGLE_CLIENT_ID = 'test-client-id.apps.googleusercontent.com';
+
+    const flowPromise = performGoogleOAuthFlow();
+    flowPromise.catch(() => {});
+    await new Promise((r) => setTimeout(r, 50));
+
+    const activeServer = getActiveOAuthServer();
+    if (activeServer) {
+      const address = activeServer.address() as { port: number };
+      await new Promise<void>((resolve, reject) => {
+        http
+          .get(
+            `http://127.0.0.1:${address.port}/callback?code=abc&state=wrong-nonce`,
+            (res) => {
+              expect(res.statusCode).toBe(400);
+              resolve();
+            },
+          )
+          .on('error', reject);
+      });
+    }
+
+    await expect(flowPromise).rejects.toThrow(/state mismatch/i);
   });
 
   it('rejects with error message when callback receives authentication error', async () => {

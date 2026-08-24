@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -49,8 +50,36 @@ export function getActiveOAuthServer(): http.Server | null {
   return activeOAuthServer;
 }
 
+/**
+ * Escape text before it is interpolated into the callback page.
+ *
+ * The callback server echoed `?error=` straight into its HTML response, so any
+ * page able to redirect the browser to 127.0.0.1 could execute script in that
+ * response. Reflected XSS on a loopback page is still XSS.
+ */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** Constant-time-ish comparison so a mismatch cannot be probed byte by byte. */
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
 export async function performGoogleOAuthFlow(): Promise<OAuthUser> {
   ensureEnvLoaded();
+
+  // CSRF nonce. There was NO state parameter at all, so any page able to hit
+  // the loopback callback could complete a sign-in the user never started.
+  const expectedState = crypto.randomBytes(32).toString('base64url');
 
   if (activeOAuthServer) {
     try {
@@ -116,7 +145,7 @@ export async function performGoogleOAuthFlow(): Promise<OAuthUser> {
               <body style="font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
                 <div style="text-align: center; padding: 2rem; background: #1e293b; border-radius: 0.75rem; border: 1px solid #334155;">
                   <h2 style="color: #ef4444; margin-top: 0;">Authentication Failed</h2>
-                  <p style="color: #94a3b8;">${error}</p>
+                  <p style="color: #94a3b8;">${escapeHtml(error)}</p>
                   <p style="font-size: 0.875rem; color: #64748b;">You may close this tab and return to Stratemark.</p>
                 </div>
               </body>
@@ -127,15 +156,24 @@ export async function performGoogleOAuthFlow(): Promise<OAuthUser> {
           return;
         }
 
-        let user: OAuthUser | null = null;
-
-        if (userParam) {
-          try {
-            user = JSON.parse(decodeURIComponent(userParam));
-          } catch {
-            // ignore
-          }
+        // Verify the CSRF nonce before acting on anything in this request.
+        const returnedState = reqUrl.searchParams.get('state');
+        if (!returnedState || !safeEqual(returnedState, expectedState)) {
+          res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+          res.end('State mismatch. Close this tab and start sign-in again from the app.');
+          cleanup();
+          reject(new Error('Google authentication failed: state mismatch (possible CSRF).'));
+          return;
         }
+
+        // `?user=<json>` used to be parsed and TRUSTED as the authenticated
+        // identity, so anyone who could reach this callback could assert any
+        // user. Identity now comes only from the server-side token exchange
+        // below. The parameter is deliberately ignored.
+        if (userParam) {
+          console.warn('[oauth] ignoring untrusted `user` parameter on callback');
+        }
+        let user: OAuthUser | null = null;
 
         if (!user && code && clientId) {
           const redirectUri = `http://127.0.0.1:${(server.address() as { port: number }).port}/callback`;
@@ -265,10 +303,13 @@ export async function performGoogleOAuthFlow(): Promise<OAuthUser> {
           `redirect_uri=${encodeURIComponent(redirectUri)}&` +
           `response_type=code&` +
           `scope=${encodeURIComponent('openid profile email')}&` +
+          `state=${encodeURIComponent(expectedState)}&` +
           `prompt=select_account`;
       } else {
         const domain = authDomain || 'stratemark.firebaseapp.com';
-        authUrl = `https://${domain}/__/__/auth/handler?redirect_uri=${encodeURIComponent(redirectUri)}`;
+        authUrl =
+          `https://${domain}/__/__/auth/handler?redirect_uri=${encodeURIComponent(redirectUri)}` +
+          `&state=${encodeURIComponent(expectedState)}`;
       }
 
       shell.openExternal(authUrl).catch((err) => {
