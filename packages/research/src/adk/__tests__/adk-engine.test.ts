@@ -25,6 +25,10 @@ import {
 import type { CompanyCandidate, LlmClient, MarketPlan } from '../../types';
 import type { HydrateCompanyCardResult } from '../../company-agent';
 import type { DeltaSearchResult } from '../../delta-agent';
+// Namespace type imports so the vi.mock factories can spread the real module
+// without inline `import()` type annotations, which the lint config forbids.
+import type * as CompanyAgentModule from '../../company-agent';
+import type * as DeltaAgentModule from '../../delta-agent';
 
 import { AdkTelemetryHub, createDeterministicTelemetry, toTraceError } from '../telemetry';
 import {
@@ -56,12 +60,12 @@ const hoisted = vi.hoisted(() => ({
 }));
 
 vi.mock('../../company-agent', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../company-agent')>();
+  const actual = await importOriginal<typeof CompanyAgentModule>();
   return { ...actual, hydrateCompanyCard: hoisted.hydrateCompanyCard };
 });
 
 vi.mock('../../delta-agent', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../delta-agent')>();
+  const actual = await importOriginal<typeof DeltaAgentModule>();
   class MockIncrementalDeltaAgent {
     searchDelta = hoisted.searchDelta;
   }
@@ -183,8 +187,10 @@ function fakeDiscoveryClient(
         queries: [focus],
       };
     }),
+    // `vi.fn` erases the generic, so the mock is cast to the client's own
+    // signature — the repo's established pattern for LlmClient test doubles.
     structure: vi.fn(
-      async <T,>(prompt: string, schema: ZodType<T, ZodTypeDef, unknown>): Promise<T> => {
+      async (prompt: string, schema: ZodType<unknown, ZodTypeDef, unknown>): Promise<unknown> => {
         const focus = detectFocus(prompt);
         const rows = (rowsByFocus[focus] ?? []).map((row) => ({
           name: row.name,
@@ -195,7 +201,7 @@ function fakeDiscoveryClient(
         }));
         return schema.parse({ companies: rows });
       },
-    ),
+    ) as unknown as LlmClient['structure'],
   };
 }
 
