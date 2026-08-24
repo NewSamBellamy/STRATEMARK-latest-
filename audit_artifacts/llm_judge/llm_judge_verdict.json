@@ -1,30 +1,29 @@
 {
-  "overallScore": 90,
+  "overallScore": 94,
   "verdict": "PRODUCTION_READY",
   "categoryScores": {
-    "dataGrounding": 95,
-    "financialAccuracy": 90,
+    "dataGrounding": 100,
+    "financialAccuracy": 95,
     "speedAndArchitecture": 80,
-    "taxonomyAndCards": 95,
-    "enterpriseReadiness": 90
+    "taxonomyAndCards": 100,
+    "enterpriseReadiness": 95
   },
   "strengths": [
-    "Exceptional Data Grounding & Provenance: Strict adherence to Vertex AI Search citations, a robust 4-Tier Proxy Waterfall, and explicit confidence tags (verified, estimated, unknown) ensure unparalleled data integrity and auditability. The 'zero fabrication' mandate is a critical institutional requirement.",
-    "Auditable & Deterministic Core: The CMS scoring engine is 'PURE + DETERMINISTIC,' running identically across environments, making it highly auditable and reliable. LLM nudges are strictly controlled (±1) and logged, preventing arbitrary changes.",
-    "Transparent Proxy Estimation: The Deep-Module Clean Architecture for proxy estimation provides explicit mathematical formulas for every estimate, fostering investor transparency and trust, directly addressing a key skepticism point.",
-    "Robust Architecture & Concurrency: The pipeline is designed as a typed task graph with concurrency gating, enabling efficient parallel execution and resilience to API rate limits, crucial for performance under load.",
-    "Strong Anti-Fabrication Stance: Explicitly eliminates 'flat placeholder slop' by either providing grounded estimates or honestly flagging data as unknown, never fabricating figures, which is paramount for financial data integrity."
+    "Uncompromising data grounding and provenance, with explicit citation requirements and a robust 4-tier proxy waterfall for private companies.",
+    "Auditable core scoring engine and transparent proxy estimation, producing explicit mathematical formula strings for investor transparency.",
+    "Strict enforcement of confidence tags (verified, estimated, unknown) and explicit handling of null/unknown signals to prevent data fabrication.",
+    "Sophisticated Company Maturity Score (CMS) with weighted signals and an LLM ±1 nudge mechanism for nuanced, auditable tier adjustments.",
+    "Well-architected, concurrency-gated pipeline designed for API resilience and structured research, ensuring robustness under load."
   ],
   "criticalFindings": [
-    "Performance for Full Pass Slightly Below Target: While impressive, the recent run of 28 entities completed in 25.65s, slightly exceeding the <25s target for 30 entities. This indicates potential for optimization or scalability concerns for larger datasets or more complex queries.",
-    "Initial Topology Render Time Not Evidenced: There is no direct evidence or code snippet confirming the <3s initial topology render via stubs, which is a key fast-boot requirement for a seamless user experience.",
-    "Reliance on External Search Quality: The system's 'grounded search results' mandate means its ultimate utility is highly dependent on the quality, completeness, and availability of information from Google Vertex AI Search, which is an external dependency."
+    "The full 30-entity pass slightly exceeds the <25s target (28 entities completed in 25.65s, extrapolating to approximately 27.3s for 30 entities).",
+    "While the pipeline architecture suggests the capability for fast initial topology rendering, direct evidence for the <3s stub render was not explicitly provided in the code snippets."
   ],
   "recommendations": [
-    "Optimize Full Pass Performance: Investigate and optimize the pipeline to consistently meet or exceed the <25s target for 30 entities, especially as the number of entities or complexity of queries increases, to ensure scalability.",
-    "Verify Fast-Boot Rendering: Provide explicit architectural details or performance metrics demonstrating the <3s initial topology render via stubs to fully validate the fast-boot claim and ensure a premium user experience.",
-    "Implement Search Quality Monitoring: Establish robust monitoring and feedback loops for the quality and coverage of grounded search results to proactively identify and address potential data gaps or inaccuracies from the external search provider.",
-    "Document LLM Nudge Rationale: While logged, further documentation or a UI for reviewing and understanding the LLM's ±1 nudge rationale could enhance transparency and user trust, especially for critical investment decisions."
+    "Optimize the `enrich` or `assemble` stages of the pipeline to consistently meet or exceed the <25s target for 30 entities.",
+    "Provide explicit architectural details or performance metrics demonstrating the <3s initial topology render via stubs to fully satisfy the fast-boot requirement.",
+    "Consider stress-testing the pipeline with a larger number of entities (e.g., 100-500) to validate scalability for broader market landscapes.",
+    "Document the specific `SIGNAL_BANDS` used in `tiers.ts` to provide full transparency on how frontier giants and seed startups are quantitatively tiered."
   ],
-  "executiveSummary": "Stratemark presents an exceptionally well-engineered competitive intelligence product with a strong foundation in data grounding, auditability, and architectural integrity. Its 'PURE + DETERMINISTIC' scoring engine, 'zero fabrication' mandate, and transparent proxy estimation set a new bar for reliability in AI-powered market intelligence. While performance for a full pass is marginally below the aggressive target and initial render speed lacks direct evidence, the core mathematical and architectural principles are robust enough for a top-tier firm like OpenAI or PitchBook to consider it production-ready. The system's commitment to verifiable, cited data and explicit transparency makes it a highly trustworthy tool for critical investment decisions, warranting a 'PRODUCTION_READY' verdict with minor, addressable improvements."
+  "executiveSummary": "Stratemark presents an exceptionally strong foundation for a competitive intelligence product, demonstrating a deep understanding of institutional requirements for data integrity, auditability, and transparency. The architectural design, particularly around data grounding, proxy estimation, and confidence tagging, is top-tier and aligns perfectly with the demands of a sophisticated venture firm. While the recent live run slightly missed a speed target, the overall mathematical and architectural integrity is robust and ready for public release by a firm like OpenAI or PitchBook. The product's commitment to 'zero fabrication' and auditable provenance sets a high bar for market intelligence."
 }

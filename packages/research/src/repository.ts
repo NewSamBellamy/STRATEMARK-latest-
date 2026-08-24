@@ -472,7 +472,7 @@ export class GeminiRepository implements MarketIntelRepository {
         targetCompanies: this.targetCompanies,
         coverage: this.coverage,
         catalogMax: this.catalogMax,
-        catalogPasses: this.catalogPasses,
+        catalogPasses: 0,
         onEvent: (evt) => {
           checkpoint(evt);
           const p = handlers?.onProgress;

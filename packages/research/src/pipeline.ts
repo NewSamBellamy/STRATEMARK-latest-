@@ -18,6 +18,7 @@ import {
   type CardType,
   type CardWithCompany,
   type Company,
+  type CompanyMetric,
   type Deck,
   type Market,
   type MaturityTier,
@@ -49,7 +50,6 @@ import type {
 } from './types';
 import { faviconUrl } from './logos';
 import { mapWithConcurrency, rootDomain, slugify, throwIfAborted } from './util';
-import { inferScaleFromEntity } from './proxy-estimator';
 import {
   hydrateCompanyCard,
   primaryEntityType,
@@ -341,37 +341,39 @@ export async function discoverWithCoverage(
     ).length;
   const countSignal = (role: 'vice' | 'culture') =>
     candidates.filter((c) => c.cardTypes.includes(role)).length;
-  const fallbackPasses: { role: DiscoveryFocus; needed: number; target: number }[] = [
-    { role: 'company', needed: coverage.companies.min, target: coverage.companies.target },
-    {
-      role: 'infrastructure',
-      needed: coverage.infrastructure.min,
-      target: coverage.infrastructure.target,
-    },
-    {
-      role: 'distribution',
-      needed: coverage.distribution.min,
-      target: coverage.distribution.target,
-    },
-    { role: 'vice', needed: coverage.vice.min, target: coverage.vice.target },
-    { role: 'culture', needed: coverage.culture.min, target: coverage.culture.target },
-  ];
-  for (const pass of fallbackPasses) {
-    const current =
-      pass.role === 'vice' || pass.role === 'culture'
-        ? countSignal(pass.role)
-        : countRole(pass.role as 'company' | 'infrastructure' | 'distribution');
-    if (current >= pass.needed) continue;
-    const fallback = await discover(
-      client,
-      plan,
-      Math.min(pass.target, pass.needed - current + 2),
-      signal,
-      pass.role,
-      candidates.map((c) => c.name),
-    );
-    candidates = mergeCandidates(candidates, fallback.candidates);
-    rejected.push(...fallback.rejected);
+  if (catalogPasses > 0) {
+    const fallbackPasses: { role: DiscoveryFocus; needed: number; target: number }[] = [
+      { role: 'company', needed: coverage.companies.min, target: coverage.companies.target },
+      {
+        role: 'infrastructure',
+        needed: coverage.infrastructure.min,
+        target: coverage.infrastructure.target,
+      },
+      {
+        role: 'distribution',
+        needed: coverage.distribution.min,
+        target: coverage.distribution.target,
+      },
+      { role: 'vice', needed: coverage.vice.min, target: coverage.vice.target },
+      { role: 'culture', needed: coverage.culture.min, target: coverage.culture.target },
+    ];
+    for (const pass of fallbackPasses) {
+      const current =
+        pass.role === 'vice' || pass.role === 'culture'
+          ? countSignal(pass.role)
+          : countRole(pass.role as 'company' | 'infrastructure' | 'distribution');
+      if (current >= pass.needed) continue;
+      const fallback = await discover(
+        client,
+        plan,
+        Math.min(pass.target, pass.needed - current + 2),
+        signal,
+        pass.role,
+        candidates.map((c) => c.name),
+      );
+      candidates = mergeCandidates(candidates, fallback.candidates);
+      rejected.push(...fallback.rejected);
+    }
   }
 
   // Catalog expansion searches each market angle independently. Stop when the
@@ -614,65 +616,50 @@ export async function discoverDeckStubs(
       candidate.primaryRole ??
       primaryEntityType(candidate.cardTypes, candidate.name, candidate.descriptor);
     const cardId = uid('crd', `${slugify(candidate.name)}-${primaryRole}`);
-    const scale = inferScaleFromEntity(candidate.name, candidate.descriptor, candidate.domain);
-    const initialEmployees = candidate.reportedHeadcount ?? scale.headcount;
-    const initialArr = candidate.reportedArr ?? scale.arr;
-    const initialValuation = candidate.reportedValuation ?? scale.valuation;
     const isValuationReported = candidate.reportedValuation != null;
     const isArrReported = candidate.reportedArr != null;
     const isHeadcountReported = candidate.reportedHeadcount != null;
-    const initialMetrics = [
-      {
+    const initialMetrics: CompanyMetric[] = [];
+    if (isHeadcountReported && candidate.reportedHeadcount != null) {
+      initialMetrics.push({
         id: uid('met', `${companyId}-employees`),
         companyId,
         metricType: 'employees' as const,
-        value: initialEmployees,
-        confidence: isHeadcountReported ? ('verified' as const) : ('estimated' as const),
-        source: isHeadcountReported
-          ? 'Reported in search grounding results'
-          : `Institutional Scale Proxy (${scale.scaleCategory})`,
-        methodNote: isHeadcountReported
-          ? 'Disclosed team headcount'
-          : `Estimated ${initialEmployees} FTE based on observable company profile`,
+        value: candidate.reportedHeadcount,
+        confidence: 'verified' as const,
+        source: 'Reported in search grounding results',
+        methodNote: 'Disclosed team headcount',
         capturedAt: new Date().toISOString(),
         citations: [],
-        asOfDate: new Date().toISOString().slice(0, 10),
-      },
-      {
+      });
+    }
+    if (isArrReported && candidate.reportedArr != null) {
+      initialMetrics.push({
         id: uid('met', `${companyId}-arr`),
         companyId,
         metricType: 'arr' as const,
-        value: initialArr,
-        confidence: isArrReported ? ('verified' as const) : ('estimated' as const),
-        source: isArrReported
-          ? 'Reported in search grounding results'
-          : `Institutional ARR Proxy ($${(initialArr / 1e6).toFixed(1)}M ARR)`,
-        methodNote: isArrReported
-          ? 'Disclosed annual revenue/run-rate'
-          : `Derived from scale bracket & headcount revenue multiplier`,
+        value: candidate.reportedArr,
+        confidence: 'verified' as const,
+        source: 'Reported in search grounding results',
+        methodNote: 'Disclosed annual revenue/run-rate',
         capturedAt: new Date().toISOString(),
         citations: [],
-        asOfDate: new Date().toISOString().slice(0, 10),
-      },
-      {
+      });
+    }
+    if (isValuationReported && candidate.reportedValuation != null) {
+      initialMetrics.push({
         id: uid('met', `${companyId}-valuation`),
         companyId,
         metricType: 'valuation' as const,
-        value: initialValuation,
-        confidence: isValuationReported ? ('verified' as const) : ('estimated' as const),
-        source: isValuationReported
-          ? 'Reported in search grounding results'
-          : `Institutional Valuation Proxy ($${(initialValuation / 1e6).toFixed(1)}M)`,
-        methodNote: isValuationReported
-          ? 'Disclosed valuation/market cap'
-          : `Derived from market capitalization & funding milestone curve`,
+        value: candidate.reportedValuation,
+        confidence: 'verified' as const,
+        source: 'Reported in search grounding results',
+        methodNote: 'Disclosed valuation/market cap',
         capturedAt: new Date().toISOString(),
         citations: [],
-        asOfDate: new Date().toISOString().slice(0, 10),
-      },
-    ];
+      });
+    }
 
-    const initialCms = computeCms(buildCmsInput(initialMetrics), { deckUserValues: [] });
     const card: Card = {
       id: cardId,
       deckId: deck.id,
@@ -680,8 +667,8 @@ export async function discoverDeckStubs(
       cardType: primaryRole,
       title: null,
       summary: candidate.descriptor || null,
-      tier: initialCms.finalTier ?? 5,
-      tierReason: scale.tierReason,
+      tier: null,
+      tierReason: null,
       citations: [],
       keyPoints: [],
       createdAt: now(),
