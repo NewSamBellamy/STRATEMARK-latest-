@@ -49,7 +49,9 @@ import type {
   RunResearchOptions,
 } from './types';
 import { faviconUrl } from './logos';
-import { mapWithConcurrency, rootDomain, slugify, throwIfAborted } from './util';
+import {
+  AbortError, mapWithConcurrency, rootDomain, slugify, throwIfAborted
+} from './util';
 import {
   hydrateCompanyCard,
   primaryEntityType,
@@ -178,7 +180,9 @@ async function discover(
         discoveryMinimumOutSchema,
         structureOptions,
       );
-    } catch {
+    } catch (err) {
+      // An abort is a decision, not a schema failure — never retry past it.
+      if (err instanceof AbortError) throw err;
       out = await client.structure(
         structureDiscoveryPrompt(grounded.text, focus),
         discoveryOutSchema,
@@ -446,8 +450,11 @@ export async function reviewTiersBatch(
       const key = byName.get((r.name ?? '').trim().toLowerCase());
       if (key) out.set(key, { nudge: r.nudge ?? 0, reason: r.reason ?? null });
     }
-  } catch {
-    /* keep the deterministic tiers — a failed review must never fail the deck */
+  } catch (err) {
+    // A failed review must never fail the deck, but a cancelled run must stop:
+    // swallowing the abort here kept the pipeline scoring tiers after cancel.
+    if (err instanceof AbortError) throw err;
+    /* otherwise keep the deterministic tiers */
   }
   return out;
 }
@@ -740,7 +747,10 @@ export async function hydrateDeckCards(
         }
         await options.onMarketSignals?.(mc);
         return mc;
-      } catch {
+      } catch (err) {
+        // Same rule: degrade on real failure, stop on cancellation. Previously
+        // an abort here let entity enrichment carry on burning search quota.
+        if (err instanceof AbortError) throw err;
         emit({
           type: 'warning',
           message: 'Could not research market-level barriers and insights.',
