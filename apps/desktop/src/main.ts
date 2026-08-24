@@ -119,27 +119,54 @@ function createFileStore(file: string): ResearchStore {
 
 const keyFile = (): string => path.join(app.getPath('userData'), 'gemini.key.enc');
 
+/**
+ * Thrown when the OS cannot encrypt at rest. Surfaced to the renderer so the
+ * user is told plainly, rather than silently getting weaker storage than the
+ * filename claims.
+ */
+export class SecureStorageUnavailableError extends Error {
+  constructor() {
+    super(
+      'Secure storage is not available on this system, so the API key was not saved. ' +
+        'Enter it again each session, or install an OS keyring (e.g. gnome-keyring) and retry.',
+    );
+    this.name = 'SecureStorageUnavailableError';
+  }
+}
+
 function loadApiKey(): string {
   try {
     if (!existsSync(keyFile())) return '';
-    const buf = readFileSync(keyFile());
-    return safeStorage.isEncryptionAvailable()
-      ? safeStorage.decryptString(buf)
-      : buf.toString('utf8');
+    // Only ever read back through the same encryption that wrote it. Reading a
+    // file as plaintext when encryption is unavailable is how a key written by
+    // the old code path would keep being honored.
+    if (!safeStorage.isEncryptionAvailable()) return '';
+    return safeStorage.decryptString(readFileSync(keyFile()));
   } catch {
     return '';
   }
 }
 
+/**
+ * Persist the API key, encrypted, or refuse.
+ *
+ * This previously fell back to `Buffer.from(key, 'utf8')` when
+ * `safeStorage.isEncryptionAvailable()` returned false — writing the raw key to
+ * a file named `gemini.key.enc`. On any machine without an OS keyring (Linux
+ * without gnome-keyring, headless sessions, CI) the `.enc` extension was a lie
+ * and the credential sat in plaintext on disk. Refusing is the correct
+ * behaviour: a key the user must retype each session is a minor inconvenience,
+ * a leaked key is not.
+ */
 function saveApiKey(key: string): void {
   if (!key) {
     if (existsSync(keyFile())) rmSync(keyFile());
     return;
   }
-  const data = safeStorage.isEncryptionAvailable()
-    ? safeStorage.encryptString(key)
-    : Buffer.from(key, 'utf8');
-  writeFileSync(keyFile(), data);
+  if (!safeStorage.isEncryptionAvailable()) {
+    throw new SecureStorageUnavailableError();
+  }
+  writeFileSync(keyFile(), safeStorage.encryptString(key));
 }
 
 // ---------------------------------------------------------------------------
