@@ -124,6 +124,20 @@ export const companyMetricSchema = z.object({
     .default([]),
   methodNote: z.string().nullable(), // "how we got this number" for estimated figures
   capturedAt: isoTimestamp,
+  /**
+   * When a source last CONFIRMED this figure, as opposed to when we wrote the
+   * row (`capturedAt`). The two diverge on a refresh that re-confirms an
+   * unchanged value — and the confirmation is what freshness depends on, or
+   * re-verifying a stable number would read as no progress at all.
+   * Defaulted so snapshots written before freshness tracking still parse.
+   */
+  lastVerifiedAt: isoTimestamp.nullish(),
+  /**
+   * This figure's own decay window. Written onto the row rather than derived at
+   * read time, so a later policy change cannot silently reinterpret the
+   * freshness of data already on disk. Null = never auto-refresh.
+   */
+  staleAfterSeconds: z.number().int().positive().nullish(),
   conflicts: z
     .array(
       z.object({

@@ -68,6 +68,11 @@ interface CachedTab {
 }
 
 export interface RepoSnapshot {
+  /**
+   * Storage format version. Absent on snapshots written before migrations
+   * existed; `migrateSnapshot` treats that as version 1.
+   */
+  schemaVersion?: number;
   markets: Market[];
   decks: Deck[];
   companies: Company[];
@@ -99,7 +104,76 @@ export interface ResearchStore {
   write(snapshot: RepoSnapshot): void;
 }
 
+/**
+ * Current storage format version.
+ *
+ * Bump this whenever a change to `RepoSnapshot` cannot be absorbed by simple
+ * field defaulting, and add the matching entry to {@link SNAPSHOT_MIGRATIONS}.
+ * Before this existed, `normalize()` spread defaults over whatever was on disk,
+ * which silently absorbs ADDITIVE changes but corrupts state on a rename or a
+ * type change — the reader would keep the old field, drop the new one, and
+ * report success. The whole research corpus lives in one JSON document, so that
+ * failure mode is total rather than partial.
+ */
+export const REPO_SCHEMA_VERSION = 2;
+
+/** A migration takes the previous shape and returns the next one. */
+export type SnapshotMigration = (raw: Record<string, unknown>) => Record<string, unknown>;
+
+/**
+ * Ordered migrations, keyed by the version they upgrade FROM.
+ *
+ * v1 → v2: freshness tracking. `lastVerifiedAt` / `staleAfterSeconds` were
+ * added to metrics. Both are nullish, so no data needs rewriting — existing
+ * figures are simply treated as never-confirmed and come due immediately, which
+ * is the honest reading of a figure whose age we cannot vouch for.
+ */
+export const SNAPSHOT_MIGRATIONS: Record<number, SnapshotMigration> = {
+  1: (raw) => ({ ...raw, schemaVersion: 2 }),
+};
+
+export interface MigrationOutcome {
+  snapshot: RepoSnapshot;
+  /** Version found on disk, or null when there was nothing to read. */
+  fromVersion: number | null;
+  applied: number[];
+}
+
+/**
+ * Bring a stored snapshot up to {@link REPO_SCHEMA_VERSION}.
+ *
+ * A snapshot from a NEWER version than this build understands is returned
+ * untouched rather than mangled — a user who ran a newer release and then
+ * downgraded should get a clean read-only-ish experience, not silent data loss.
+ */
+export function migrateSnapshot(raw: RepoSnapshot | null): MigrationOutcome {
+  if (!raw) return { snapshot: empty(), fromVersion: null, applied: [] };
+
+  const found = typeof raw.schemaVersion === 'number' ? raw.schemaVersion : 1;
+  const applied: number[] = [];
+
+  if (found > REPO_SCHEMA_VERSION) {
+    return { snapshot: normalize(raw), fromVersion: found, applied };
+  }
+
+  let working = raw as unknown as Record<string, unknown>;
+  for (let version = found; version < REPO_SCHEMA_VERSION; version += 1) {
+    const migration = SNAPSHOT_MIGRATIONS[version];
+    if (!migration) break;
+    working = migration(working);
+    applied.push(version);
+  }
+
+  const migrated = normalize(working as unknown as RepoSnapshot);
+  return {
+    snapshot: { ...migrated, schemaVersion: REPO_SCHEMA_VERSION },
+    fromVersion: found,
+    applied,
+  };
+}
+
 const empty = (): RepoSnapshot => ({
+  schemaVersion: REPO_SCHEMA_VERSION,
   markets: [],
   decks: [],
   companies: [],
@@ -184,6 +258,7 @@ export interface GeminiRepositoryOptions extends GeminiClientConfig {
 
 export class GeminiRepository implements MarketIntelRepository {
   private snap: RepoSnapshot;
+  private lastMigration: MigrationOutcome | null = null;
   private readonly client: LlmClient;
   private readonly store?: ResearchStore;
   private readonly targetCompanies?: number;
@@ -205,7 +280,24 @@ export class GeminiRepository implements MarketIntelRepository {
     this.coverage = options.coverage;
     this.catalogMax = options.catalogMax;
     this.catalogPasses = options.catalogPasses;
-    this.snap = normalize(this.store?.read() ?? null);
+    // Migrate on load, not on demand. A snapshot written by an older build is
+    // brought forward once, here, so nothing downstream has to reason about
+    // which format it is looking at.
+    const migration = migrateSnapshot(this.store?.read() ?? null);
+    this.snap = migration.snapshot;
+    this.lastMigration = migration;
+    // Persist immediately after an upgrade so the migration is not re-run on
+    // every launch, and so a later downgrade sees an honest version stamp.
+    if (migration.applied.length > 0) this.store?.write(this.snap);
+  }
+
+  /**
+   * What happened when this repository loaded its snapshot. Exposed so the shell
+   * can surface "your data was upgraded" or "this file came from a newer
+   * version" instead of failing silently.
+   */
+  getMigrationOutcome(): MigrationOutcome | null {
+    return this.lastMigration;
   }
 
   /** Apply the optional BYOK writer pass; on ANY failure return the draft untouched. */
