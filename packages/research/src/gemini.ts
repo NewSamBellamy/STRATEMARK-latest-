@@ -36,8 +36,9 @@ export interface GeminiClientConfig {
 export const DEFAULT_GROUNDED_RPM = 15;
 export const DEFAULT_STRUCTURE_RPM = 30;
 
-// Rolling aliases and cutting-edge Gemini 3.x frontier models (2026).
-export const DEFAULT_GROUNDED_MODEL = 'gemini-3.1-pro-preview';
+// Bleeding-edge Google Gemini 3.7 Flash & 3.1 Pro frontier models (August 2026).
+export const DEFAULT_GROUNDED_MODEL = 'gemini-3.7-flash';
+export const DEFAULT_REASONING_MODEL = 'gemini-3.1-pro-preview';
 export const DEFAULT_STRUCTURE_MODEL = 'gemini-3.1-flash-lite-preview';
 
 interface GeminiPart {
