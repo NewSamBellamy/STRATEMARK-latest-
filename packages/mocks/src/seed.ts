@@ -307,7 +307,7 @@ export const COMPANY_SEEDS: CompanySeed[] = [
       employees: v(1_650, '10-K headcount.'),
     },
   },
-  // ---- Tier 7: Legacy Incumbents -------------------------------------------
+  // ---- Tier 7: Category Leaders --------------------------------------------
   {
     slug: 'cornerstone-apparel',
     name: 'Cornerstone Christian Apparel',
