@@ -6,7 +6,7 @@ import { useCompany, useCompanyMetrics, useDashboardTab } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { formatMetricValue } from '@/lib/format';
 import { METRIC_COLORS } from '@/lib/theme';
-import { DigDeeper } from '@/features/deepdive/DeepDive';
+import { DigDeeperMenu } from '@/features/deepdive/DeepDive';
 
 /**
  * Overview — the "front page" of a company. A readable grounded summary plus an
@@ -24,10 +24,16 @@ export function OverviewTab({ companyId }: { companyId: string }) {
         <div className="grid gap-5 lg:grid-cols-[1fr_300px]">
           <article className="markdown panel p-6">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.content.markdown}</ReactMarkdown>
-            <div className="mt-5 flex flex-wrap gap-2 border-t border-border pt-4">
-              <DigDeeper topic="Business model & how they make money" companyId={companyId} companyName={name} />
-              <DigDeeper topic="Competitive landscape & closest rivals" companyId={companyId} companyName={name} />
-              <DigDeeper topic="Risks & headwinds" companyId={companyId} companyName={name} />
+            <div className="mt-5 flex justify-end border-t border-border pt-4">
+              <DigDeeperMenu
+                topics={[
+                  'Business model & how they make money',
+                  'Competitive landscape & closest rivals',
+                  'Risks & headwinds',
+                ]}
+                companyId={companyId}
+                companyName={name}
+              />
             </div>
           </article>
 
