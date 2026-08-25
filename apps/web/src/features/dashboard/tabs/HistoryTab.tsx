@@ -1,7 +1,7 @@
 import { Quote } from 'lucide-react';
 import { useCompany, useDashboardTab } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
-import { DigDeeper } from '@/features/deepdive/DeepDive';
+import { DigDeeperMenu } from '@/features/deepdive/DeepDive';
 
 export function HistoryTab({ companyId }: { companyId: string }) {
   const query = useDashboardTab(companyId, 'history');
@@ -18,10 +18,11 @@ export function HistoryTab({ companyId }: { companyId: string }) {
               <div className="panel p-6">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <h3 className="font-display text-lg font-semibold text-content">The story</h3>
-                  <div className="flex gap-2">
-                    <DigDeeper topic="Founders & their backgrounds" companyId={companyId} companyName={name} />
-                    <DigDeeper topic="Funding history & investors" companyId={companyId} companyName={name} />
-                  </div>
+                  <DigDeeperMenu
+                    topics={['Founders & their backgrounds', 'Funding history & investors']}
+                    companyId={companyId}
+                    companyName={name}
+                  />
                 </div>
                 <div className="max-w-3xl space-y-3">
                   {paragraphs.map((para, i) => (
@@ -42,16 +43,7 @@ export function HistoryTab({ companyId }: { companyId: string }) {
                     <li key={i} className="relative mb-5 last:mb-0">
                       <span className="absolute -left-[31px] top-1 h-3.5 w-3.5 rounded-full border-2 border-surface bg-primary shadow-sm" />
                       <div className="rounded-lg border border-border bg-surface-2/50 px-3.5 py-2.5">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-bold tabular-nums text-primary-ink">{t.date}</span>
-                          <DigDeeper
-                            topic={`${t.title} (${t.date})`}
-                            companyId={companyId}
-                            companyName={name}
-                            context={t.detail || null}
-                            className="h-5 w-5"
-                          />
-                        </div>
+                        <span className="text-xs font-bold tabular-nums text-primary-ink">{t.date}</span>
                         <div className="text-sm font-medium text-content">{t.title}</div>
                         {t.detail && <div className="mt-0.5 text-sm text-muted">{t.detail}</div>}
                       </div>
