@@ -147,6 +147,30 @@ function ConfidenceChip({ confidence }: { confidence: Confidence }) {
   );
 }
 
+/**
+ * When any of this company's figures last survived a live verification pass —
+ * the card-level heartbeat. Null until the desks have checked something.
+ */
+function lastCheckedMs(metrics: CompanyMetric[]): number | null {
+  let latest: number | null = null;
+  for (const m of metrics) {
+    const raw = (m as { lastVerifiedAt?: string | null }).lastVerifiedAt;
+    if (!raw) continue;
+    const t = Date.parse(raw);
+    if (!Number.isNaN(t) && (latest === null || t > latest)) latest = t;
+  }
+  return latest;
+}
+
+function checkedAgoLabel(ms: number): string {
+  const mins = Math.max(0, Math.round((Date.now() - ms) / 60_000));
+  if (mins < 1) return 'checked just now';
+  if (mins < 60) return `checked ${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `checked ${hours}h ago`;
+  return `checked ${Math.round(hours / 24)}d ago`;
+}
+
 function deriveIndustry(oneLiner: string): string {
   const l = oneLiner.toLowerCase();
   if (/apparel|fashion|clothing/.test(l)) return 'Apparel';
@@ -239,6 +263,8 @@ export function GameCard({ data, deckUserValues = [], onOpen, className }: GameC
       ? `Composite maturity score — weighted from ${scored.signals} of 5 grounded signals (market share, valuation, ARR, users, headcount)`
       : undefined;
   const tierInfo = card.tier != null ? tierDisplay(card.tier) : null;
+  const checked = lastCheckedMs(metrics);
+  const checkedAgo = checked != null ? checkedAgoLabel(checked) : null;
   const arrKnown = arr?.value != null && arr.confidence !== 'unknown';
   const valKnown = valMetric?.value != null && valMetric.confidence !== 'unknown';
   const shareKnown = share?.value != null && share.confidence !== 'unknown';
@@ -368,9 +394,14 @@ export function GameCard({ data, deckUserValues = [], onOpen, className }: GameC
       {/* ─── Footer — no divider, quiet ─── */}
       <CardFooter className="justify-between pt-2">
         {tierInfo ? (
-          <span className="flex items-center gap-1.5 text-[11px]">
+          <span className="flex min-w-0 items-center gap-1.5 text-[11px]">
             <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: tierInfo.color }} />
             <span className="font-medium truncate" style={{ color: tierInfo.color }}>{tierInfo.label}</span>
+            {checkedAgo && (
+              <span className="shrink-0 text-[10px] text-faint" title="A desk agent last re-verified one of this company's figures from live sources at this time.">
+                · {checkedAgo}
+              </span>
+            )}
           </span>
         ) : (
           <span />
