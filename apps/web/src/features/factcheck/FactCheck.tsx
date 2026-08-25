@@ -52,7 +52,10 @@ export function FactCheck({
   const factCheck = useFactCheck();
   const verify = useVerifyMetric();
   const [result, setResult] = useState<FactCheckResult | null>(null);
-  const [applied, setApplied] = useState(false);
+  // What the write-back actually did — the confirmation must tell the truth:
+  // 'corrected' when the stored value/badge changed, 'confirmed' when live
+  // evidence re-affirmed the stored figure (freshness stamp still updates).
+  const [applied, setApplied] = useState<'corrected' | 'confirmed' | null>(null);
 
   const run = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -83,7 +86,10 @@ export function FactCheck({
   useEffect(() => {
     if (!canApply || autoFired.current || verify.isPending || !companyId || !metricType) return;
     autoFired.current = true;
-    verify.mutate({ companyId, metricType }, { onSuccess: () => setApplied(true) });
+    verify.mutate(
+      { companyId, metricType },
+      { onSuccess: (res) => setApplied(res.changed ? 'corrected' : 'confirmed') },
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canApply]);
   // A check that can't corroborate the stored figure must be able to fix the
@@ -97,7 +103,10 @@ export function FactCheck({
     // The reconciliation ran either way: a correction wrote back, a downgrade
     // wrote back, or fresh evidence re-confirmed the badge. All three resolve
     // the on-screen disagreement.
-    verify.mutate({ companyId, metricType }, { onSuccess: () => setApplied(true) });
+    verify.mutate(
+      { companyId, metricType },
+      { onSuccess: (res) => setApplied(res.changed ? 'corrected' : 'confirmed') },
+    );
   };
 
   if (result) {
@@ -151,7 +160,9 @@ export function FactCheck({
         {applied && (
           <p className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-positive">
             <CheckCheck className="h-3.5 w-3.5" />
-            Reconciled from live sources — badge, card, and tier updated.
+            {applied === 'corrected'
+              ? 'Corrected from live sources — value, badge, card, and tier updated everywhere.'
+              : 'Re-checked against live sources — the stored figure stands; freshness updated.'}
           </p>
         )}
         {result.citations.length > 0 && (

@@ -271,8 +271,9 @@ export default function DashboardPage() {
         type="button"
         // A real route back to the deck (audit: the back button "doesn't
         // actually take you back to the deck"). History fallback only when the
-        // dashboard was reached without deck context.
-        onClick={() => (fromMarketId ? navigate(`/markets/${fromMarketId}`) : navigate(-1))}
+        // dashboard was reached without deck context. NOTE: the deck lives at
+        // /markets/:id/deck — /markets/:id alone is a 404.
+        onClick={() => (fromMarketId ? navigate(`/markets/${fromMarketId}/deck`) : navigate(-1))}
         className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted hover:text-content"
       >
         <ArrowLeft className="h-4 w-4" />
