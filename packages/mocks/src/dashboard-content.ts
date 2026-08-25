@@ -248,6 +248,14 @@ function missionGovernance(ctx: ContentContext): MissionGovernanceContent {
     negatives: seed.viceClaims?.length
       ? ['Subject to public criticism/litigation — see the Vice card for sourced claims.']
       : ['No major governance concerns surfaced in current research.'],
+    fundingRounds: [
+      { round: 'Series A', amountUsd: 12_000_000, date: '2023 Jun', leadInvestors: ['Fixture Capital'] },
+      { round: 'Seed', amountUsd: 2_500_000, date: '2021 Feb', leadInvestors: ['Genesis Angels'] },
+    ],
+    investors: [
+      { name: 'Fixture Capital', kind: 'vc', note: 'Led the Series A; holds a board seat.' },
+      { name: 'Genesis Angels', kind: 'angel', note: 'Seed lead.' },
+    ],
   };
 }
 
@@ -278,9 +286,9 @@ function productsRoadmap(ctx: ContentContext): ProductsRoadmapContent {
       { name: 'Legacy Hoodies v1', description: 'First-generation hoodie line.', status: 'sunset', revenueNote: 'Fixture: wound down.' },
     ],
     roadmap: [
-      { title: 'Loyalty & community app', horizon: 'now', detail: `${seed.name} is investing in a members app.` },
-      { title: 'Sustainable fabric program', horizon: 'next', detail: 'Transition core line to certified materials.' },
-      { title: 'International expansion', horizon: 'later', detail: 'Explore distribution beyond the US.' },
+      { title: 'Loyalty & community app', horizon: 'now', detail: `${seed.name} is investing in a members app.`, date: '2026 H2' },
+      { title: 'Sustainable fabric program', horizon: 'next', detail: 'Transition core line to certified materials.', date: null },
+      { title: 'International expansion', horizon: 'later', detail: 'Explore distribution beyond the US.', date: null },
     ],
   };
 }
