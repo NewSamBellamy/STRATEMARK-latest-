@@ -103,7 +103,7 @@ export default function DeckPage() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="w-full max-w-[1600px] px-2 sm:px-4">
       {/* ── Header — tight, structured, clear hierarchy ── */}
       <div className="mb-6">
         {/* Back link */}

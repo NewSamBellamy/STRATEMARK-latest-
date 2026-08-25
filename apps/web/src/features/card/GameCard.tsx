@@ -22,7 +22,6 @@ import {
   MoreHorizontal,
   Share2,
   ShieldAlert,
-  Star,
   TrendingUp,
   UserRound,
   Users,
@@ -31,10 +30,12 @@ import {
 } from 'lucide-react';
 import {
   CARD_TYPE_LABELS,
+  TIER_LABELS,
   isSignalCardType,
   publisherOf,
   type CardType,
   type CardWithCompany,
+  type MaturityTier,
 } from '@mi/contracts';
 import { cn } from '@/lib/cn';
 import { formatCount, formatMetricValue } from '@/lib/format';
@@ -74,11 +75,17 @@ function scoreColor(score: number): string {
   return 'rgb(var(--c-negative))';
 }
 
-function tierInvestability(tier: number): { text: string; color: string } {
-  if (tier >= 7) return { text: 'Highly Investable', color: 'rgb(var(--c-positive))' };
-  if (tier >= 5) return { text: 'Investable', color: 'rgb(var(--c-primary))' };
-  if (tier >= 3) return { text: 'Moderate', color: 'rgb(var(--c-muted))' };
-  return { text: 'Early Stage', color: 'rgb(var(--c-faint))' };
+function tierDisplay(tier: number): { label: string; color: string } {
+  const name = TIER_LABELS[tier as MaturityTier] ?? 'Unknown Stage';
+  let color = 'rgb(var(--c-faint))';
+  if (tier >= 7) color = 'rgb(var(--c-positive))';
+  else if (tier >= 5) color = 'rgb(var(--c-primary))';
+  else if (tier >= 3) color = 'rgb(var(--c-neutral))';
+
+  return {
+    label: `Tier ${tier} · ${name}`,
+    color,
+  };
 }
 
 function fakeYoY(value: number | null): string | null {
@@ -171,14 +178,13 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
   const score = card.tier != null ? tierToScore(card.tier) : null;
   const sColor = score != null ? scoreColor(score) : 'rgb(var(--c-faint))';
   const sLabel = score != null ? scoreLabel(score) : '';
-  const invest = card.tier != null ? tierInvestability(card.tier) : null;
+  const tierInfo = card.tier != null ? tierDisplay(card.tier) : null;
   const arrKnown = arr?.value != null && arr.confidence !== 'unknown';
   const valKnown = valMetric?.value != null && valMetric.confidence !== 'unknown';
   const shareKnown = share?.value != null && share.confidence !== 'unknown';
   const shareVal = share?.value ?? 0;
   const empKnown = employees?.value != null && employees.confidence !== 'unknown';
   const usersKnown = users?.value != null && users.confidence !== 'unknown';
-  const rating = card.tier != null ? (card.tier * 0.6 + 0.2).toFixed(1) : null;
   const arrYoY = arrKnown ? fakeYoY(arr!.value) : null;
   const valYoY = valKnown ? fakeYoY(valMetric!.value) : null;
 
@@ -276,7 +282,7 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
             </div>
 
             {/* ── Secondary metrics ── */}
-            <div className="mt-3 grid grid-cols-3 gap-3">
+            <div className="mt-3 grid grid-cols-2 gap-3">
               <div>
                 <p className="flex items-center gap-1 font-display text-[16px] font-bold tabular-nums leading-tight text-content">
                   <Users className="h-3.5 w-3.5 text-faint" strokeWidth={1.8} />
@@ -291,13 +297,6 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
                 </p>
                 <p className="mt-0.5 text-[11px] font-medium text-muted">Customers</p>
               </div>
-              <div>
-                <p className="flex items-center gap-1 font-display text-[16px] font-bold tabular-nums leading-tight text-content">
-                  <Star className="h-3.5 w-3.5 fill-[#D99A25] text-[#D99A25]" />
-                  {rating ?? '—'}
-                </p>
-                <p className="mt-0.5 text-[11px] font-medium text-muted">Rating</p>
-              </div>
             </div>
           </>
         )}
@@ -305,10 +304,10 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
 
       {/* ─── Footer — no divider, quiet ─── */}
       <CardFooter className="justify-between pt-2">
-        {invest ? (
-          <span className="flex items-center gap-1.5 text-[11px] text-faint">
-            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: invest.color }} />
-            Tier · <span className="font-medium" style={{ color: invest.color }}>{invest.text}</span>
+        {tierInfo ? (
+          <span className="flex items-center gap-1.5 text-[11px]">
+            <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: tierInfo.color }} />
+            <span className="font-medium truncate" style={{ color: tierInfo.color }}>{tierInfo.label}</span>
           </span>
         ) : (
           <span />
