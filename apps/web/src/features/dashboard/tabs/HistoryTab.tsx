@@ -1,9 +1,12 @@
 import { Quote } from 'lucide-react';
 import { useCompany, useDashboardTab } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
+import { History } from 'lucide-react';
 import { DigDeeperMenu } from '@/features/deepdive/DeepDive';
+import { useRerunDashboardTab } from '@/hooks/data';
 
 export function HistoryTab({ companyId }: { companyId: string }) {
+  const expand = useRerunDashboardTab(companyId, 'history');
   const query = useDashboardTab(companyId, 'history');
   const name = useCompany(companyId).data?.name ?? 'this company';
   return (
@@ -37,7 +40,22 @@ export function HistoryTab({ companyId }: { companyId: string }) {
             <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
               {/* A story in time: the rail keeps scrolling as research adds to it. */}
               <div className="panel p-5">
-                <h3 className="mb-4 font-display text-sm font-semibold text-content">Timeline</h3>
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <h3 className="font-display text-sm font-semibold text-content">Timeline</h3>
+                  {/* The timeline never has to stop: one click sends the desk
+                      back out for a denser pass — month-level recency, every
+                      product release it can source. */}
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-[11px] font-medium text-muted transition-colors hover:border-primary/50 hover:text-primary-ink disabled:opacity-60"
+                    disabled={expand.isPending}
+                    onClick={() => expand.mutate()}
+                    title="Re-research the timeline for a denser pass — month-level recent history, every sourced release"
+                  >
+                    <History className={expand.isPending ? 'h-3 w-3 animate-spin' : 'h-3 w-3'} />
+                    {expand.isPending ? 'Expanding…' : 'Expand timeline'}
+                  </button>
+                </div>
                 <ol className="relative border-l-2 border-border pl-6">
                   {c.timeline.map((t, i) => (
                     <li key={i} className="relative mb-5 last:mb-0">
