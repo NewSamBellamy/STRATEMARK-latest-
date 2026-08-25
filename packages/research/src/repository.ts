@@ -7,6 +7,7 @@
  * having an API key present — no UI changes.
  */
 import {
+  METRIC_TYPES,
   METRIC_TYPE_LABELS,
   buildCmsInput,
   computeCms,
@@ -29,6 +30,8 @@ import {
   type DeepDiveResult,
   type FactCheckInput,
   type FactCheckResult,
+  type HuntMetricsResult,
+  type MetricType,
   type VerifyMetricInput,
   type VerifyMetricResult,
   type Report,
@@ -64,7 +67,7 @@ import { researchMarketSignals } from './signal-agents';
 import { mapWithConcurrency, throwIfAborted } from './util';
 import { expandDeckWithDeltaAgent } from './delta-agent';
 import { CHAT_SYSTEM, GROUNDED_SYSTEM, STRUCTURE_SYSTEM } from './prompts';
-import { factCheckOutSchema, verifyMetricOutSchema } from './schemas';
+import { factCheckOutSchema, huntMetricsOutSchema, verifyMetricOutSchema } from './schemas';
 import type { LlmClient, ResearchCoverage, RunResearchOptions } from './types';
 
 interface CachedTab {
@@ -1401,6 +1404,116 @@ export class GeminiRepository implements MarketIntelRepository {
       rationale: out.rationale ?? '',
       citations: g.citations,
     };
+  }
+
+  /**
+   * The "find more metrics" button: ONE grounded pass hunting every soft
+   * figure this company still has — missing rows, unknowns, and unverified
+   * estimates — then write back what the sources actually support (citations
+   * required, junk-gated), and re-tier. Human-verified rows are never touched.
+   * Two LLM calls total regardless of how many figures were soft.
+   */
+  async huntCompanyMetrics(companyId: string): Promise<HuntMetricsResult> {
+    const company = this.snap.companies.find((c) => c.id === companyId);
+    if (!company) throw new Error(`Company not found: ${companyId}`);
+    const mine = () => this.snap.metrics.filter((m) => m.companyId === companyId);
+
+    // A figure is a hunt target when we have nothing, an unknown, or a soft
+    // estimate. Verified figures re-check via decay; user figures are law.
+    const softTypes: MetricType[] = METRIC_TYPES.filter((t) => {
+      const m = mine().find((x) => x.metricType === t);
+      if (!m) return true;
+      if (m.confidence === 'user_verified' || m.confidence === 'verified') return false;
+      return m.value == null || m.confidence === 'unknown' || m.confidence === 'estimated';
+    });
+    if (softTypes.length === 0) {
+      return { filledTypes: [], metrics: mine(), retieredCardIds: [] };
+    }
+
+    const wanted = softTypes.map((t) => `- ${METRIC_TYPE_LABELS[t]}`).join('\n');
+    const g = await this.client.ground(
+      [
+        `Find the most current, reliable figures for these metrics of ${company.name}:`,
+        wanted,
+        `Company: ${company.name} — ${company.oneLiner}`,
+        `Use Google Search. For each figure name the value, its as-of date, and the source. Prefer primary sources and recent reputable coverage. If no reliable current figure exists for a metric, say so plainly for that metric. Never guess.`,
+        `MEASUREMENT BASIS: every figure must describe the WHOLE legal company — for a conglomerate, total company revenue/valuation/headcount, never a division's figure presented as the company's.`,
+        `UNITS: Market Share in percent of its primary market (0-100); Users and Employees as plain counts; Valuation, Market Cap, and ARR in US dollars.`,
+      ].join('\n'),
+      { system: GROUNDED_SYSTEM },
+    );
+    const out = await this.client.structure(
+      [
+        `Based ONLY on these research notes about ${company.name}, output JSON { "figures": [ { "metricType": "market_cap"|"valuation"|"market_share"|"arr"|"users"|"employees", "value": number|null, "methodNote": string|null (one line naming the source and as-of date) } ] }.`,
+        `Include ONLY the metrics the notes actually support with a concrete figure — omit the rest entirely. NEVER invent a value.`,
+        ``,
+        `NOTES:`,
+        g.text,
+      ].join('\n'),
+      huntMetricsOutSchema,
+      { system: STRUCTURE_SYSTEM },
+    );
+
+    const nowIso = new Date().toISOString();
+    const cited = usableCitations(g.citations);
+    const filledTypes: MetricType[] = [];
+
+    // Grounded figures only count when a verification-grade source backs the
+    // pass — the same credibility gate every other write path honors.
+    if (hasVerificationGradeCitation(cited)) {
+      for (const fig of out.figures) {
+        if (fig.value == null) continue;
+        if (!softTypes.includes(fig.metricType)) continue;
+        let metric = mine().find((m) => m.metricType === fig.metricType);
+        if (!metric) {
+          metric = {
+            id: `met_hunt_${Date.now().toString(36)}_${fig.metricType}`,
+            companyId,
+            metricType: fig.metricType,
+            value: null,
+            confidence: 'unknown',
+            source: null,
+            citations: [],
+            methodNote: null,
+            capturedAt: nowIso,
+          };
+          this.snap.metrics.push(metric);
+        }
+        metric.value = fig.value;
+        metric.confidence = 'verified';
+        metric.citations = cited;
+        metric.source = cited[0]?.url ?? metric.source;
+        metric.methodNote = fig.methodNote ?? 'Filled by a targeted metrics hunt.';
+        metric.capturedAt = nowIso;
+        Object.assign(metric, markVerified(metric, nowIso));
+        filledTypes.push(fig.metricType);
+      }
+    }
+
+    const retieredCardIds =
+      filledTypes.length > 0
+        ? this.retierCompany(companyId, 'Re-tiered after a metrics hunt filled soft figures.')
+        : [];
+    if (filledTypes.length > 0) {
+      // Researched tabs quoting the old gaps re-research on next open.
+      this.snap.dashboards[companyId] = {};
+      this.persist();
+      const card = this.snap.cards.find(
+        (c) => c.companyId === companyId && c.cardType === 'company',
+      );
+      const deck = card ? this.snap.decks.find((d) => d.id === card.deckId) : undefined;
+      if (deck) {
+        this.emit({
+          marketId: deck.marketId,
+          deckId: deck.id,
+          refreshedAt: nowIso,
+          addedCardIds: [],
+          updatedCardIds: retieredCardIds.length > 0 ? retieredCardIds : card ? [card.id] : [],
+          prunedCardIds: [],
+        });
+      }
+    }
+    return { filledTypes, metrics: mine(), retieredCardIds };
   }
 
   /** Recompute CMS tiers for a company's company-cards; returns moved card ids. */

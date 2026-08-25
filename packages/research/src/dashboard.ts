@@ -223,11 +223,11 @@ export async function researchDashboardTab<T extends DashboardTab>(
 
     case 'products_roadmap': {
       const g = await client.ground(
-        `Research the full product lineup of ${ctx(args)} — every distinct product/line, what each consists of, and anything REPORTED about how much revenue each drives (filings, earnings coverage, credible reporting). Then the announced roadmap: every upcoming product, model, expansion, or infrastructure plan reported by credible sources, each with its announced timeframe (e.g. "2026 H2", "early 2027") when one was given. Cite sources.`,
+        `Research the full product lineup of ${ctx(args)} — every distinct product/line, what each consists of, its OFFICIAL product page URL when one exists, and anything REPORTED about how much revenue each drives (filings, earnings coverage, credible reporting). Then the announced roadmap: every upcoming product, model, expansion, or infrastructure plan reported by credible sources, each with its announced timeframe (e.g. "2026 H2", "early 2027") when one was given. Cite sources.`,
         system,
       );
       return client.structure(
-        `Convert to JSON { "products": [ { "name", "description", "status": "live"|"beta"|"sunset", "revenueNote" (what the notes REPORT about its revenue contribution, e.g. "~78% of FY25 revenue per 10-K" — or "" when nothing is reported; NEVER an invented figure) } ] ordered from biggest reported breadwinner to smallest/loss-leaders (keep unranked ones last), "roadmap": [ { "title", "horizon": "now"|"next"|"later", "detail", "date": string|null (the ANNOUNCED timeframe from the notes, e.g. "2026 H2"; null when none was reported) } ] — include every announced plan the notes support }.\n\nNOTES:\n${g.text}`,
+        `Convert to JSON { "products": [ { "name", "description", "status": "live"|"beta"|"sunset", "revenueNote" (what the notes REPORT about its revenue contribution, e.g. "~78% of FY25 revenue per 10-K" — or "" when nothing is reported; NEVER an invented figure), "url": string|null (the OFFICIAL product page URL from the notes; null when none was named — NEVER guess a URL) } ] ordered from biggest reported breadwinner to smallest/loss-leaders (keep unranked ones last), "roadmap": [ { "title", "horizon": "now"|"next"|"later", "detail", "date": string|null (the ANNOUNCED timeframe from the notes, e.g. "2026 H2"; null when none was reported) } ] — include every announced plan the notes support }.\n\nNOTES:\n${g.text}`,
         productsRoadmapContentSchema,
         structSys,
       ) as Promise<DashboardContentMap[T]>;

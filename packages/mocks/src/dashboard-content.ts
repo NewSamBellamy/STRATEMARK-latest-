@@ -288,10 +288,10 @@ function productsRoadmap(ctx: ContentContext): ProductsRoadmapContent {
   const { seed } = ctx;
   return {
     products: [
-      { name: 'Core Tees', description: 'Everyday scripture-graphic tees.', status: 'live', revenueNote: 'Fixture: the volume line — majority of unit sales.' },
-      { name: 'Activewear Line', description: 'Performance apparel for faith communities.', status: 'live', revenueNote: 'Fixture: growing second line.' },
-      { name: 'Limited Drops', description: 'Seasonal collaborations and capsule releases.', status: 'beta', revenueNote: 'Fixture: not disclosed.' },
-      { name: 'Legacy Hoodies v1', description: 'First-generation hoodie line.', status: 'sunset', revenueNote: 'Fixture: wound down.' },
+      { name: 'Core Tees', description: 'Everyday scripture-graphic tees.', status: 'live', revenueNote: 'Fixture: the volume line — majority of unit sales.', url: null },
+      { name: 'Activewear Line', description: 'Performance apparel for faith communities.', status: 'live', revenueNote: 'Fixture: growing second line.', url: null },
+      { name: 'Limited Drops', description: 'Seasonal collaborations and capsule releases.', status: 'beta', revenueNote: 'Fixture: not disclosed.', url: null },
+      { name: 'Legacy Hoodies v1', description: 'First-generation hoodie line.', status: 'sunset', revenueNote: 'Fixture: wound down.', url: null },
     ],
     roadmap: [
       { title: 'Loyalty & community app', horizon: 'now', detail: `${seed.name} is investing in a members app.`, date: '2026 H2' },

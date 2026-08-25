@@ -356,6 +356,9 @@ export const productSchema = z.object({
    * invented figure. Ranking in the UI follows the researched order.
    */
   revenueNote: prose(),
+  /** Official product page URL when sources name one — powers the live product
+   * capture in the UI. Additive; null when not reported. */
+  url: prose().nullable().catch(null),
   // No neutral value exists here, so an unreadable status drops the row rather
   // than asserting a lifecycle stage we did not find.
   status: z.enum(['live', 'beta', 'sunset']),
