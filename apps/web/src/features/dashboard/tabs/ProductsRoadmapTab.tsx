@@ -1,6 +1,8 @@
+import { ExternalLink } from 'lucide-react';
 import type { Product, RoadmapItem } from '@mi/contracts';
 import { useCompany, useDashboardTab } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
+import { PageShot } from '@/components/media/PageShot';
 import { cn } from '@/lib/cn';
 import { DigDeeperMenu } from '@/features/deepdive/DeepDive';
 
@@ -10,10 +12,15 @@ const STATUS_STYLE: Record<Product['status'], string> = {
   sunset: 'border-slate-300 text-slate-600 bg-slate-100',
 };
 
-const HORIZONS: { key: RoadmapItem['horizon']; label: string }[] = [
-  { key: 'now', label: 'Now' },
-  { key: 'next', label: 'Next' },
-  { key: 'later', label: 'Later' },
+const HORIZONS: {
+  key: RoadmapItem['horizon'];
+  label: string;
+  accent: string;
+  dot: string;
+}[] = [
+  { key: 'now', label: 'Now', accent: 'text-emerald-700 border-emerald-200 bg-emerald-50/60', dot: 'bg-emerald-500' },
+  { key: 'next', label: 'Next', accent: 'text-amber-700 border-amber-200 bg-amber-50/60', dot: 'bg-amber-500' },
+  { key: 'later', label: 'Later', accent: 'text-slate-600 border-slate-200 bg-slate-50/60', dot: 'bg-slate-400' },
 ];
 
 export function ProductsRoadmapTab({ companyId }: { companyId: string }) {
@@ -41,48 +48,82 @@ export function ProductsRoadmapTab({ companyId }: { companyId: string }) {
                 />
               </div>
               <ol className="space-y-2.5">
-                {c.products.map((p, i) => (
-                  <li key={p.name} className="panel flex items-start gap-3.5 p-4">
-                    <span
-                      className={cn(
-                        'mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg font-display text-sm font-bold',
-                        i === 0
-                          ? 'bg-primary text-white'
-                          : 'border border-border bg-surface-2 text-muted',
-                      )}
-                    >
-                      {i + 1}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h4 className="font-medium text-content">{p.name}</h4>
-                        <span className={cn('chip capitalize', STATUS_STYLE[p.status])}>{p.status}</span>
-                        {p.revenueNote && (
-                          <span className="chip border-border bg-surface-2 text-muted" title="What sources report about revenue contribution">
-                            {p.revenueNote}
-                          </span>
+                {c.products.map((p, i) => {
+                  const hasUrl = !!p.url && /^https?:\/\//.test(p.url);
+                  return (
+                    <li key={p.name} className="panel flex items-start gap-3.5 p-4">
+                      <span
+                        className={cn(
+                          'mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg font-display text-sm font-bold',
+                          i === 0
+                            ? 'bg-primary text-white'
+                            : 'border border-border bg-surface-2 text-muted',
+                        )}
+                      >
+                        {i + 1}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="font-medium text-content">{p.name}</h4>
+                          <span className={cn('chip capitalize', STATUS_STYLE[p.status])}>{p.status}</span>
+                          {p.revenueNote && (
+                            <span className="chip border-border bg-surface-2 text-muted" title="What sources report about revenue contribution">
+                              {p.revenueNote}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-sm text-muted">{p.description}</p>
+                        {hasUrl && (
+                          <a
+                            href={p.url!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-primary-ink hover:underline"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            {p.url!.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                          </a>
                         )}
                       </div>
-                      <p className="mt-1 text-sm text-muted">{p.description}</p>
-                    </div>
-                  </li>
-                ))}
+                      {/* The product, seen: a live capture of its official page. */}
+                      {hasUrl && (
+                        <a
+                          href={p.url!}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hidden h-[76px] w-[120px] shrink-0 overflow-hidden rounded-lg border border-border bg-surface-2 transition-transform hover:scale-[1.02] sm:block"
+                          title={`Open ${p.name}'s official page`}
+                        >
+                          <PageShot url={p.url!} className="h-full w-full object-cover object-top" />
+                        </a>
+                      )}
+                    </li>
+                  );
+                })}
               </ol>
             </section>
 
             <section>
               <h3 className="mb-3 font-display text-sm font-semibold text-content">Roadmap</h3>
               <div className="grid gap-3 md:grid-cols-3">
-                {HORIZONS.map(({ key, label }) => (
-                  <div key={key} className="panel p-4">
-                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary-ink">
-                      {label}
-                    </div>
-                    <ul className="space-y-3">
-                      {c.roadmap
-                        .filter((r) => r.horizon === key)
-                        .map((r, i) => (
-                          <li key={i}>
+                {HORIZONS.map(({ key, label, accent, dot }) => {
+                  const items = c.roadmap.filter((r) => r.horizon === key);
+                  return (
+                    <div key={key} className="panel overflow-hidden p-0">
+                      <div className={cn('border-b px-4 py-2 text-xs font-semibold uppercase tracking-wide', accent)}>
+                        {label}
+                        <span className="ml-1.5 font-normal normal-case opacity-70">
+                          {items.length} item{items.length === 1 ? '' : 's'}
+                        </span>
+                      </div>
+                      <ul className="space-y-0 px-4 py-3">
+                        {items.map((r, i) => (
+                          <li key={i} className="relative pb-3 pl-5 last:pb-0">
+                            {/* Timeline spine: dot per item, line connecting them. */}
+                            <span className={cn('absolute left-0 top-1.5 h-2 w-2 rounded-full', dot)} />
+                            {i < items.length - 1 && (
+                              <span className="absolute bottom-0 left-[3.5px] top-4 w-px bg-border" />
+                            )}
                             <div className="flex items-baseline justify-between gap-2">
                               <span className="text-sm font-medium text-content">{r.title}</span>
                               {r.date && (
@@ -94,9 +135,13 @@ export function ProductsRoadmapTab({ companyId }: { companyId: string }) {
                             <div className="text-xs text-muted">{r.detail}</div>
                           </li>
                         ))}
-                    </ul>
-                  </div>
-                ))}
+                        {items.length === 0 && (
+                          <li className="py-1 text-xs text-faint">Nothing announced for this horizon.</li>
+                        )}
+                      </ul>
+                    </div>
+                  );
+                })}
               </div>
             </section>
           </div>

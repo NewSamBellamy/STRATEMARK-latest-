@@ -1,12 +1,18 @@
 import { useState } from 'react';
-import { Pencil, SearchX } from 'lucide-react';
+import { Loader2, Pencil, Radar, SearchX } from 'lucide-react';
 import {
   METRIC_TYPE_LABELS,
   type SIGNAL_BANDS,
   type CompanyMetric,
   type MetricType,
 } from '@mi/contracts';
-import { useCompany, useCompanyMetrics, useDashboardTab, useOverrideMetric } from '@/hooks/data';
+import {
+  useCompany,
+  useCompanyMetrics,
+  useDashboardTab,
+  useHuntMetrics,
+  useOverrideMetric,
+} from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { EmptyState } from '@/components/states/EmptyState';
 import { Modal } from '@/components/ui/Modal';
@@ -292,6 +298,54 @@ function MetricBody({ metric }: { metric: CompanyMetric }) {
   );
 }
 
+/**
+ * "Find more metrics": one grounded pass hunting every soft figure this
+ * company still has. Renders only on live-research transports, and only
+ * while soft figures actually exist — an honest button, not a decoration.
+ */
+function HuntMetricsButton({ companyId, metrics }: { companyId: string; metrics: CompanyMetric[] }) {
+  const hunt = useHuntMetrics();
+  const [outcome, setOutcome] = useState<string | null>(null);
+  const softCount =
+    metrics.filter(
+      (m) =>
+        m.confidence !== 'user_verified' &&
+        m.confidence !== 'verified' &&
+        (m.value == null || m.confidence === 'unknown' || m.confidence === 'estimated'),
+    ).length + Math.max(0, 5 - metrics.length);
+  if (!hunt.isAvailable || (softCount === 0 && !outcome)) return null;
+  return (
+    <span className="flex items-center gap-2">
+      {outcome && <span className="text-[11px] font-medium text-positive">{outcome}</span>}
+      {softCount > 0 && (
+        <button
+          type="button"
+          className="btn-ghost shrink-0"
+          disabled={hunt.isPending}
+          title="One grounded research pass hunts current figures for every metric still missing, unknown, or estimated — sourced, junk-gated, and written back everywhere."
+          onClick={() =>
+            hunt.mutate(companyId, {
+              onSuccess: (r) =>
+                setOutcome(
+                  r.filledTypes.length > 0
+                    ? `Filled ${r.filledTypes.length} figure${r.filledTypes.length === 1 ? '' : 's'} from live sources.`
+                    : 'No additional figures met the sourcing bar — gaps stay honest.',
+                ),
+            })
+          }
+        >
+          {hunt.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Radar className="h-4 w-4" />
+          )}
+          {hunt.isPending ? 'Hunting figures…' : 'Find more metrics'}
+        </button>
+      )}
+    </span>
+  );
+}
+
 export function MetricsTab({ companyId }: { companyId: string }) {
   const metricsQ = useCompanyMetrics(companyId);
   const seriesQ = useDashboardTab(companyId, 'metrics');
@@ -313,12 +367,14 @@ export function MetricsTab({ companyId }: { companyId: string }) {
           <div className="space-y-5">
             <div className="flex items-center justify-between gap-3">
               <KpiBand tiles={tiles} />
-              <DigDeeperMenu
-                topics={tiles.map((m) => DEEP_TOPIC[m.metricType])}
-                companyId={companyId}
-                companyName={companyName}
-                className="shrink-0"
-              />
+              <span className="flex shrink-0 items-center gap-1.5">
+                <HuntMetricsButton companyId={companyId} metrics={metrics} />
+                <DigDeeperMenu
+                  topics={tiles.map((m) => DEEP_TOPIC[m.metricType])}
+                  companyId={companyId}
+                  companyName={companyName}
+                />
+              </span>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {tiles.map((m) => (

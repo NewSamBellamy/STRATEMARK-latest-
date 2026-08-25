@@ -164,6 +164,36 @@ export const verifyMetricOutSchema = z.object({
 });
 
 /**
+ * Output of the multi-figure metrics hunt (huntCompanyMetrics): one grounded
+ * pass, every soft figure the sources actually support. Bare-array tolerant —
+ * single-list structured outputs get the preprocess wrapper by default (the
+ * recurring "Expected object, received array" crash class).
+ */
+export const huntMetricsOutSchema = z.preprocess(
+  (input) => (Array.isArray(input) ? { figures: input } : input),
+  z.object({
+    figures: z
+      .array(
+        z.object({
+          metricType: z.enum([
+            'market_cap',
+            'valuation',
+            'market_share',
+            'arr',
+            'users',
+            'employees',
+          ]),
+          /** Grounded value in the metric's native unit; null when the notes name none. */
+          value: z.number().nullable().default(null),
+          /** One line naming where the figure comes from. */
+          methodNote: z.string().nullable().default(null),
+        }),
+      )
+      .default([]),
+  }),
+);
+
+/**
  * Market-level cards from ONE grounded pass: structural barriers to entry, plus
  * the non-obvious dynamics worth remembering (Insight cards). Both are claims
  * about the market rather than about a company, so they share a research call —

@@ -15,6 +15,7 @@ import type {
   Deck,
   DeckRefreshEvent,
   Market,
+  HuntMetricsResult,
   RefreshCadence,
   VerifyMetricInput,
   VerifyMetricResult,
@@ -241,6 +242,32 @@ export function useVerifyMetric() {
     },
   });
   return { ...mutation, isAvailable: typeof repo.verifyMetric === 'function' };
+}
+
+/**
+ * "Find more metrics" — ONE grounded research pass hunting every soft figure
+ * a company still has (missing, unknown, estimated), written back with
+ * citations and re-tiered. Feature-detected like verifyMetric.
+ */
+export function useHuntMetrics() {
+  const repo = useRepository();
+  const qc = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: (companyId: string) => {
+      if (!repo.huntCompanyMetrics) {
+        return Promise.reject(new Error('Metric hunting is not available in this mode.'));
+      }
+      return repo.huntCompanyMetrics(companyId);
+    },
+    onSuccess: (result: HuntMetricsResult, companyId) => {
+      qc.invalidateQueries({ queryKey: qk.companyMetrics(companyId) });
+      if (result.filledTypes.length > 0) {
+        qc.invalidateQueries({ queryKey: ['cards'] });
+        qc.invalidateQueries({ queryKey: ['dashboard', companyId] });
+      }
+    },
+  });
+  return { ...mutation, isAvailable: typeof repo.huntCompanyMetrics === 'function' };
 }
 
 /** Targeted micro-research to fill an empty tier/category (intelligent empty states). */

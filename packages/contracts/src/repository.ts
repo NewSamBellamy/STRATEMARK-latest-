@@ -180,6 +180,20 @@ export interface VerifyMetricResult {
   citations: Citation[];
 }
 
+/**
+ * One targeted research pass over EVERY soft figure a company still has —
+ * missing rows, unknowns, and unverified estimates. The "find more metrics"
+ * button: one grounded hunt, many figures filled, one re-tier.
+ */
+export interface HuntMetricsResult {
+  /** Metric types that gained a grounded value in this hunt. */
+  filledTypes: MetricType[];
+  /** The company's full metric set AFTER the hunt. */
+  metrics: CompanyMetric[];
+  /** Card ids whose tier moved as a result. */
+  retieredCardIds: string[];
+}
+
 /** A saved research report composed by the AI from deck/company evidence. */
 export interface ReportRequest {
   kind: 'deck' | 'company';
@@ -377,6 +391,13 @@ export interface MarketIntelRepository {
    * live-research transports implement it; demo transports may confirm-only.
    */
   verifyMetric?(input: VerifyMetricInput): Promise<VerifyMetricResult>;
+
+  /**
+   * Hunt grounded values for ALL of a company's soft figures (missing rows,
+   * unknowns, unverified estimates) in a single research pass, write them back
+   * with citations, and re-tier. OPTIONAL — live-research transports only.
+   */
+  huntCompanyMetrics?(companyId: string): Promise<HuntMetricsResult>;
 
   /** Fill a gap in a deck via targeted micro-research (e.g. hunt Seed-stage companies). */
   expandDeck(

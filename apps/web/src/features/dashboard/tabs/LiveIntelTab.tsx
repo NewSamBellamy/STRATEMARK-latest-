@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   AlertCircle,
   CalendarDays,
@@ -11,16 +11,11 @@ import { publisherOf, type LiveIntelItem } from '@mi/contracts';
 import { useCompany, useDashboardTab } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { Modal } from '@/components/ui/Modal';
+import { PageShot } from '@/components/media/PageShot';
 import { LiveBadge } from '../LiveBadge';
 import { DigDeeper } from '@/features/deepdive/DeepDive';
 import { formatRelative } from '@/lib/format';
-import {
-  SHOT_MAX_ATTEMPTS,
-  SHOT_PLACEHOLDER_MAX_WIDTH,
-  SHOT_RETRY_MS,
-  faviconUrl,
-  pageShotUrl,
-} from '@/lib/screenshot';
+import { faviconUrl } from '@/lib/screenshot';
 import { cn } from '@/lib/cn';
 
 const SOURCE_ICON = { news: Newspaper, x: Hash, reddit: MessageSquare } as const;
@@ -39,45 +34,6 @@ function fmtPublishDate(raw: string): string {
     day: 'numeric',
     year: 'numeric',
   });
-}
-
-/**
- * A real capture of the article page — its hero image, masthead, and headline.
- * Retries past the "generating…" placeholder until the true capture arrives;
- * hides itself entirely if the capture never materializes (no broken frames).
- */
-function ArticleShot({ url, className }: { url: string; className?: string }) {
-  const [attempt, setAttempt] = useState(0);
-  const [failed, setFailed] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    [],
-  );
-  if (failed) return null;
-  const retry = () => {
-    if (attempt >= SHOT_MAX_ATTEMPTS) {
-      setFailed(true);
-      return;
-    }
-    timer.current = setTimeout(() => setAttempt((a) => a + 1), SHOT_RETRY_MS);
-  };
-  return (
-    <img
-      key={attempt}
-      src={pageShotUrl(url, attempt)}
-      alt=""
-      loading="lazy"
-      className={className}
-      onLoad={(e) => {
-        const w = (e.target as HTMLImageElement).naturalWidth;
-        if (w > 0 && w < SHOT_PLACEHOLDER_MAX_WIDTH) retry();
-      }}
-      onError={retry}
-    />
-  );
 }
 
 /** The story, opened: capture, dated meta, reported paragraph with quotes. */
@@ -107,7 +63,7 @@ function ArticleReader({
       <div className="space-y-4">
         {hasUrl && (
           <div className="overflow-hidden rounded-xl border border-border bg-surface-2">
-            <ArticleShot url={item.url} className="max-h-[280px] w-full object-cover object-top" />
+            <PageShot url={item.url} className="max-h-[280px] w-full object-cover object-top" />
           </div>
         )}
 
@@ -228,7 +184,7 @@ function IntelRow({
         {/* Real article imagery: a live capture of the story page itself. */}
         {hasUrl && (
           <div className="hidden h-[84px] w-[128px] shrink-0 overflow-hidden rounded-lg border border-border bg-surface-2 sm:block">
-            <ArticleShot url={item.url} className="h-full w-full object-cover object-top" />
+            <PageShot url={item.url} className="h-full w-full object-cover object-top" />
           </div>
         )}
       </div>

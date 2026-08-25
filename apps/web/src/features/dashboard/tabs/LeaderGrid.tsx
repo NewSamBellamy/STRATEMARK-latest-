@@ -21,37 +21,120 @@ interface Headshot {
 
 const headshotCache = new Map<string, Headshot | null>();
 
+interface WikiSummary {
+  thumbnail?: { source?: string };
+  extract?: string;
+  description?: string;
+  content_urls?: { desktop?: { page?: string } };
+}
+
+/** Fetch a Wikipedia article summary by exact title; null on any failure. */
+async function wikiSummary(title: string): Promise<WikiSummary | null> {
+  try {
+    const res = await fetch(
+      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`,
+      { headers: { accept: 'application/json' } },
+    );
+    if (!res.ok) return null;
+    return (await res.json()) as WikiSummary;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The verification gate: a photo is used ONLY when the article demonstrably
+ * matches BOTH the person (their surname appears in the title) and the company
+ * (the summary mentions it). A same-named stranger's photo is worse than
+ * initials — never guessed, never "close enough".
+ */
+function verifiedShot(
+  summary: WikiSummary | null,
+  articleTitle: string,
+  personName: string,
+  companyName: string,
+): Headshot | null {
+  if (!summary?.thumbnail?.source) return null;
+  const surname = personName.trim().split(/\s+/).pop()?.toLowerCase() ?? '';
+  if (surname && !articleTitle.toLowerCase().includes(surname)) return null;
+  const text = `${summary.extract ?? ''} ${summary.description ?? ''}`.toLowerCase();
+  if (!text.includes(companyName.toLowerCase())) return null;
+  return {
+    thumb: summary.thumbnail.source,
+    sourceUrl: summary.content_urls?.desktop?.page ?? '',
+  };
+}
+
+/**
+ * Honest headshot with RETRY: (1) direct article lookup by name; (2) when that
+ * misses — wrong title, disambiguation page, no company mention — a Wikipedia
+ * search for "{name} {company}" finds the real article title and the summary
+ * is re-fetched and re-verified. Both attempts pass the same verification
+ * gate; only a confirmed match ever renders. Results (including misses) cache.
+ */
 async function fetchWikiHeadshot(
   personName: string,
   companyName: string,
 ): Promise<Headshot | null> {
   const key = `${personName}::${companyName}`;
   if (headshotCache.has(key)) return headshotCache.get(key) ?? null;
+
+  // Attempt 1: the article usually lives at the person's exact name.
+  const direct = verifiedShot(
+    await wikiSummary(personName),
+    personName,
+    personName,
+    companyName,
+  );
+  if (direct) {
+    headshotCache.set(key, direct);
+    return direct;
+  }
+
+  // Attempt 2: search Wikipedia for the person IN their company context —
+  // finds "Name (executive)"-style titles and articles the direct miss hides.
   try {
     const res = await fetch(
-      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(personName)}`,
+      `https://en.wikipedia.org/w/api.php?action=query&list=search&srlimit=3&format=json&origin=*&srsearch=${encodeURIComponent(
+        `${personName} ${companyName}`,
+      )}`,
       { headers: { accept: 'application/json' } },
     );
-    if (!res.ok) throw new Error(String(res.status));
-    const data = (await res.json()) as {
-      thumbnail?: { source?: string };
-      extract?: string;
-      description?: string;
-      content_urls?: { desktop?: { page?: string } };
-    };
-    const text = `${data.extract ?? ''} ${data.description ?? ''}`.toLowerCase();
-    const mentionsCompany = text.includes(companyName.toLowerCase());
-    const thumb = data.thumbnail?.source;
-    const result =
-      mentionsCompany && thumb
-        ? { thumb, sourceUrl: data.content_urls?.desktop?.page ?? '' }
-        : null;
-    headshotCache.set(key, result);
-    return result;
+    if (res.ok) {
+      const data = (await res.json()) as {
+        query?: { search?: Array<{ title?: string }> };
+      };
+      for (const hit of data.query?.search ?? []) {
+        const title = hit.title?.trim();
+        if (!title) continue;
+        const shot = verifiedShot(await wikiSummary(title), title, personName, companyName);
+        if (shot) {
+          headshotCache.set(key, shot);
+          return shot;
+        }
+      }
+    }
   } catch {
-    headshotCache.set(key, null);
-    return null;
+    // fall through to the honest miss
   }
+
+  headshotCache.set(key, null);
+  return null;
+}
+
+/** Shared hook: resolve the verified headshot for a person at a company. */
+function useWikiHeadshot(name: string, companyName: string): Headshot | null {
+  const [shot, setShot] = useState<Headshot | null>(null);
+  useEffect(() => {
+    let live = true;
+    void fetchWikiHeadshot(name, companyName).then((s) => {
+      if (live) setShot(s);
+    });
+    return () => {
+      live = false;
+    };
+  }, [name, companyName]);
+  return shot;
 }
 
 const GROUP_RING: Record<OrgNode['group'], string> = {
@@ -87,16 +170,7 @@ export function WikiAvatar({
   size?: 'sm' | 'md';
   ringClass?: string;
 }) {
-  const [shot, setShot] = useState<Headshot | null>(null);
-  useEffect(() => {
-    let live = true;
-    void fetchWikiHeadshot(name, companyName).then((s) => {
-      if (live) setShot(s);
-    });
-    return () => {
-      live = false;
-    };
-  }, [name, companyName]);
+  const shot = useWikiHeadshot(name, companyName);
   return (
     <span
       className={cn(
@@ -130,16 +204,7 @@ function LeaderCard({
   companyName: string;
   onOpen: () => void;
 }) {
-  const [shot, setShot] = useState<Headshot | null>(null);
-  useEffect(() => {
-    let live = true;
-    void fetchWikiHeadshot(person.name, companyName).then((s) => {
-      if (live) setShot(s);
-    });
-    return () => {
-      live = false;
-    };
-  }, [person.name, companyName]);
+  const shot = useWikiHeadshot(person.name, companyName);
 
   return (
     <button
