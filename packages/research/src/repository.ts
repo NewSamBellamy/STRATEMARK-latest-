@@ -1264,6 +1264,23 @@ export class GeminiRepository implements MarketIntelRepository {
         this.snap.dashboards[input.companyId] = {};
       }
     }
+    // Close the two-truth-systems hole: a stored 'verified' badge that live
+    // research can no longer corroborate must not keep wearing the badge. The
+    // value stays (we found nothing better), but the confidence honestly
+    // downgrades to 'estimated' with an audit note. Without this, a metric can
+    // show "Verified" while a fact-check beside it says "Unverified" — the
+    // exact contradiction that breaks user trust.
+    if (
+      !changed &&
+      out.verdict === 'unverified' &&
+      metric.confidence === 'verified'
+    ) {
+      metric.confidence = 'estimated';
+      metric.methodNote = `Could not re-corroborate from live sources on ${nowIso.slice(0, 10)}; badge downgraded pending fresh evidence.`;
+      metric.capturedAt = nowIso;
+      changed = true;
+      this.snap.dashboards[input.companyId] = {};
+    }
     Object.assign(metric, markVerified(metric, nowIso));
 
     const retieredCardIds = changed

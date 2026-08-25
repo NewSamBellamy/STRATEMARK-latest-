@@ -13,7 +13,7 @@ import { Modal } from '@/components/ui/Modal';
 import { formatMetricValue } from '@/lib/format';
 import { METRIC_COLORS } from '@/lib/theme';
 import { ConfidenceBadge } from '@/features/card/ConfidenceBadge';
-import { DigDeeper } from '@/features/deepdive/DeepDive';
+import { DigDeeperMenu } from '@/features/deepdive/DeepDive';
 import { FactCheck } from '@/features/factcheck/FactCheck';
 import { BandGauge, ChartPanel, CompositionDonut, Delta, ShareDonut, TrendArea, TrendBar } from './metricViz';
 
@@ -192,12 +192,6 @@ function MetricTile({
                 storedValue={metric.value}
               />
             )}
-            <DigDeeper
-              topic={DEEP_TOPIC[metric.metricType]}
-              companyId={companyId}
-              companyName={companyName}
-              context={`Current ${METRIC_TYPE_LABELS[metric.metricType]}: ${formatMetricValue(metric.metricType, metric.value)}`}
-            />
           </div>
         </div>
     </div>
@@ -317,7 +311,15 @@ export function MetricsTab({ companyId }: { companyId: string }) {
         const hasSeries = !!series && (series.revenue.length > 1 || series.users.length > 1);
         return (
           <div className="space-y-5">
-            <KpiBand tiles={tiles} />
+            <div className="flex items-center justify-between gap-3">
+              <KpiBand tiles={tiles} />
+              <DigDeeperMenu
+                topics={tiles.map((m) => DEEP_TOPIC[m.metricType])}
+                companyId={companyId}
+                companyName={companyName}
+                className="shrink-0"
+              />
+            </div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {tiles.map((m) => (
                 <MetricTile key={m.id} metric={m} companyId={companyId} companyName={companyName}>

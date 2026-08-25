@@ -23,12 +23,19 @@ export interface ResearchSession {
   stage: string | null;
   /** Backend progress fraction when provided by Electron IPC. */
   progress: number | null;
+  /**
+   * Entities discovered so far, in discovery order — streamed onto the screen
+   * as they are found so deck creation reads as research happening, not as a
+   * two-minute spinner.
+   */
+  found: string[];
 }
 
 interface ResearchSessionStore {
   session: ResearchSession | null;
   startSession: (query: string, time: string) => void;
   addLog: (message: string, update?: { stage?: string | null; progress?: number | null }) => void;
+  addFound: (names: string[]) => void;
   finish: (link: string, count: number) => void;
   fail: (error: string) => void;
   clear: () => void;
@@ -48,6 +55,7 @@ export const useResearchSession = create<ResearchSessionStore>((set, get) => ({
         error: null,
         stage: null,
         progress: null,
+        found: [],
       },
     }),
 
@@ -66,6 +74,17 @@ export const useResearchSession = create<ResearchSessionStore>((set, get) => ({
         },
       });
     }
+  },
+
+  addFound: (names) => {
+    const s = get().session;
+    if (!s) return;
+    const merged = [...s.found];
+    for (const name of names) {
+      const clean = name.trim();
+      if (clean && !merged.includes(clean)) merged.push(clean);
+    }
+    if (merged.length !== s.found.length) set({ session: { ...s, found: merged } });
   },
 
   finish: (link, count) => {

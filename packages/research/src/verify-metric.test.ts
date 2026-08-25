@@ -215,6 +215,29 @@ describe('verifyMetric', () => {
     expect(result.metric.confidence).toBe('user_verified');
   });
 
+  it('downgrades a stored Verified badge that live research can no longer corroborate', async () => {
+    // The two-truth-systems contradiction caught on video: chip says
+    // "5K ✓ Verified" while the fact-check beside it says "Unverified".
+    // Rule: a verified figure that cannot be re-corroborated keeps its value
+    // but honestly drops to 'estimated' with an audit note.
+    const snap = seededSnapshot();
+    const arr = (snap as unknown as { metrics: Array<{ metricType: string; confidence: string }> })
+      .metrics.find((m) => m.metricType === 'arr')!;
+    arr.confidence = 'verified';
+    const { store } = memoryStore(snap);
+    const client = stubClient({
+      structured: { verdict: 'unverified', currentValue: null, rationale: 'No official corroboration.', methodNote: null },
+    });
+    const repo = new GeminiRepository({ apiKey: 'k', store, client });
+
+    const result = await repo.verifyMetric({ companyId: 'cmp_openai', metricType: 'arr' });
+
+    expect(result.changed).toBe(true);
+    expect(result.metric.value).toBe(990_000_000); // value untouched
+    expect(result.metric.confidence).toBe('estimated'); // badge honestly downgraded
+    expect(result.metric.methodNote).toContain('Could not re-corroborate');
+  });
+
   it('treats an inconclusive check as timestamp-only', async () => {
     const { store } = memoryStore(seededSnapshot());
     const client = stubClient({

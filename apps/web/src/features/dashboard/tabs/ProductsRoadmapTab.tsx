@@ -2,7 +2,7 @@ import type { Product, RoadmapItem } from '@mi/contracts';
 import { useCompany, useDashboardTab } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { cn } from '@/lib/cn';
-import { DigDeeper } from '@/features/deepdive/DeepDive';
+import { DigDeeperMenu } from '@/features/deepdive/DeepDive';
 
 const STATUS_STYLE: Record<Product['status'], string> = {
   live: 'border-emerald-300 text-emerald-700 bg-emerald-50',
@@ -34,7 +34,11 @@ export function ProductsRoadmapTab({ companyId }: { companyId: string }) {
                     Ranking follows what sources actually say; “not disclosed” stays honest.
                   </p>
                 </div>
-                <DigDeeper topic="Product strategy & pricing" companyId={companyId} companyName={name} />
+                <DigDeeperMenu
+                  topics={['Product strategy & pricing', 'Roadmap & upcoming launches']}
+                  companyId={companyId}
+                  companyName={name}
+                />
               </div>
               <ol className="space-y-2.5">
                 {c.products.map((p, i) => (
@@ -61,13 +65,6 @@ export function ProductsRoadmapTab({ companyId }: { companyId: string }) {
                       </div>
                       <p className="mt-1 text-sm text-muted">{p.description}</p>
                     </div>
-                    <DigDeeper
-                      topic={`Product: ${p.name}`}
-                      companyId={companyId}
-                      companyName={name}
-                      context={p.description || null}
-                      className="mt-1"
-                    />
                   </li>
                 ))}
               </ol>
