@@ -159,15 +159,40 @@ export async function researchDashboardTab<T extends DashboardTab>(
     }
 
     case 'mission_governance': {
+      // QUALITY CONTRACT (founder: "build out mission & governance… same thing
+      // goes for the investor board"): the tab owes the reader WHO governs and
+      // WHOSE MONEY is in — board members WITH affiliations, reported funding
+      // rounds, and named investors. A board of famous names all marked
+      // "unknown" affiliation means the research stopped early; a second
+      // targeted pass runs. Capped at 2 grounded calls.
       const g = await client.ground(
-        `Research the mission, ethos, governance/board, and a balanced view of notable positive and negative actions of ${ctx(args)}. Cite sources.`,
+        `Research the mission, ethos, and governance of ${ctx(args)}. REQUIRED: (1) governance structure; (2) every board member WITH their primary affiliation (e.g. "Bret Taylor — Chairman; CEO of Sierra") — affiliations for well-known figures are findable, do not leave them blank; (3) all reported funding rounds (round name, size, date, lead investors); (4) the major investors and what kind of money each is (VC, corporate, sovereign, debt); (5) a balanced view of notable positive and negative actions. Cite sources.`,
         system,
       );
-      return client.structure(
-        `Convert to JSON { "mission", "ethos", "governanceStructure", "board": [ { "name", "affiliation" } ], "positives": string[], "negatives": string[] }. Only include facts supported by the notes.\n\nNOTES:\n${g.text}`,
+      let notes = g.text;
+      const structurePrompt = (n: string) =>
+        `Convert to a single JSON OBJECT { "mission", "ethos", "governanceStructure", "board": [ { "name", "affiliation" (the person's primary role/affiliation from the notes — "" ONLY when the notes truly say nothing) } ], "positives": string[], "negatives": string[], "fundingRounds": [ { "round", "amountUsd": number|null (USD; null when undisclosed), "date": string|null (e.g. "2026 Mar"), "leadInvestors": string[] } ] in reverse-chronological order, "investors": [ { "name", "kind": "vc"|"corporate"|"sovereign"|"angel"|"debt"|"other", "note" (one reported line: stake, board seat, or round led — "" when nothing reported) } ] }. Only include facts supported by the notes; never invent amounts.\n\nNOTES:\n${n}`;
+      const firstPass = await client.structure(
+        structurePrompt(notes),
         missionGovernanceContentSchema,
         structSys,
-      ) as Promise<DashboardContentMap[T]>;
+      );
+      const blankAffiliations = firstPass.board.filter((b) => !b.affiliation?.trim()).length;
+      const thin =
+        firstPass.fundingRounds.length === 0 ||
+        (firstPass.board.length > 0 && blankAffiliations > firstPass.board.length / 2);
+      if (!thin) return firstPass as DashboardContentMap[T];
+      const gapFill = await client.ground(
+        `Two targeted lookups for ${ctx(args)}: (1) the full funding history — every reported round with size, date, and lead investors, plus the major investors on the cap table and what kind of investor each is; (2) the current board of directors, each member's primary affiliation/title. Cite sources.`,
+        system,
+      );
+      notes = `${notes}\n\nADDITIONAL GOVERNANCE & FUNDING NOTES:\n${gapFill.text}`;
+      const secondPass = await client.structure(
+        structurePrompt(notes),
+        missionGovernanceContentSchema,
+        structSys,
+      );
+      return secondPass as DashboardContentMap[T];
     }
 
     case 'history': {
@@ -188,11 +213,11 @@ export async function researchDashboardTab<T extends DashboardTab>(
 
     case 'products_roadmap': {
       const g = await client.ground(
-        `Research the full product lineup of ${ctx(args)} — every distinct product/line, what each consists of, and anything REPORTED about how much revenue each drives (filings, earnings coverage, credible reporting). Then any announced roadmap/expansion plans and the direction they point. Cite sources.`,
+        `Research the full product lineup of ${ctx(args)} — every distinct product/line, what each consists of, and anything REPORTED about how much revenue each drives (filings, earnings coverage, credible reporting). Then the announced roadmap: every upcoming product, model, expansion, or infrastructure plan reported by credible sources, each with its announced timeframe (e.g. "2026 H2", "early 2027") when one was given. Cite sources.`,
         system,
       );
       return client.structure(
-        `Convert to JSON { "products": [ { "name", "description", "status": "live"|"beta"|"sunset", "revenueNote" (what the notes REPORT about its revenue contribution, e.g. "~78% of FY25 revenue per 10-K" — or "" when nothing is reported; NEVER an invented figure) } ] ordered from biggest reported breadwinner to smallest/loss-leaders (keep unranked ones last), "roadmap": [ { "title", "horizon": "now"|"next"|"later", "detail" } ] }.\n\nNOTES:\n${g.text}`,
+        `Convert to JSON { "products": [ { "name", "description", "status": "live"|"beta"|"sunset", "revenueNote" (what the notes REPORT about its revenue contribution, e.g. "~78% of FY25 revenue per 10-K" — or "" when nothing is reported; NEVER an invented figure) } ] ordered from biggest reported breadwinner to smallest/loss-leaders (keep unranked ones last), "roadmap": [ { "title", "horizon": "now"|"next"|"later", "detail", "date": string|null (the ANNOUNCED timeframe from the notes, e.g. "2026 H2"; null when none was reported) } ] — include every announced plan the notes support }.\n\nNOTES:\n${g.text}`,
         productsRoadmapContentSchema,
         structSys,
       ) as Promise<DashboardContentMap[T]>;
