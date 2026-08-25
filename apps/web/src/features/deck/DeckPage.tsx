@@ -42,6 +42,29 @@ import { EmptyState } from '@/components/states/EmptyState';
 import { CardGrid } from './CardGrid';
 import { TierBadge } from '@/features/card/TierBadge';
 
+/** Human count noun per card type — fixes the old "20 company companies" bug. */
+function cardCountNoun(type: CardType, count: number): string {
+  const one: Record<CardType, string> = {
+    company: 'company',
+    infrastructure: 'infrastructure provider',
+    distribution: 'distribution channel',
+    culture: 'culture signal',
+    vice: 'risk signal',
+    insight: 'market insight',
+    barrier: 'barrier to entry',
+  };
+  const many: Record<CardType, string> = {
+    company: 'companies',
+    infrastructure: 'infrastructure providers',
+    distribution: 'distribution channels',
+    culture: 'culture signals',
+    vice: 'risk signals',
+    insight: 'market insights',
+    barrier: 'barriers to entry',
+  };
+  return count === 1 ? one[type] : many[type];
+}
+
 function deckUserValuesFrom(cards: CardWithCompany[]): number[] {
   return cards
     .filter((c) => c.card.cardType === 'company')
@@ -119,13 +142,10 @@ export default function DeckPage() {
               <h1 className="font-display text-[22px] font-bold tracking-tight text-content sm:text-[28px]">
                 {market.data?.name ?? 'Deck'}
               </h1>
-              {(market.data as { engine?: string } | undefined)?.engine === 'cloud' || (all[0]?.card as { engine?: string } | undefined)?.engine === 'cloud' ? (
+              {((market.data as { engine?: string } | undefined)?.engine === 'cloud' ||
+                (all[0]?.card as { engine?: string } | undefined)?.engine === 'cloud') && (
                 <span className="inline-flex items-center gap-1 rounded border border-teal-200 bg-teal-50 px-2 py-0.5 text-[11px] font-medium text-teal-700 dark:border-teal-800 dark:bg-teal-950/50 dark:text-teal-300">
                   ☁️ Sentinel Cloud Agent
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                  ⚡ Local Research Engine
                 </span>
               )}
             </div>
@@ -270,7 +290,7 @@ export default function DeckPage() {
               />
               <div className="mb-4">
                 <p className="text-[12px] text-muted">
-                  {filtered.length} {CARD_TYPE_LABELS[defaultType].toLowerCase()} {filtered.length === 1 ? 'company' : 'companies'}
+                  {filtered.length} {cardCountNoun(defaultType, filtered.length)}
                 </p>
               </div>
               {filtered.length > 0 ? (
