@@ -61,6 +61,7 @@ export const IPC_CHANNELS = {
   getDashboardTab: 'mi:getDashboardTab',
   deepDive: 'mi:deepDive',
   factCheck: 'mi:factCheck',
+  verifyMetric: 'mi:verifyMetric',
   generateReport: 'mi:generateReport',
   listReports: 'mi:listReports',
   getReport: 'mi:getReport',
