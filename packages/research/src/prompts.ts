@@ -145,6 +145,8 @@ export function enrichPrompt(candidate: CompanyCandidate, plan: MarketPlan): str
     `- the brand's primary colors (hex) from its website if visible`,
     ``,
     `Report each figure with its source. ALWAYS look for and extract disclosed employee/team count, latest venture funding round (amount & type), scraped pricing tiers, and public user footprint so private companies receive accurate grounded proxy estimates. If a figure isn't disclosed, note whether it can be reasonably estimated (and how) or is simply unknown. Do not fabricate numbers.`,
+    ``,
+    `MEASUREMENT BASIS — CRITICAL: all financial figures (revenue/ARR, valuation, market cap, employees) must describe the WHOLE LEGAL COMPANY, even when the deck's topic is one of its divisions. For a conglomerate like Alphabet or Meta appearing in an AI-focused market, report Alphabet's total revenue and market cap — NEVER a silent estimate of just the AI division's revenue. If sources only discuss a division figure, report the whole-company figure from broader sources and mention the division context in the method note. Mixing whole-company and division figures under the same label is how a deck ends up claiming a $4T company has $1.3B revenue.`,
   ]
     .filter(Boolean)
     .join('\n');
@@ -170,7 +172,7 @@ export function structureEnrichPrompt(
     `  },`,
     `  "viceClaims": [ { "text", "sourceIndex": number|null } ], "cultureNote": string|null }`,
     ``,
-    `Rules: use "verified" only if a SOURCE states the figure; "estimated" with a "method" note if derived; else "unknown" with value null. ALWAYS extract disclosed employee/team count, latest venture funding round (amount & type), scraped pricing tiers, and public user footprint into "facts" whenever available. Every viceClaim MUST have a sourceIndex. Provide only valuation OR market_cap, not both.`,
+    `Rules: all money/headcount figures are WHOLE-COMPANY figures, never a division's (note division context in "method" instead). Use "verified" only if a SOURCE states the figure; "estimated" with a "method" note if derived; else "unknown" with value null. ALWAYS extract disclosed employee/team count, latest venture funding round (amount & type), scraped pricing tiers, and public user footprint into "facts" whenever available. Every viceClaim MUST have a sourceIndex. Provide only valuation OR market_cap, not both.`,
     ``,
     `SOURCES:`,
     sources,
