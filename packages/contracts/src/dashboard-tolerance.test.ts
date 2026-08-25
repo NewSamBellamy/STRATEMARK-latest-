@@ -70,6 +70,22 @@ describe('dashboard content schemas degrade instead of collapsing', () => {
     expect(out.roadmap).toEqual([]);
   });
 
+  it('accepts a bare node array for team_org — the "Expected object, received array" crash', () => {
+    // Production failure 2026-08-25: a merge-style prompt led the model to
+    // emit the node list directly instead of { nodes: [...] }, and the Team &
+    // Org tab hard-crashed with a raw zod error on screen. Shape
+    // normalization is the parser's job.
+    const bare = [
+      { id: 'ceo', name: 'Jane Doe', role: 'CEO', group: 'exec', parentId: null, bio: '' },
+      { id: 'cto', name: 'Ann Roe', role: 'CTO', group: 'exec', parentId: 'ceo', bio: '' },
+    ];
+    const parsed = teamOrgContentSchema.parse(bare);
+    expect(parsed.nodes).toHaveLength(2);
+    expect(parsed.nodes[0]?.name).toBe('Jane Doe');
+    // The wrapped shape still parses identically.
+    expect(teamOrgContentSchema.parse({ nodes: bare }).nodes).toHaveLength(2);
+  });
+
   it('never turns a wholly absent tab payload into fabricated content', () => {
     const out = missionGovernanceContentSchema.parse({});
     expect(out).toEqual({
