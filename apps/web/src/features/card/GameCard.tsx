@@ -10,6 +10,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  BadgeCheck,
   Bookmark,
   Building2,
   ExternalLink,
@@ -22,7 +23,7 @@ import {
   MoreHorizontal,
   Share2,
   ShieldAlert,
-  TrendingUp,
+  Sigma,
   UserRound,
   Users,
   Waypoints,
@@ -30,11 +31,16 @@ import {
 } from 'lucide-react';
 import {
   CARD_TYPE_LABELS,
+  CONFIDENCE_LABELS,
   TIER_LABELS,
+  buildCmsInput,
+  computeCms,
   isSignalCardType,
   publisherOf,
   type CardType,
   type CardWithCompany,
+  type CompanyMetric,
+  type Confidence,
   type MaturityTier,
 } from '@mi/contracts';
 import { cn } from '@/lib/cn';
@@ -55,8 +61,35 @@ const TYPE_ICON: Record<CardType, LucideIcon> = {
   barrier: Landmark,
 };
 
-function tierToScore(tier: number): number {
-  return ({ 1: 30, 2: 40, 3: 50, 4: 60, 5: 70, 6: 80, 7: 88, 8: 95 })[tier] ?? 50;
+/**
+ * REAL composite score — computed from the same deterministic CMS engine that
+ * assigns tiers (shared @mi/contracts code, identical in every transport).
+ *
+ * The continuous weighted-tier average (1.0–8.0) maps linearly onto 0–100, so
+ * two Tier-8 companies with different underlying signals now get DIFFERENT
+ * scores instead of a cosmetic four-way tie. When the stored tier carries an
+ * LLM review nudge (±1, spec §6.3) the same offset shifts the continuous
+ * score, so the number and the tier badge can never disagree.
+ *
+ * Returns null when no signal is available — an honest blank, never a fake 50.
+ */
+function computeRealScore(
+  metrics: CompanyMetric[],
+  deckUserValues: number[],
+  storedTier: MaturityTier | null,
+): { score: number; signals: number } | null {
+  const result = computeCms(buildCmsInput(metrics), { deckUserValues });
+  if (result.weightedTierRaw == null || result.baseTier == null) {
+    return storedTier != null
+      ? { score: Math.round((storedTier / 8) * 100), signals: 0 }
+      : null;
+  }
+  const nudge = storedTier != null ? storedTier - result.baseTier : 0;
+  const adjusted = Math.min(8, Math.max(1, result.weightedTierRaw + nudge));
+  return {
+    score: Math.round((adjusted / 8) * 100),
+    signals: result.availableSignalCount,
+  };
 }
 
 function scoreLabel(score: number): string {
@@ -88,10 +121,30 @@ function tierDisplay(tier: number): { label: string; color: string } {
   };
 }
 
-function fakeYoY(value: number | null): string | null {
-  if (value == null || value === 0) return null;
-  const seed = Math.abs(value) % 1000;
-  return `${(3 + (seed % 30) + (seed % 7) * 0.1).toFixed(1)}%`;
+/**
+ * Provenance chip shown under a figure — the honest replacement for the
+ * fabricated YoY arrows this card used to render (`fakeYoY` derived a fake
+ * percentage from the value's own digits; every round number showed "3.0%").
+ * Real trend arrows return when the freshness engine has genuine history.
+ */
+function ConfidenceChip({ confidence }: { confidence: Confidence }) {
+  if (confidence === 'unknown') return null;
+  const positive = confidence === 'verified' || confidence === 'user_verified';
+  return (
+    <p
+      className={cn(
+        'mt-0.5 flex items-center gap-0.5 text-[10px] font-medium',
+        positive ? 'text-positive' : 'text-neutral-500 dark:text-neutral-400',
+      )}
+    >
+      {positive ? (
+        <BadgeCheck className="h-2.5 w-2.5" />
+      ) : (
+        <Sigma className="h-2.5 w-2.5" />
+      )}
+      {CONFIDENCE_LABELS[confidence]}
+    </p>
+  );
 }
 
 function deriveIndustry(oneLiner: string): string {
@@ -120,11 +173,13 @@ function deriveIndustry(oneLiner: string): string {
 
 export interface GameCardProps {
   data: CardWithCompany;
+  /** All usable user-count values in the deck — context for relative CMS scoring. */
+  deckUserValues?: number[];
   onOpen?: () => void;
   className?: string;
 }
 
-export function GameCard({ data, onOpen, className }: GameCardProps) {
+export function GameCard({ data, deckUserValues = [], onOpen, className }: GameCardProps) {
   const { card, company, metrics } = data;
   const [, setLogoColor] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -175,9 +230,14 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
       ? { heading: 'Risk signal', claims: data.viceClaims.slice(0, 2).map((v) => ({ text: v.claimText, publisher: publisherOf(v.sourceUrl, v.sourceTitle) })) }
       : { heading: card.cardType === 'culture' ? 'Community signal' : 'Market insight', claims: card.summary ? [{ text: card.summary, publisher: null }] : [] };
 
-  const score = card.tier != null ? tierToScore(card.tier) : null;
+  const scored = card.tier != null ? computeRealScore(metrics, deckUserValues, card.tier) : null;
+  const score = scored?.score ?? null;
   const sColor = score != null ? scoreColor(score) : 'rgb(var(--c-faint))';
   const sLabel = score != null ? scoreLabel(score) : '';
+  const scoreTitle =
+    scored != null
+      ? `Composite maturity score — weighted from ${scored.signals} of 5 grounded signals (market share, valuation, ARR, users, headcount)`
+      : undefined;
   const tierInfo = card.tier != null ? tierDisplay(card.tier) : null;
   const arrKnown = arr?.value != null && arr.confidence !== 'unknown';
   const valKnown = valMetric?.value != null && valMetric.confidence !== 'unknown';
@@ -185,8 +245,6 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
   const shareVal = share?.value ?? 0;
   const empKnown = employees?.value != null && employees.confidence !== 'unknown';
   const usersKnown = users?.value != null && users.confidence !== 'unknown';
-  const arrYoY = arrKnown ? fakeYoY(arr!.value) : null;
-  const valYoY = valKnown ? fakeYoY(valMetric!.value) : null;
 
   return (
     <Card
@@ -207,7 +265,7 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
             <span className="mt-0.5 inline-block rounded bg-surface-2 px-1.5 py-px text-[10px] font-medium text-muted">{deriveIndustry(company.oneLiner)}</span>
           </div>
           {score != null && (
-            <div className="flex shrink-0 flex-col items-center">
+            <div className="flex shrink-0 flex-col items-center" title={scoreTitle}>
               <div className="relative h-10 w-10">
                 <svg className="h-10 w-10 -rotate-90" viewBox="0 0 40 40">
                   <circle cx="20" cy="20" r="17" fill="none" stroke="rgb(var(--c-border))" strokeWidth="2.5" />
@@ -254,22 +312,14 @@ export function GameCard({ data, onOpen, className }: GameCardProps) {
                     {arrKnown ? formatMetricValue('arr', arr!.value) : '—'}
                   </p>
                   <p className="mt-0.5 text-[11px] font-medium text-muted">ARR</p>
-                  {arrYoY && (
-                    <p className="mt-0.5 flex items-center gap-0.5 text-[10px] font-medium text-positive">
-                      <TrendingUp className="h-2.5 w-2.5" /> {arrYoY}
-                    </p>
-                  )}
+                  {arrKnown && <ConfidenceChip confidence={arr!.confidence} />}
                 </div>
                 <div>
                   <p className="font-display text-[18px] font-bold tabular-nums leading-tight text-content">
                     {valKnown ? formatMetricValue(valMetric!.metricType, valMetric!.value) : '—'}
                   </p>
                   <p className="mt-0.5 text-[11px] font-medium text-muted">{valLabel}</p>
-                  {valYoY && (
-                    <p className="mt-0.5 flex items-center gap-0.5 text-[10px] font-medium text-positive">
-                      <TrendingUp className="h-2.5 w-2.5" /> {valYoY}
-                    </p>
-                  )}
+                  {valKnown && <ConfidenceChip confidence={valMetric!.confidence} />}
                 </div>
                 <div>
                   <p className="font-display text-[18px] font-bold tabular-nums leading-tight text-content">
