@@ -240,6 +240,14 @@ export const liveIntelItemSchema = z.object({
   title: z.string(),
   url: z.string(),
   summary: z.string(),
+  // Reader context: a short reported paragraph about the story — including a
+  // direct quote when the sources carry one. Null when research found only
+  // the headline; the UI degrades to the one-line summary.
+  detail: prose().nullable().catch(null),
+  // The article's REPORTED publish date (e.g. "2026-08-19"), when the sources
+  // state it. publishedAt below is when OUR research found the item — showing
+  // that as the story's date is how "just now" ends up on week-old news.
+  publishedDate: prose().nullable().catch(null),
   sentiment: z.enum(['positive', 'neutral', 'negative']),
   publishedAt: isoTimestamp,
   stale: z.boolean(),

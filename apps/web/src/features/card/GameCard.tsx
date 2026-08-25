@@ -48,6 +48,7 @@ import { formatCount, formatMetricValue } from '@/lib/format';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/states/Skeleton';
 import { Logo } from './Logo';
 import { getMetric, valueMetric } from './metrics';
 
@@ -263,6 +264,10 @@ export function GameCard({ data, deckUserValues = [], onOpen, className }: GameC
       ? `Composite maturity score — weighted from ${scored.signals} of 5 grounded signals (market share, valuation, ARR, users, headcount)`
       : undefined;
   const tierInfo = card.tier != null ? tierDisplay(card.tier) : null;
+  // Still forming: enrichment hasn't assigned a tier yet, so empty slots are
+  // shimmer skeletons (the card visibly "comes to life"), not honest dashes.
+  // Once the desk has finished, a missing figure is a FINDING and renders "—".
+  const forming = card.tier == null && !isSignalCardType(card.cardType);
   const checked = lastCheckedMs(metrics);
   const checkedAgo = checked != null ? checkedAgoLabel(checked) : null;
   const arrKnown = arr?.value != null && arr.confidence !== 'unknown';
@@ -290,7 +295,7 @@ export function GameCard({ data, deckUserValues = [], onOpen, className }: GameC
             </h3>
             <span className="mt-0.5 inline-block rounded bg-surface-2 px-1.5 py-px text-[10px] font-medium text-muted">{deriveIndustry(company.oneLiner)}</span>
           </div>
-          {score != null && (
+          {score != null ? (
             <div className="flex shrink-0 flex-col items-center" title={scoreTitle}>
               <div className="relative h-10 w-10">
                 <svg className="h-10 w-10 -rotate-90" viewBox="0 0 40 40">
@@ -302,7 +307,18 @@ export function GameCard({ data, deckUserValues = [], onOpen, className }: GameC
               </div>
               <span className="mt-0.5 text-[9px] font-medium" style={{ color: sColor }}>{sLabel}</span>
             </div>
-          )}
+          ) : forming ? (
+            // Ghost score ring: scoring is coming, the slot pulses while the
+            // desk gathers the signals that will fill it.
+            <div className="flex shrink-0 flex-col items-center" title="Score forming — desk agents are gathering signals">
+              <div className="relative h-10 w-10 animate-pulse">
+                <svg className="h-10 w-10" viewBox="0 0 40 40">
+                  <circle cx="20" cy="20" r="17" fill="none" stroke="rgb(var(--c-border))" strokeWidth="2.5" strokeDasharray="4 5" />
+                </svg>
+              </div>
+              <Skeleton className="mt-0.5 h-2 w-8" />
+            </div>
+          ) : null}
         </div>
       </CardHeader>
 
@@ -347,23 +363,41 @@ export function GameCard({ data, deckUserValues = [], onOpen, className }: GameC
             <div className="mt-4 border-t border-border pt-4">
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <p className="font-display text-[18px] font-bold tabular-nums leading-tight text-content">
-                    {arrKnown ? formatMetricValue('arr', arr!.value) : '—'}
-                  </p>
+                  {arrKnown ? (
+                    <p className="font-display text-[18px] font-bold tabular-nums leading-tight text-content">
+                      {formatMetricValue('arr', arr!.value)}
+                    </p>
+                  ) : forming ? (
+                    <Skeleton className="h-[18px] w-14" />
+                  ) : (
+                    <p className="font-display text-[18px] font-bold leading-tight text-content">—</p>
+                  )}
                   <p className="mt-0.5 text-[11px] font-medium text-muted">ARR</p>
                   {arrKnown && <ConfidenceChip confidence={arr!.confidence} />}
                 </div>
                 <div>
-                  <p className="font-display text-[18px] font-bold tabular-nums leading-tight text-content">
-                    {valKnown ? formatMetricValue(valMetric!.metricType, valMetric!.value) : '—'}
-                  </p>
+                  {valKnown ? (
+                    <p className="font-display text-[18px] font-bold tabular-nums leading-tight text-content">
+                      {formatMetricValue(valMetric!.metricType, valMetric!.value)}
+                    </p>
+                  ) : forming ? (
+                    <Skeleton className="h-[18px] w-14" />
+                  ) : (
+                    <p className="font-display text-[18px] font-bold leading-tight text-content">—</p>
+                  )}
                   <p className="mt-0.5 text-[11px] font-medium text-muted">{valLabel}</p>
                   {valKnown && <ConfidenceChip confidence={valMetric!.confidence} />}
                 </div>
                 <div>
-                  <p className="font-display text-[18px] font-bold tabular-nums leading-tight text-content">
-                    {shareKnown ? `${shareVal.toFixed(1)}%` : '—'}
-                  </p>
+                  {shareKnown ? (
+                    <p className="font-display text-[18px] font-bold tabular-nums leading-tight text-content">
+                      {`${shareVal.toFixed(1)}%`}
+                    </p>
+                  ) : forming ? (
+                    <Skeleton className="h-[18px] w-10" />
+                  ) : (
+                    <p className="font-display text-[18px] font-bold leading-tight text-content">—</p>
+                  )}
                   <p className="mt-0.5 text-[11px] font-medium text-muted">Market Share</p>
                   {shareKnown && <Progress value={shareVal} className="mt-1.5 h-1" indicatorClassName="bg-primary" />}
                 </div>
@@ -375,14 +409,14 @@ export function GameCard({ data, deckUserValues = [], onOpen, className }: GameC
               <div>
                 <p className="flex items-center gap-1 font-display text-[16px] font-bold tabular-nums leading-tight text-content">
                   <Users className="h-3.5 w-3.5 text-faint" strokeWidth={1.8} />
-                  {empKnown ? formatCount(employees!.value!) : '—'}
+                  {empKnown ? formatCount(employees!.value!) : forming ? <Skeleton className="h-4 w-10" /> : '—'}
                 </p>
                 <p className="mt-0.5 text-[11px] font-medium text-muted">Team</p>
               </div>
               <div>
                 <p className="flex items-center gap-1 font-display text-[16px] font-bold tabular-nums leading-tight text-content">
                   <UserRound className="h-3.5 w-3.5 text-faint" strokeWidth={1.8} />
-                  {usersKnown ? formatCount(users!.value!) + '+' : '—'}
+                  {usersKnown ? formatCount(users!.value!) + '+' : forming ? <Skeleton className="h-4 w-10" /> : '—'}
                 </p>
                 <p className="mt-0.5 text-[11px] font-medium text-muted">Customers</p>
               </div>
@@ -403,6 +437,8 @@ export function GameCard({ data, deckUserValues = [], onOpen, className }: GameC
               </span>
             )}
           </span>
+        ) : forming ? (
+          <Skeleton className="h-3 w-24" />
         ) : (
           <span />
         )}
