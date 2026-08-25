@@ -183,7 +183,7 @@ describe('Incremental Delta Search Agent — Precision Focus Translation', () =>
 
     const t7 = translateExpandFocus({ tier: 7 });
     expect(t7.targetTier).toBe(7);
-    expect(t7.focusPrompt).toContain('Legacy Incumbents');
+    expect(t7.focusPrompt).toContain('Category Leaders');
 
     const t8 = translateExpandFocus({ tier: 8 });
     expect(t8.targetTier).toBe(8);
