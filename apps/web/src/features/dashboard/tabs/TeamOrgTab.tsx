@@ -6,6 +6,7 @@ import { useCompany, useDashboardTab } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { Modal } from '@/components/ui/Modal';
 import { useDeepDive } from '@/features/deepdive/DeepDive';
+import { LeaderGrid } from './LeaderGrid';
 
 const GROUP_COLOR: Record<OrgNode['group'], string> = {
   exec: '#6366f1',
@@ -160,10 +161,18 @@ export function TeamOrgTab({ companyId }: { companyId: string }) {
       {(result) => (
         <div>
           <p className="mb-3 text-sm text-muted">
-            Exec, AI, product, and design leadership. Click a person for their reported background
-            and context, then dig deeper with grounded research. Drag to explore; zoom with the
-            controls.
+            Exec, AI, product, and design leadership. Hover a portrait for their reported
+            background; click for the full profile and grounded research. The chart below maps
+            who reports to whom.
           </p>
+
+          {/* The human layer: framed portraits, hover profiles, click-through research. */}
+          <LeaderGrid
+            nodes={result.content.nodes}
+            companyName={name}
+            onOpenPerson={setSelectedPersonId}
+          />
+
           <div className="panel h-[520px] overflow-hidden">
             <ReactFlow
               nodes={graph.rfNodes}

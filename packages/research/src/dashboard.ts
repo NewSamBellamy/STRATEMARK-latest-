@@ -120,19 +120,41 @@ export async function researchDashboardTab<T extends DashboardTab>(
     }
 
     case 'team_org': {
+      // QUALITY CONTRACT: a leadership page with two names is not "done".
+      // One research pass rarely surfaces a full executive team, so when the
+      // first pass comes back thin (< MIN_LEADERS people) a single targeted
+      // gap-fill pass runs and the results merge. Capped at 2 grounded calls —
+      // hungry, not unbounded.
+      const MIN_LEADERS = 5;
       const g = await client.ground(
         `Identify the leadership and key org structure of ${ctx(args)} — founders, C-suite, and heads of product/AI/design where known. Note who reports to whom, and for each person one or two sentences of reported background (prior roles, tenure, what they own) where the sources actually say it.`,
         system,
       );
-      const out = await client.structure(
-        `Convert to JSON { "nodes": [ { "id" (short slug), "name", "role", "group": "exec"|"ai"|"product"|"design"|"other", "parentId" (id of manager or null), "bio" (1-2 reported sentences, or "" when the notes say nothing about the person) } ] }. The top leader has parentId null. Never invent a bio.\n\nNOTES:\n${g.text}`,
+      let notes = g.text;
+      const firstPass = await client.structure(
+        `Convert to JSON { "nodes": [ { "id" (short slug), "name", "role", "group": "exec"|"ai"|"product"|"design"|"other", "parentId" (id of manager or null), "bio" (1-2 reported sentences, or "" when the notes say nothing about the person) } ] }. The top leader has parentId null. Never invent a bio.\n\nNOTES:\n${notes}`,
         teamOrgContentSchema,
         structSys,
       );
+      let nodes = firstPass.nodes;
+      if (nodes.length < MIN_LEADERS) {
+        const known = nodes.map((n) => n.name).join(', ') || 'none found yet';
+        const gapFill = await client.ground(
+          `List the current executive leadership team of ${ctx(args)} — every named C-level officer, president, and department head reported by credible sources, with exact titles. Already known: ${known}. Focus on names NOT in that list.`,
+          system,
+        );
+        notes = `${notes}\n\nADDITIONAL LEADERSHIP NOTES:\n${gapFill.text}`;
+        const secondPass = await client.structure(
+          `Convert to JSON { "nodes": [ { "id" (short slug), "name", "role", "group": "exec"|"ai"|"product"|"design"|"other", "parentId" (id of manager or null), "bio" (1-2 reported sentences, or "" when the notes say nothing about the person) } ] }. Merge ALL people found across the notes; the top leader has parentId null. Never invent a bio.\n\nNOTES:\n${notes}`,
+          teamOrgContentSchema,
+          structSys,
+        );
+        if (secondPass.nodes.length > nodes.length) nodes = secondPass.nodes;
+      }
       // Guard referential integrity: drop parentIds that don't resolve.
-      const ids = new Set(out.nodes.map((n) => n.id));
+      const ids = new Set(nodes.map((n) => n.id));
       return {
-        nodes: out.nodes.map((n) => ({ ...n, parentId: n.parentId && ids.has(n.parentId) ? n.parentId : null })),
+        nodes: nodes.map((n) => ({ ...n, parentId: n.parentId && ids.has(n.parentId) ? n.parentId : null })),
       } as DashboardContentMap[T];
     }
 
