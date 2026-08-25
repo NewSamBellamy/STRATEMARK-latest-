@@ -89,7 +89,7 @@ export function classifySource(url: string, title?: string | null): SourceCredib
     return 'reputable_secondary';
   }
   if (
-    /techcrunch|theinformation|crunchbase|pitchbook|venturebeat|wired|arstechnica|statista/.test(
+    /techcrunch|theinformation|crunchbase|pitchbook|venturebeat|wired|arstechnica|statista|counterpointresearch|canalys|gartner|idc\.com|similarweb|sacra\.com|cbinsights|sensortower/.test(
       haystack,
     )
   ) {
@@ -104,6 +104,41 @@ export function classifySource(url: string, title?: string | null): SourceCredib
 export function isRedirectCitation(url: string): boolean {
   return /vertexaisearch\.cloud\.google\.com|grounding-api-redirect/i.test(url);
 }
+
+/**
+ * Sources that must NEVER support a "verified" badge: SEO/link-building shops,
+ * content farms, coupon/promo mills. Discovered in production — a company's
+ * market share was displayed as "verified per fatjoe.com" (an SEO-services
+ * site). A junk domain can still appear in a citation list for transparency;
+ * it just carries no verification weight.
+ *
+ * Conservative by design: unknown-but-legitimate niche outlets (analyst firms,
+ * trade press) are NOT junk — only recognizable content-mill patterns are.
+ */
+const JUNK_SOURCE_PATTERN =
+  /fatjoe\.|backlinko|linkbuild|link-build|guest-?post|seo-?(service|agency|blog|tool)|buy-?backlink|promo-?code|coupon|essaywrit|articleforge|contentfarm|prnewswire\.com\/promo/i;
+
+export function isJunkSource(url: string, title?: string | null): boolean {
+  return JUNK_SOURCE_PATTERN.test(`${url} ${title ?? ''}`);
+}
+
+/**
+ * True when at least one citation is fit to stand behind a "verified" badge:
+ * not a junk domain, and not user-generated content.
+ */
+export function hasVerificationGradeCitation(
+  citations: readonly Citation[] | undefined,
+): boolean {
+  if (!citations) return false;
+  return citations.some(
+    (c) =>
+      !isJunkSource(c.url, c.title) &&
+      (c.credibility ?? classifySource(c.url, c.title)) !== 'user_generated',
+  );
+}
+
+const JUNK_DOWNGRADE_NOTE =
+  'Downgraded: the only sources behind this figure are low-credibility domains (SEO/content-mill class); a verification-grade source is required for a Verified badge.';
 
 /**
  * Bring a freshly-researched metric in line with the provenance rules.
@@ -131,6 +166,19 @@ export function enforceMetricProvenance(metric: CompanyMetric): CompanyMetric {
     methodNote = methodNote
       ? `${methodNote} — ${UNSOURCED_DOWNGRADE_NOTE}`
       : UNSOURCED_DOWNGRADE_NOTE;
+  }
+
+  // CREDIBILITY GATE: citations exist, but none is fit to verify (all junk
+  // domains / user-generated). The figure stays, the badge honestly drops.
+  if (
+    confidence === 'verified' &&
+    citations.length > 0 &&
+    !hasVerificationGradeCitation(citations)
+  ) {
+    confidence = 'estimated';
+    methodNote = methodNote
+      ? `${methodNote} — ${JUNK_DOWNGRADE_NOTE}`
+      : JUNK_DOWNGRADE_NOTE;
   }
 
   // An "unknown" figure cannot carry a number.
