@@ -71,6 +71,56 @@ function initialsOf(name: string): string {
     .join('');
 }
 
+/**
+ * Reusable honest-headshot avatar: Wikipedia photo when the article verifiably
+ * matches the person AND company, initials otherwise. Shared by the leadership
+ * grid and the board/investor treatment.
+ */
+export function WikiAvatar({
+  name,
+  companyName,
+  size = 'md',
+  ringClass = 'ring-slate-300/60',
+}: {
+  name: string;
+  companyName: string;
+  size?: 'sm' | 'md';
+  ringClass?: string;
+}) {
+  const [shot, setShot] = useState<Headshot | null>(null);
+  useEffect(() => {
+    let live = true;
+    void fetchWikiHeadshot(name, companyName).then((s) => {
+      if (live) setShot(s);
+    });
+    return () => {
+      live = false;
+    };
+  }, [name, companyName]);
+  return (
+    <span
+      className={cn(
+        'grid shrink-0 place-items-center overflow-hidden rounded-full bg-primary/10 ring-2 ring-offset-2 ring-offset-surface',
+        size === 'sm' ? 'h-10 w-10' : 'h-14 w-14',
+        ringClass,
+      )}
+    >
+      {shot ? (
+        <img src={shot.thumb} alt={name} className="h-full w-full object-cover" loading="lazy" />
+      ) : (
+        <span
+          className={cn(
+            'font-display font-semibold text-primary-ink',
+            size === 'sm' ? 'text-sm' : 'text-base',
+          )}
+        >
+          {initialsOf(name)}
+        </span>
+      )}
+    </span>
+  );
+}
+
 function LeaderCard({
   person,
   companyName,
