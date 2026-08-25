@@ -387,6 +387,7 @@ export default function NewDeckPage() {
   const session = useResearchSession((s) => s.session);
   const startSession = useResearchSession((s) => s.startSession);
   const addLog = useResearchSession((s) => s.addLog);
+  const addFound = useResearchSession((s) => s.addFound);
   const finish = useResearchSession((s) => s.finish);
   const fail = useResearchSession((s) => s.fail);
   const clear = useResearchSession((s) => s.clear);
@@ -451,6 +452,19 @@ export default function NewDeckPage() {
             if (p.message) {
               addLog(p.message, { stage: p.stage ?? null, progress: p.progress ?? null });
               if (p.kind === 'find') cardCount++;
+            }
+            // Stream every discovery onto the screen the moment it happens.
+            if (p.card?.company?.name) {
+              addFound([p.card.company.name]);
+            } else if (p.kind === 'find' && p.message.includes('entities:')) {
+              const list = p.message.split('entities:')[1] ?? '';
+              addFound(
+                list
+                  .replace(/…$/, '')
+                  .split(',')
+                  .map((n) => n.trim())
+                  .filter((n) => n.length > 1 && n.length < 60),
+              );
             }
           },
         },
@@ -528,6 +542,40 @@ export default function NewDeckPage() {
                       </span>
                     )}
                   </div>
+                  {/* The latest research steps, always visible — no more black box. */}
+                  {session.logLines.length > 0 && (
+                    <div className="mt-2.5 space-y-1">
+                      {session.logLines.slice(-3).map((l, i, arr) => (
+                        <p
+                          key={`${session.logLines.length}-${i}`}
+                          className={cn(
+                            'truncate text-[12px] transition-opacity',
+                            i === arr.length - 1 ? 'text-content' : 'text-faint',
+                          )}
+                        >
+                          {l}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  {/* Companies appearing as they are found — research you can watch. */}
+                  {session.found.length > 0 && (
+                    <div className="mt-3 border-t border-border pt-3">
+                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-faint">
+                        {session.found.length} found so far
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {session.found.map((name) => (
+                          <span
+                            key={name}
+                            className="animate-in fade-in rounded-full border border-border bg-surface-2 px-2.5 py-0.5 text-[12px] text-content"
+                          >
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {session.logLines.length > 0 && (
                     <div className="mt-3 border-t border-border pt-2.5">
                       <button
