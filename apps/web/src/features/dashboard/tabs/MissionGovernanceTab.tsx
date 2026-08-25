@@ -1,7 +1,7 @@
 import { ThumbsDown, ThumbsUp } from 'lucide-react';
 import { useCompany, useDashboardTab } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
-import { DigDeeper } from '@/features/deepdive/DeepDive';
+import { DigDeeperMenu } from '@/features/deepdive/DeepDive';
 
 export function MissionGovernanceTab({ companyId }: { companyId: string }) {
   const query = useDashboardTab(companyId, 'mission_governance');
@@ -19,9 +19,16 @@ export function MissionGovernanceTab({ companyId }: { companyId: string }) {
               <p className="mt-2 text-sm text-muted">{c.ethos}</p>
               <h3 className="mt-4 font-display text-sm font-semibold text-content">Governance</h3>
               <p className="mt-2 text-sm text-muted">{c.governanceStructure}</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <DigDeeper topic="Governance, ownership & control" companyId={companyId} companyName={name} />
-                <DigDeeper topic="Controversies & regulatory scrutiny" companyId={companyId} companyName={name} />
+              <div className="mt-3 flex justify-end">
+                <DigDeeperMenu
+                  topics={[
+                    'Governance, ownership & control',
+                    'Controversies & regulatory scrutiny',
+                    'Funding rounds & the investor board',
+                  ]}
+                  companyId={companyId}
+                  companyName={name}
+                />
               </div>
             </div>
 
