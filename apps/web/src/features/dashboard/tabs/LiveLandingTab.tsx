@@ -15,8 +15,8 @@ export function LiveLandingTab({ companyId }: { companyId: string }) {
           <div>
             <div className="mb-3 flex items-center justify-between">
               <p className="text-sm text-muted">
-                The company’s live site. In the desktop shell this renders via Electron BrowserView;
-                on the web we embed via iframe with a fallback for sites that block embedding.
+                {name}’s live website, embedded for a first-hand look at how they present
+                themselves right now — audit the messaging or open the site directly.
               </p>
               <div className="flex items-center gap-2">
                 <button
@@ -69,10 +69,8 @@ export function LiveLandingTab({ companyId }: { companyId: string }) {
                 <div>
                   <h3 className="font-display text-lg text-content">This site blocks embedding</h3>
                   <p className="mx-auto mt-1 max-w-md text-sm text-muted">
-                    The site sends <code className="text-content">X-Frame-Options</code> /{' '}
-                    <code className="text-content">CSP frame-ancestors</code> headers that prevent
-                    iframing. The desktop build will capture a live screenshot via BrowserView; for
-                    now, open it directly.
+                    {name} doesn’t allow its site to be shown inside other apps — a common
+                    security setting. Open it directly to take a look.
                   </p>
                 </div>
                 <a href={url} target="_blank" rel="noopener noreferrer" className="btn-primary">
