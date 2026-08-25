@@ -1217,6 +1217,7 @@ export class GeminiRepository implements MarketIntelRepository {
         `Company: ${company.name} — ${company.oneLiner}`,
         `Our stored figure: ${stored}.`,
         `Use Google Search. Prefer primary sources and recent reputable coverage; name the figure, its as-of date, and the source. If coverage disagrees, say which figure is best supported. If no reliable current figure exists, say so plainly. Never guess.`,
+        `MEASUREMENT BASIS: the figure must describe the WHOLE legal company — for a conglomerate, total company revenue/valuation/headcount, never a division's figure presented as the company's.`,
       ].join('\n'),
       { system: GROUNDED_SYSTEM },
     );
