@@ -267,9 +267,19 @@ export const orgNodeSchema = z.object({
   /** Notable project or ownership area explicitly tied to the person. */
   notableProject: prose().nullable().optional().catch(null),
 });
-export const teamOrgContentSchema = z.object({
-  nodes: rows(orgNodeSchema),
-});
+/**
+ * Tolerant to the model returning the node list bare instead of wrapped in
+ * `{ nodes: [...] }` — a real production failure ("Expected object, received
+ * array") that crashed the Team & Org tab when a merge-style prompt led the
+ * model to emit the array directly. Shape normalization is the parser's job;
+ * the user should never see a structure error for a semantically valid list.
+ */
+export const teamOrgContentSchema = z.preprocess(
+  (input) => (Array.isArray(input) ? { nodes: input } : input),
+  z.object({
+    nodes: rows(orgNodeSchema),
+  }),
+);
 
 export const liveLandingContentSchema = z.object({
   url: z.string(),
