@@ -291,8 +291,6 @@ function InputPill({
   disabled,
   hasKey,
   showHint,
-  remainingDemoQueries,
-  isDemoMode,
 }: {
   prompt: string;
   setPrompt: (v: string) => void;
@@ -305,8 +303,6 @@ function InputPill({
   disabled: boolean;
   hasKey: boolean;
   showHint: boolean;
-  remainingDemoQueries: number;
-  isDemoMode: boolean;
 }) {
   return (
     <form onSubmit={onSubmit} className="w-full max-w-2xl">
@@ -350,22 +346,12 @@ function InputPill({
       </div>
       {showHint && !hasKey && (
         <p className="mt-2 text-center text-[11px] text-faint">
-          {isDemoMode ? (
-            <span>
-              Demo mode — {remainingDemoQueries} {remainingDemoQueries === 1 ? 'query' : 'queries'} remaining.{' '}
-              <Link to="/settings" className="text-primary-ink hover:underline">
-                Add API key
-              </Link>{' '}
-              for unlimited live research.
-            </span>
-          ) : (
-            <span>
-              <Link to="/settings" className="text-primary-ink hover:underline">
-                Add API key
-              </Link>{' '}
-              for live research.
-            </span>
-          )}
+          <span>
+            <Link to="/settings" className="text-primary-ink hover:underline">
+              Add Gemini API key
+            </Link>{' '}
+            in Settings for live Google grounded research.
+          </span>
         </p>
       )}
     </form>
@@ -384,7 +370,7 @@ export default function NewDeckPage() {
   const { user, getToken } = useAuth();
   const isPro = user?.subscriptionTier === 'pro';
   const hasKey = useApiKey((s) => s.hasKey);
-  const { consumeDemoQuery, isDemoMode, remainingDemoQueries } = useDemo();
+  const { consumeDemoQuery } = useDemo();
 
   const [prompt, setPrompt] = useState('');
   const [region, setRegion] = useState('');
@@ -629,8 +615,6 @@ export default function NewDeckPage() {
           disabled={running}
           hasKey={hasKey}
           showHint={!hasSession}
-          remainingDemoQueries={remainingDemoQueries}
-          isDemoMode={isDemoMode}
         />
       </div>
     </div>

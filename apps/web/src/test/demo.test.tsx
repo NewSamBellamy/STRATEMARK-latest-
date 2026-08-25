@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { DemoProvider, STORAGE_KEY_DEMO_QUERIES, useDemo } from '@/lib/demo/DemoContext';
+import { DemoProvider, useDemo } from '@/lib/demo/DemoContext';
 import { GoogleAuthProvider } from '@/lib/auth/AuthContext';
 import { RepositoryProvider } from '@/lib/repository/RepositoryProvider';
 import { TaskManagerProvider } from '@/lib/tasks/TaskManagerContext';
@@ -32,12 +32,12 @@ function DemoTestComponent() {
   );
 }
 
-describe('Demo Mode System & Query Counter', () => {
+describe('Demo Mode System & Query Unblocking', () => {
   beforeEach(() => {
     localStorage.clear();
   });
 
-  it('starts with 3 dynamic demo queries in unauthenticated demo mode', () => {
+  it('runs with unlimited research queries and unblocked demo mode', () => {
     render(
       <GoogleAuthProvider>
         <DemoProvider>
@@ -46,11 +46,11 @@ describe('Demo Mode System & Query Counter', () => {
       </GoogleAuthProvider>,
     );
 
-    expect(screen.getByTestId('remaining-queries')).toHaveTextContent('3');
-    expect(screen.getByTestId('demo-mode')).toHaveTextContent('yes');
+    expect(screen.getByTestId('remaining-queries')).toHaveTextContent('999');
+    expect(screen.getByTestId('demo-mode')).toHaveTextContent('no');
   });
 
-  it('decrements query counter dynamically from 3 down to 0 on each question asked', async () => {
+  it('permits multiple consecutive research queries without blocking or decrementing limits', async () => {
     const user = userEvent.setup();
     render(
       <GoogleAuthProvider>
@@ -62,43 +62,16 @@ describe('Demo Mode System & Query Counter', () => {
 
     const askBtn = screen.getByRole('button', { name: 'Ask Question' });
 
-    // 1st question -> 2 remaining
     await user.click(askBtn);
-    expect(screen.getByTestId('remaining-queries')).toHaveTextContent('2');
+    await user.click(askBtn);
+    await user.click(askBtn);
+    await user.click(askBtn);
 
-    // 2nd question -> 1 remaining
-    await user.click(askBtn);
-    expect(screen.getByTestId('remaining-queries')).toHaveTextContent('1');
-
-    // 3rd question -> 0 remaining
-    await user.click(askBtn);
-    expect(screen.getByTestId('remaining-queries')).toHaveTextContent('0');
+    expect(screen.getByTestId('remaining-queries')).toHaveTextContent('999');
+    expect(screen.queryByText('Unlock Stratemark Pro')).not.toBeInTheDocument();
   });
 
-  it('triggers upgrade modal when demo query limit is reached (0 remaining)', async () => {
-    const user = userEvent.setup();
-    render(
-      <GoogleAuthProvider>
-        <DemoProvider>
-          <DemoTestComponent />
-          <UpgradeModal />
-        </DemoProvider>
-      </GoogleAuthProvider>,
-    );
-
-    const askBtn = screen.getByRole('button', { name: 'Ask Question' });
-
-    // Use all 3 queries
-    await user.click(askBtn);
-    await user.click(askBtn);
-    await user.click(askBtn);
-
-    // Modal pops up on last query or when attempting further query
-    expect(screen.getByText('Unlock Stratemark Pro')).toBeInTheDocument();
-    expect(screen.getByText(/Upgrade with Paddle/i)).toBeInTheDocument();
-  });
-
-  it('triggers upgrade modal when attempting gated feature (e.g. Web Scraping)', async () => {
+  it('permits gated feature access without triggering upgrade modal', async () => {
     const user = userEvent.setup();
     render(
       <GoogleAuthProvider>
@@ -112,12 +85,11 @@ describe('Demo Mode System & Query Counter', () => {
     const scrapeBtn = screen.getByRole('button', { name: 'Scrape Web' });
     await user.click(scrapeBtn);
 
-    expect(screen.getByText('Unlock Stratemark Pro')).toBeInTheDocument();
-    expect(screen.getByText(/Web Scraping is available in Pro/i)).toBeInTheDocument();
+    expect(screen.queryByText('Unlock Stratemark Pro')).not.toBeInTheDocument();
   });
 });
 
-describe('NewDeckPage Deck Creation in Demo Mode', () => {
+describe('NewDeckPage Deck Creation in Unblocked Mode', () => {
   beforeEach(() => {
     localStorage.clear();
   });
@@ -138,9 +110,6 @@ describe('NewDeckPage Deck Creation in Demo Mode', () => {
                     <Routes>
                       <Route path="/markets/new" element={<NewDeckPage />} />
                       <Route path="/research/:taskId" element={<div>Live Research Task View</div>} />
-                      {/* Fast-boot auto-navigates straight to the deck. Without
-                          this route the destination renders nothing and the
-                          assertion silently has nothing to find. */}
                       <Route path="/markets/:id/deck" element={<div>Live Deck View</div>} />
                     </Routes>
                     <UpgradeModal />
@@ -161,54 +130,21 @@ describe('NewDeckPage Deck Creation in Demo Mode', () => {
     await user.click(submitBtn);
   }
 
-  it('allows deck creation and navigates to research when queries remain', async () => {
+  it('allows uninterrupted deck creation and navigates to live deck view', async () => {
     const { user } = renderNewDeckApp();
 
     await submitDeckPrompt(user, 'AI code-review startups');
 
-    // Fast-boot builds the deck and navigates to it. The transient "deck is
-    // ready" panel is NOT observable here — NewDeckPage calls finish() then
-    // navigate() immediately, so asserting on the panel tests a frame that no
-    // real user sees. The navigation is the actual contract.
     expect(await screen.findByText(/Live Deck View/i)).toBeInTheDocument();
+    expect(screen.queryByText('Unlock Stratemark Pro')).not.toBeInTheDocument();
   });
 
-  it('allows deck creation on last query and opens UpgradeModal warning', async () => {
-    // Consume 2 queries beforehand
-    localStorage.setItem(STORAGE_KEY_DEMO_QUERIES, '1');
-
+  it('allows subsequent deck creation without hitting limits', async () => {
     const { user } = renderNewDeckApp();
 
     await submitDeckPrompt(user, 'Precision fermentation companies');
 
-    // Builds deck and navigates to it (see note above).
     expect(await screen.findByText(/Live Deck View/i)).toBeInTheDocument();
-
-    // And upgrade modal pops up warning that was the last demo query
-    expect(screen.getByText('Unlock Stratemark Pro')).toBeInTheDocument();
-    expect(
-      screen.getByText(/That was your last demo query! Upgrade to Pro for unlimited AI market research./i),
-    ).toBeInTheDocument();
-  });
-
-  it('blocks deck creation and triggers UpgradeModal when queries are exhausted', async () => {
-    // Queries exhausted
-    localStorage.setItem(STORAGE_KEY_DEMO_QUERIES, '0');
-
-    const { user } = renderNewDeckApp();
-
-    await submitDeckPrompt(user, 'Non-alcoholic spirits brands');
-
-    // Does NOT build deck — asserting the absence of the NAVIGATION is the real
-    // check. The previous assertion looked for a panel that never renders in
-    // this flow either way, so it passed regardless of whether the block worked.
-    expect(screen.queryByText(/Live Deck View/i)).not.toBeInTheDocument();
-    expect(screen.getByText('What market should we dive into?')).toBeInTheDocument();
-
-    // UpgradeModal pops up blocking research
-    expect(screen.getByText('Unlock Stratemark Pro')).toBeInTheDocument();
-    expect(
-      screen.getByText(/You have used all 3 dynamic demo queries. Upgrade to Pro for unlimited AI research./i),
-    ).toBeInTheDocument();
+    expect(screen.queryByText('Unlock Stratemark Pro')).not.toBeInTheDocument();
   });
 });
