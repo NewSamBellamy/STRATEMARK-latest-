@@ -145,7 +145,7 @@ export async function researchDashboardTab<T extends DashboardTab>(
         );
         notes = `${notes}\n\nADDITIONAL LEADERSHIP NOTES:\n${gapFill.text}`;
         const secondPass = await client.structure(
-          `Convert to JSON { "nodes": [ { "id" (short slug), "name", "role", "group": "exec"|"ai"|"product"|"design"|"other", "parentId" (id of manager or null), "bio" (1-2 reported sentences, or "" when the notes say nothing about the person) } ] }. Merge ALL people found across the notes; the top leader has parentId null. Never invent a bio.\n\nNOTES:\n${notes}`,
+          `Output a single JSON OBJECT (not a bare array) of the exact shape { "nodes": [ { "id" (short slug), "name", "role", "group": "exec"|"ai"|"product"|"design"|"other", "parentId" (id of manager or null), "bio" (1-2 reported sentences, or "" when the notes say nothing about the person) } ] }. Merge ALL people found across the notes; the top leader has parentId null. Never invent a bio.\n\nNOTES:\n${notes}`,
           teamOrgContentSchema,
           structSys,
         );
