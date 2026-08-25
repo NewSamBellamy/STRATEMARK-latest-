@@ -291,6 +291,19 @@ export function GameCard({ data, deckUserValues = [], onOpen, className }: GameC
           </p>
         )}
 
+        {/* Enrichment still running: say so instead of showing a wall of dashes
+            (founder's audit: a fresh deck of all-dash cards "looks broken").
+            Cards poll while tier is null, so figures pop in as the desk works. */}
+        {!signal && card.tier == null && !arrKnown && !valKnown && !shareKnown && (
+          <p className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-primary-ink">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            </span>
+            Desk researching — figures arriving live
+          </p>
+        )}
+
         {signal ? (
           <div className="mt-4 rounded-lg border border-border bg-surface-2 p-3">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">{signal.heading}</p>
