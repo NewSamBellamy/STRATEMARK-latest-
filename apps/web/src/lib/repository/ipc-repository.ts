@@ -20,6 +20,8 @@ import type {
   ExpandFocus,
   FactCheckInput,
   FactCheckResult,
+  VerifyMetricInput,
+  VerifyMetricResult,
   OverrideMetricInput,
   Report,
   ReportRequest,
@@ -110,6 +112,12 @@ export class IpcRepository implements MarketIntelRepository {
   }
   factCheck(input: FactCheckInput): Promise<FactCheckResult> {
     return this.api.factCheck(input);
+  }
+  verifyMetric(input: VerifyMetricInput): Promise<VerifyMetricResult> {
+    if (!this.api.verifyMetric) {
+      return Promise.reject(new Error('Live verification requires an updated desktop shell.'));
+    }
+    return this.api.verifyMetric.call(this.api, input);
   }
   expandDeck(marketId: string, focus: ExpandFocus): Promise<{ added: number }> {
     return this.api.expandDeck(marketId, focus);
