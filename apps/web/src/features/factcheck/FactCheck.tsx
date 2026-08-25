@@ -70,21 +70,21 @@ export function FactCheck({
     );
   };
 
+  const metricAnchored = !!companyId && !!metricType && verify.isAvailable && !applied;
   const canApply =
-    result?.verdict === 'contradicted' &&
-    result.correctedValue != null &&
-    !!companyId &&
-    !!metricType &&
-    verify.isAvailable &&
-    !applied;
+    result?.verdict === 'contradicted' && result.correctedValue != null && metricAnchored;
+  // A check that can't corroborate the stored figure must be able to fix the
+  // badge — otherwise the metric keeps wearing "Verified" right next to an
+  // assessment saying "Unverified" (the two-truth-systems contradiction).
+  const canReconcile = result?.verdict === 'unverified' && metricAnchored;
 
   const apply = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!companyId || !metricType || verify.isPending) return;
-    verify.mutate(
-      { companyId, metricType },
-      { onSuccess: (r) => setApplied(r.changed) },
-    );
+    // The reconciliation ran either way: a correction wrote back, a downgrade
+    // wrote back, or fresh evidence re-confirmed the badge. All three resolve
+    // the on-screen disagreement.
+    verify.mutate({ companyId, metricType }, { onSuccess: () => setApplied(true) });
   };
 
   if (result) {
@@ -115,10 +115,30 @@ export function FactCheck({
               : `Verify & correct to ${formatMetricValue(metricType, result.correctedValue!)}`}
           </button>
         )}
+        {canReconcile && (
+          <button
+            type="button"
+            onClick={apply}
+            disabled={verify.isPending}
+            className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 transition-colors hover:bg-amber-100 disabled:opacity-60 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+          >
+            {verify.isPending ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Wand2 className="h-3 w-3" />
+            )}
+            {verify.isPending ? 'Re-verifying…' : 'Re-verify & update the badge'}
+          </button>
+        )}
+        {result.verdict === 'supported' && metricType && (
+          <p className="mt-1.5 text-[11px] font-medium text-positive">
+            Confirms the stored figure.
+          </p>
+        )}
         {applied && (
           <p className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-positive">
             <CheckCheck className="h-3.5 w-3.5" />
-            Corrected from live sources — card and tier updated.
+            Reconciled from live sources — badge, card, and tier updated.
           </p>
         )}
         {result.citations.length > 0 && (
