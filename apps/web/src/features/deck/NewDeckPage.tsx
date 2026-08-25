@@ -622,7 +622,8 @@ export default function NewDeckPage() {
                     {session.done.count > 0
                       ? `${session.done.count} cards built`
                       : 'cards are built'}
-                    , metrics sourced, tiers scored.
+                    , metrics sourced, tiers scored. Desks are pre-researching dashboard
+                    tabs in the background, so company pages open instantly.
                   </p>
                   <div className="mt-3 flex items-center gap-3">
                     <Link

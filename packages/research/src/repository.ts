@@ -683,7 +683,46 @@ export class GeminiRepository implements MarketIntelRepository {
 
     // Continual Background Hydration
     const backgroundPromise = (async () => {
+      // Visible to both the completion path and the failure path.
+      let deckResolved = false;
       try {
+        const WARM_TABS = ['overview', 'team_org', 'live_intel'] as const;
+        const WARM_COMPANY_LIMIT = 8;
+        const warmQueue: Array<{ id: string; name: string }> = [];
+        let warmQueued = 0;
+        let warmWorkerRunning = false;
+        const drainWarmQueue = async (): Promise<void> => {
+          if (warmWorkerRunning) return;
+          warmWorkerRunning = true;
+          try {
+            for (;;) {
+              const next = warmQueue.shift();
+              if (!next) {
+                if (deckResolved) return;
+                await new Promise((r) => setTimeout(r, 1_000));
+                continue;
+              }
+              for (const tab of WARM_TABS) {
+                if (controller.signal.aborted) return;
+                try {
+                  await this.getDashboardTab(next.id, tab);
+                  if (!deckResolved) {
+                    handlers?.onProgress?.({
+                      message: `${next.name} desk pre-researched ${tab === 'team_org' ? 'Team & Org' : tab === 'live_intel' ? 'Live Intel' : 'Overview'} — will open instantly`,
+                      stage: 'dashboard',
+                      kind: 'step',
+                    });
+                  }
+                } catch {
+                  // A failed warm-up is invisible; the tab researches on open.
+                }
+              }
+            }
+          } finally {
+            warmWorkerRunning = false;
+          }
+        };
+
         await Promise.all([
           // Track 1: Entity Card Hydration (worker pool concurrency: 3)
           (async () => {
@@ -819,6 +858,14 @@ export class GeminiRepository implements MarketIntelRepository {
                     card: hydrated.primaryCard,
                     kind: 'find',
                   });
+
+                  // Warm decks: this company's desk starts pre-researching its
+                  // dashboard tabs right now, while the rest of the deck builds.
+                  if (warmQueued < WARM_COMPANY_LIMIT) {
+                    warmQueued += 1;
+                    warmQueue.push({ id: hydrated.company.id, name: hydrated.company.name });
+                    void drainWarmQueue();
+                  }
                 } catch (err) {
                   if (controller.signal.aborted) throw err;
                   checkpoint({
@@ -831,6 +878,13 @@ export class GeminiRepository implements MarketIntelRepository {
             );
           })(),
 
+          // Track 3 (non-blocking): WARM DECKS — as each company's card lands,
+          // its desk immediately pre-researches the key dashboard tabs, so the
+          // deck arrives with tabs that open instantly instead of 20-40s
+          // spinners. Deliberately NOT awaited by the run: deck completion is
+          // never delayed; the worker keeps draining after the deck returns.
+          // The in-flight dedupe on getDashboardTab makes any race with a user
+          // click or the living runtime's prefetch cost a single research pass.
           // Track 2: Background Macro Signals (BarrierToEntryAgent, MarketInsightAgent)
           (async () => {
             checkpoint({
@@ -953,7 +1007,11 @@ export class GeminiRepository implements MarketIntelRepository {
         this.persist();
         this.jobControllers.delete(job.id);
         this.activeBackgroundJobs.delete(job.id);
+        // The deck is done; the warm worker drains what's left of its queue
+        // (non-blocking) and then exits instead of idling forever.
+        deckResolved = true;
       } catch (error) {
+        deckResolved = true;
         job.status = controller.signal.aborted ? 'cancelled' : 'failed';
         job.error = error instanceof Error ? error.message : 'Research failed.';
         job.updatedAt = new Date().toISOString();
@@ -1096,6 +1154,14 @@ export class GeminiRepository implements MarketIntelRepository {
   }
 
   // Dashboard (lazy, cached) -----------------------------------------------
+  /**
+   * In-flight tab research, keyed `companyId:tab`. A user click and the warm-up
+   * worker (or the living runtime's prefetch) can race on the SAME tab; without
+   * this, both fire a full grounded research pass — double spend, double wait.
+   * The second caller now awaits the first caller's promise.
+   */
+  private tabResearchInFlight = new Map<string, Promise<unknown>>();
+
   async getDashboardTab<T extends DashboardTab>(
     companyId: string,
     tab: T,
@@ -1112,19 +1178,32 @@ export class GeminiRepository implements MarketIntelRepository {
         lastRefreshedAt: cached.lastRefreshedAt,
       };
     }
-    const content = await researchDashboardTab(tab, {
-      company,
-      marketName: this.snap.companyMarket[companyId] ?? 'this market',
-      storedMetrics: this.snap.metrics.filter((m) => m.companyId === companyId),
-      client: this.client,
-    });
-    const lastRefreshedAt = new Date().toISOString();
-    this.snap.dashboards[companyId] = {
-      ...this.snap.dashboards[companyId],
-      [tab]: { content, lastRefreshedAt },
-    };
-    this.persist();
-    return { companyId, tab, content, lastRefreshedAt };
+    const flightKey = `${companyId}:${tab}`;
+    if (!force) {
+      const inFlight = this.tabResearchInFlight.get(flightKey);
+      if (inFlight) return inFlight as Promise<DashboardTabResult<T> | null>;
+    }
+    const run = (async (): Promise<DashboardTabResult<T> | null> => {
+      const content = await researchDashboardTab(tab, {
+        company,
+        marketName: this.snap.companyMarket[companyId] ?? 'this market',
+        storedMetrics: this.snap.metrics.filter((m) => m.companyId === companyId),
+        client: this.client,
+      });
+      const lastRefreshedAt = new Date().toISOString();
+      this.snap.dashboards[companyId] = {
+        ...this.snap.dashboards[companyId],
+        [tab]: { content, lastRefreshedAt },
+      };
+      this.persist();
+      return { companyId, tab, content, lastRefreshedAt };
+    })();
+    this.tabResearchInFlight.set(flightKey, run);
+    try {
+      return await run;
+    } finally {
+      this.tabResearchInFlight.delete(flightKey);
+    }
   }
 
   async deepDive(input: DeepDiveInput): Promise<DeepDiveResult> {
