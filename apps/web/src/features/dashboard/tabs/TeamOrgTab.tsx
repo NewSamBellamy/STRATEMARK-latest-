@@ -142,7 +142,7 @@ function PersonDetail({
           inference.
         </p>
         <button type="button" className="btn-primary shrink-0" onClick={onDigDeeper}>
-          Dig deeper
+          Ask about them
         </button>
       </div>
     </div>
