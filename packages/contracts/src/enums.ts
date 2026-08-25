@@ -173,7 +173,10 @@ export const TIER_LABELS: Record<MaturityTier, string> = {
   4: 'Growth Stage',
   5: 'Market Disruptors',
   6: 'Scale Stage',
-  7: 'Legacy Incumbents',
+  // "Category Leaders", not "Legacy Incumbents": tiers measure MATURITY
+  // (signal-weighted scale), not age. A three-year-old frontier lab can land
+  // in Tier 7; labeling it a "legacy incumbent" reads as nonsense on the card.
+  7: 'Category Leaders',
   8: 'The Titans',
 };
 
@@ -184,7 +187,7 @@ export const TIER_BLURBS: Record<MaturityTier, string> = {
   4: 'Scaling with institutional backing',
   5: 'Actively rewriting industry rules',
   6: 'Massive distribution achieved',
-  7: 'Profitable, slow to adapt',
+  7: 'Established leaders with durable share',
   8: 'Absolute market behemoths',
 };
 
