@@ -398,10 +398,23 @@ export default function NewDeckPage() {
 
   const phase = useResearchPhase(session?.running ?? false);
 
+  // Honest demo gate: without a key (and outside the cloud engine), "research"
+  // would be pure theater — the mock transport returns the built-in SAMPLE deck
+  // renamed to whatever was typed. A user asking for "frontier ai labs" got
+  // Christian-apparel sample companies wearing an AI-labs title, under a "Live
+  // research" pill. Never fake research: say what demo mode is, link the fix.
+  const [demoGate, setDemoGate] = useState(false);
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const q = prompt.trim();
     if (!q || session?.running) return;
+
+    if (engine !== 'cloud' && !hasKey) {
+      setDemoGate(true);
+      return;
+    }
+    setDemoGate(false);
 
     if (!consumeDemoQuery()) {
       return;
@@ -664,6 +677,21 @@ export default function NewDeckPage() {
           hasKey={hasKey}
           showHint={!hasSession}
         />
+        {demoGate && (
+          <div className="mx-auto mt-3 max-w-xl rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center dark:border-amber-800 dark:bg-amber-950/40">
+            <p className="text-[13px] font-medium text-amber-900 dark:text-amber-200">
+              Researching a new market needs your Gemini API key.
+            </p>
+            <p className="mt-1 text-[12px] leading-relaxed text-amber-800/90 dark:text-amber-300/90">
+              Demo mode only contains one pre-researched sample deck — it can’t research
+              “{prompt.trim() || 'a new market'}” and will never pretend to.{' '}
+              <Link to="/settings" className="font-semibold underline">
+                Add your key in Settings
+              </Link>{' '}
+              (free tier works), then come back and run this for real.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
