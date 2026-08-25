@@ -31,10 +31,7 @@ jobs:
         run: pnpm lint
 
       - name: Unit + contract tests
-        run: |
-          pnpm --filter @mi/contracts test:run
-          pnpm --filter @mi/mocks test:run
-          pnpm --filter @mi/web test:run
+        run: pnpm -r test:run
 
       - name: Build (web + desktop main/preload)
         run: |

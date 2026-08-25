@@ -13,6 +13,21 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { IPC_CHANNELS, SECURE_CHANNELS, type MarketIntelRepository } from '@mi/contracts';
+import { z } from 'zod';
+import {
+  createMarketInputSchema,
+  deckResearchBriefSchema,
+  cardFilterSchema,
+  deepDiveInputSchema,
+  factCheckInputSchema,
+  reportRequestSchema,
+  expandFocusSchema,
+  overrideMetricInputSchema,
+  askResearchInputSchema,
+  listResearchThreadsFilterSchema,
+  refreshCadenceSchema,
+  dashboardTabSchema,
+} from './ipc-schemas.js';
 import { MockRepository } from '@mi/mocks';
 import { GeminiRepository, type RepoSnapshot, type ResearchStore } from '@mi/research';
 import { performGoogleOAuthFlow, loadDesktopEnv, type OAuthUser } from './oauth.js';
@@ -205,87 +220,126 @@ function swapRepository(): void {
 
 function registerIpc(): void {
   ipcMain.handle(IPC_CHANNELS.listMarkets, () => repository.listMarkets());
-  ipcMain.handle(IPC_CHANNELS.getMarket, (_e, id: string) => repository.getMarket(id));
-  ipcMain.handle(IPC_CHANNELS.createMarket, (_e, input) => repository.createMarket(input));
-  ipcMain.handle(IPC_CHANNELS.updateMarketCadence, (_e, id: string, cadence) =>
-    repository.updateMarketCadence(id, cadence),
+  ipcMain.handle(IPC_CHANNELS.getMarket, (_e, id: unknown) =>
+    repository.getMarket(z.string().min(1).parse(id)),
   );
-  ipcMain.handle(IPC_CHANNELS.getDeckByMarket, (_e, marketId: string) =>
-    repository.getDeckByMarket(marketId),
+  ipcMain.handle(IPC_CHANNELS.createMarket, (_e, input: unknown) =>
+    repository.createMarket(createMarketInputSchema.parse(input)),
   );
-  ipcMain.handle(IPC_CHANNELS.refreshDeck, (_e, marketId: string) =>
-    repository.refreshDeck(marketId),
+  ipcMain.handle(IPC_CHANNELS.updateMarketCadence, (_e, id: unknown, cadence: unknown) =>
+    repository.updateMarketCadence(
+      z.string().min(1).parse(id),
+      refreshCadenceSchema.parse(cadence),
+    ),
   );
-  ipcMain.handle(IPC_CHANNELS.createResearchedDeck, (_e, brief, requestId: string) =>
-    repository.createResearchedDeck(brief, {
+  ipcMain.handle(IPC_CHANNELS.getDeckByMarket, (_e, marketId: unknown) =>
+    repository.getDeckByMarket(z.string().min(1).parse(marketId)),
+  );
+  ipcMain.handle(IPC_CHANNELS.refreshDeck, (_e, marketId: unknown) =>
+    repository.refreshDeck(z.string().min(1).parse(marketId)),
+  );
+  ipcMain.handle(IPC_CHANNELS.createResearchedDeck, (_e, brief: unknown, requestId: unknown) => {
+    const validatedBrief = deckResearchBriefSchema.parse(brief);
+    const validatedReqId = z.string().min(1).parse(requestId);
+    return repository.createResearchedDeck(validatedBrief, {
       onProgress: (progress) => {
         if (mainWin && !mainWin.isDestroyed()) {
-          mainWin.webContents.send(IPC_CHANNELS.researchProgressEvent, { requestId, progress });
+          mainWin.webContents.send(IPC_CHANNELS.researchProgressEvent, {
+            requestId: validatedReqId,
+            progress,
+          });
         }
       },
-    }),
+    });
+  });
+  ipcMain.handle(IPC_CHANNELS.listCards, (_e, deckId: unknown, filter: unknown) =>
+    repository.listCards(z.string().min(1).parse(deckId), cardFilterSchema.parse(filter)),
   );
-  ipcMain.handle(IPC_CHANNELS.listCards, (_e, deckId: string, filter) =>
-    repository.listCards(deckId, filter),
+  ipcMain.handle(IPC_CHANNELS.getCard, (_e, cardId: unknown) =>
+    repository.getCard(z.string().min(1).parse(cardId)),
   );
-  ipcMain.handle(IPC_CHANNELS.getCard, (_e, cardId: string) => repository.getCard(cardId));
   ipcMain.handle(IPC_CHANNELS.listSavedCards, () => repository.listSavedCards());
-  ipcMain.handle(IPC_CHANNELS.saveCard, (_e, cardId: string) => repository.saveCard(cardId));
-  ipcMain.handle(IPC_CHANNELS.unsaveCard, (_e, cardId: string) => repository.unsaveCard(cardId));
-  ipcMain.handle(IPC_CHANNELS.getCompany, (_e, companyId: string) =>
-    repository.getCompany(companyId),
+  ipcMain.handle(IPC_CHANNELS.saveCard, (_e, cardId: unknown) =>
+    repository.saveCard(z.string().min(1).parse(cardId)),
   );
-  ipcMain.handle(IPC_CHANNELS.getCompanyMetrics, (_e, companyId: string) =>
-    repository.getCompanyMetrics(companyId),
+  ipcMain.handle(IPC_CHANNELS.unsaveCard, (_e, cardId: unknown) =>
+    repository.unsaveCard(z.string().min(1).parse(cardId)),
   );
-  ipcMain.handle(IPC_CHANNELS.getViceClaims, (_e, cardId: string) =>
-    repository.getViceClaims(cardId),
+  ipcMain.handle(IPC_CHANNELS.getCompany, (_e, companyId: unknown) =>
+    repository.getCompany(z.string().min(1).parse(companyId)),
   );
-  ipcMain.handle(IPC_CHANNELS.getDashboardTab, (_e, companyId: string, tab, force?: boolean) =>
-    repository.getDashboardTab(companyId, tab, force),
+  ipcMain.handle(IPC_CHANNELS.getCompanyMetrics, (_e, companyId: unknown) =>
+    repository.getCompanyMetrics(z.string().min(1).parse(companyId)),
   );
-  ipcMain.handle(IPC_CHANNELS.deepDive, (_e, input) => repository.deepDive(input));
-  ipcMain.handle(IPC_CHANNELS.factCheck, (_e, input) => repository.factCheck(input));
-  ipcMain.handle(IPC_CHANNELS.generateReport, (_e, request) => repository.generateReport(request));
+  ipcMain.handle(IPC_CHANNELS.getViceClaims, (_e, cardId: unknown) =>
+    repository.getViceClaims(z.string().min(1).parse(cardId)),
+  );
+  ipcMain.handle(IPC_CHANNELS.getDashboardTab, (_e, companyId: unknown, tab: unknown, force?: unknown) =>
+    repository.getDashboardTab(
+      z.string().min(1).parse(companyId),
+      dashboardTabSchema.parse(tab),
+      z.boolean().optional().parse(force),
+    ),
+  );
+  ipcMain.handle(IPC_CHANNELS.deepDive, (_e, input: unknown) =>
+    repository.deepDive(deepDiveInputSchema.parse(input)),
+  );
+  ipcMain.handle(IPC_CHANNELS.factCheck, (_e, input: unknown) =>
+    repository.factCheck(factCheckInputSchema.parse(input)),
+  );
+  ipcMain.handle(IPC_CHANNELS.generateReport, (_e, request: unknown) =>
+    repository.generateReport(reportRequestSchema.parse(request)),
+  );
   ipcMain.handle(IPC_CHANNELS.listReports, () => repository.listReports());
-  ipcMain.handle(IPC_CHANNELS.getReport, (_e, id: string) => repository.getReport(id));
-  ipcMain.handle(IPC_CHANNELS.expandDeck, (_e, marketId: string, focus) =>
-    repository.expandDeck(marketId, focus),
+  ipcMain.handle(IPC_CHANNELS.getReport, (_e, id: unknown) =>
+    repository.getReport(z.string().min(1).parse(id)),
   );
-  ipcMain.handle(IPC_CHANNELS.overrideMetric, (_e, input) => repository.overrideMetric(input));
-  ipcMain.handle(IPC_CHANNELS.getMarketOpportunity, (_e, marketId: string, force?: boolean) =>
-    repository.getMarketOpportunity(marketId, force),
+  ipcMain.handle(IPC_CHANNELS.expandDeck, (_e, marketId: unknown, focus: unknown) =>
+    repository.expandDeck(
+      z.string().min(1).parse(marketId),
+      expandFocusSchema.parse(focus),
+    ),
   );
-  ipcMain.handle(IPC_CHANNELS.askResearch, (_e, input) => repository.askResearch?.(input));
-  ipcMain.handle(
-    IPC_CHANNELS.listResearchThreads,
-    (_e, filter) => repository.listResearchThreads?.(filter) ?? [],
+  ipcMain.handle(IPC_CHANNELS.overrideMetric, (_e, input: unknown) =>
+    repository.overrideMetric(overrideMetricInputSchema.parse(input)),
   );
-  ipcMain.handle(
-    IPC_CHANNELS.getResearchThread,
-    (_e, id: string) => repository.getResearchThread?.(id) ?? null,
+  ipcMain.handle(IPC_CHANNELS.getMarketOpportunity, (_e, marketId: unknown, force?: unknown) =>
+    repository.getMarketOpportunity(
+      z.string().min(1).parse(marketId),
+      z.boolean().optional().parse(force),
+    ),
   );
-  ipcMain.handle(IPC_CHANNELS.saveThreadAsReport, (_e, threadId: string, focus?: string | null) =>
-    repository.saveThreadAsReport?.(threadId, focus),
+  ipcMain.handle(IPC_CHANNELS.askResearch, (_e, input: unknown) =>
+    repository.askResearch?.(askResearchInputSchema.parse(input)),
+  );
+  ipcMain.handle(IPC_CHANNELS.listResearchThreads, (_e, filter: unknown) =>
+    repository.listResearchThreads?.(listResearchThreadsFilterSchema.parse(filter)) ?? [],
+  );
+  ipcMain.handle(IPC_CHANNELS.getResearchThread, (_e, id: unknown) =>
+    repository.getResearchThread?.(z.string().min(1).parse(id)) ?? null,
+  );
+  ipcMain.handle(IPC_CHANNELS.saveThreadAsReport, (_e, threadId: unknown, focus?: unknown) =>
+    repository.saveThreadAsReport?.(
+      z.string().min(1).parse(threadId),
+      z.string().nullable().optional().parse(focus),
+    ),
   );
   ipcMain.handle(IPC_CHANNELS.listResearchJobs, () => repository.listResearchJobs?.() ?? []);
-  ipcMain.handle(
-    IPC_CHANNELS.getResearchJob,
-    (_e, id: string) => repository.getResearchJob?.(id) ?? null,
+  ipcMain.handle(IPC_CHANNELS.getResearchJob, (_e, id: unknown) =>
+    repository.getResearchJob?.(z.string().min(1).parse(id)) ?? null,
   );
-  ipcMain.handle(
-    IPC_CHANNELS.cancelResearchJob,
-    (_e, id: string) => repository.cancelResearchJob?.(id) ?? null,
+  ipcMain.handle(IPC_CHANNELS.cancelResearchJob, (_e, id: unknown) =>
+    repository.cancelResearchJob?.(z.string().min(1).parse(id)) ?? null,
   );
-  ipcMain.handle(
-    IPC_CHANNELS.resumeResearchJob,
-    (_e, id: string) => repository.resumeResearchJob?.(id) ?? null,
+  ipcMain.handle(IPC_CHANNELS.resumeResearchJob, (_e, id: unknown) =>
+    repository.resumeResearchJob?.(z.string().min(1).parse(id)) ?? null,
   );
 
   // Secure key storage — persists to the OS keychain and hot-swaps the backend.
   ipcMain.handle(SECURE_CHANNELS.getApiKey, (): string => loadApiKey());
-  ipcMain.handle(SECURE_CHANNELS.setApiKey, (_e, key: string): void => {
-    saveApiKey(key);
+  ipcMain.handle(SECURE_CHANNELS.setApiKey, (_e, key: unknown): void => {
+    const validatedKey = z.string().parse(key);
+    saveApiKey(validatedKey);
     swapRepository();
   });
 
