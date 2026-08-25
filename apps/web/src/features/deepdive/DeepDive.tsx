@@ -678,6 +678,91 @@ function ContextChips({ scope }: { scope: ResearchScope }) {
 }
 
 /**
+ * ONE chat bubble per surface — the consolidation of what used to be clusters
+ * of anonymous chat circles (three side by side on the Overview tab alone).
+ * A single labeled button opens a menu of the surface's curated dig topics
+ * plus a free-form option, so "engage the AI about this" keeps its power with
+ * exactly one entry point.
+ */
+export function DigDeeperMenu({
+  topics,
+  companyId,
+  companyName,
+  label = 'Dig deeper',
+  className,
+}: {
+  topics: string[];
+  companyId: string | null;
+  companyName: string;
+  label?: string;
+  className?: string;
+}) {
+  const { open: openDig, chat } = useDeepDive();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+
+  return (
+    <div ref={ref} className={cn('relative inline-block', className)}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-[11px] font-medium text-muted transition-colors hover:border-primary/50 hover:text-primary-ink"
+      >
+        <MessageCircle className="h-3 w-3" />
+        {label}
+      </button>
+      {open && (
+        <div
+          className="absolute right-0 top-full z-30 mt-1 w-64 rounded-lg border border-border bg-surface p-1 shadow-card"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {topics.map((topic) => (
+            <button
+              key={topic}
+              type="button"
+              className="flex w-full items-start gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] text-content hover:bg-surface-2"
+              onClick={() => {
+                setOpen(false);
+                openDig({ topic, companyId, companyName, context: null });
+              }}
+            >
+              <MessageCircle className="mt-0.5 h-3 w-3 shrink-0 text-muted" />
+              {topic}
+            </button>
+          ))}
+          <button
+            type="button"
+            className="flex w-full items-start gap-2 rounded-md border-t border-border px-2.5 py-1.5 text-left text-[12px] font-medium text-primary-ink hover:bg-surface-2"
+            onClick={() => {
+              setOpen(false);
+              chat(
+                { kind: 'company', deckId: null, companyId, subject: companyName },
+                { placeholder: `Ask anything about ${companyName}…` },
+              );
+            }}
+          >
+            <MessageCircle className="mt-0.5 h-3 w-3 shrink-0" />
+            Ask your own question…
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * AI affordance icon — replaces the old "Shovel" with a MessageCircle icon.
  * Appears beside data points everywhere, so it stays quiet.
  */
