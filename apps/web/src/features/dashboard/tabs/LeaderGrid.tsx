@@ -122,7 +122,9 @@ function LeaderCard({
       <span className="w-full truncate text-[10.5px] leading-tight text-muted">{person.role}</span>
 
       {/* Hover profile — the sourced background, in place. */}
-      <span className="pointer-events-none absolute left-1/2 top-full z-30 mt-1 hidden w-60 -translate-x-1/2 rounded-lg border border-border bg-surface p-3 text-left shadow-card group-hover/leader:block">
+      {/* Left-aligned (not centered): a centered popover on a card near the
+          screen's left edge clipped half of every line off-screen. */}
+      <span className="pointer-events-none absolute left-0 top-full z-30 mt-1 hidden w-60 max-w-[70vw] rounded-lg border border-border bg-surface p-3 text-left shadow-card group-hover/leader:block">
         <span className="block text-[12px] font-semibold text-content">{person.name}</span>
         <span className="block text-[11px] text-muted">{person.role}</span>
         <span className="mt-1.5 block text-[11px] leading-relaxed text-content/85">

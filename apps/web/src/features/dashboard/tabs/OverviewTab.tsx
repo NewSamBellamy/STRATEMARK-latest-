@@ -52,8 +52,28 @@ export function OverviewTab({ companyId }: { companyId: string }) {
                       />
                       {METRIC_TYPE_LABELS[m.metricType]}
                     </span>
-                    <span className="font-semibold tabular-nums text-content">
-                      {formatMetricValue(m.metricType, m.value)}
+                    <span className="flex items-center gap-1.5">
+                      <span className="font-semibold tabular-nums text-content">
+                        {formatMetricValue(m.metricType, m.value)}
+                      </span>
+                      {/* Trust state at a glance: an unconfirmed estimate must
+                          never look identical to a verified figure. */}
+                      {m.confidence === 'estimated' && (
+                        <span
+                          className="text-[9px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400"
+                          title="Estimated — a desk agent will verify this from live sources shortly"
+                        >
+                          est
+                        </span>
+                      )}
+                      {(m.confidence === 'verified' || m.confidence === 'user_verified') && (
+                        <span
+                          className="text-[9px] font-semibold uppercase tracking-wide text-positive"
+                          title="Verified from cited sources"
+                        >
+                          ✓
+                        </span>
+                      )}
                     </span>
                   </li>
                 ))}

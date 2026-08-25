@@ -116,7 +116,7 @@ function TabView({ tab, companyId }: { tab: DashboardTab; companyId: string }) {
   }
 }
 
-const VISIBLE_TAB_COUNT = 5;
+const VISIBLE_TAB_COUNT = 6;
 
 function DashboardTabNav({
   companyId,

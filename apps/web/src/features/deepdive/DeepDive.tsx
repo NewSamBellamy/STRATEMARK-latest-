@@ -688,7 +688,7 @@ export function DigDeeperMenu({
   topics,
   companyId,
   companyName,
-  label = 'Dig deeper',
+  label = 'Ask AI about this',
   className,
 }: {
   topics: string[];
@@ -712,16 +712,18 @@ export function DigDeeperMenu({
 
   return (
     <div ref={ref} className={cn('relative inline-block', className)}>
+      {/* Icon-only by design (founder: "no Dig Deeper — just a little chat icon"). */}
       <button
         type="button"
         onClick={(e) => {
           e.stopPropagation();
           setOpen((o) => !o);
         }}
-        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-[11px] font-medium text-muted transition-colors hover:border-primary/50 hover:text-primary-ink"
+        aria-label={label}
+        title={label}
+        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-border bg-surface text-muted transition-colors hover:border-primary/50 hover:text-primary-ink"
       >
-        <MessageCircle className="h-3 w-3" />
-        {label}
+        <MessageCircle className="h-3.5 w-3.5" />
       </button>
       {open && (
         <div

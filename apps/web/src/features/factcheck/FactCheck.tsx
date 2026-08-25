@@ -10,7 +10,7 @@
  * every open view updates. A fact-check that can't fix anything is a smoke
  * detector without a bell.
  */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   CheckCheck,
   ExternalLink,
@@ -73,6 +73,19 @@ export function FactCheck({
   const metricAnchored = !!companyId && !!metricType && verify.isAvailable && !applied;
   const canApply =
     result?.verdict === 'contradicted' && result.correctedValue != null && metricAnchored;
+
+  // AUTO-CORRECT: a contradicted metric with a cited correction applies itself.
+  // The founder's requirement, verbatim: "these agents should be fact-checking
+  // their own work and updating the UI consistently" — a verdict that waits
+  // for a click leaves wrong information on screen. The manual button remains
+  // as the retry path if the automatic write fails.
+  const autoFired = useRef(false);
+  useEffect(() => {
+    if (!canApply || autoFired.current || verify.isPending || !companyId || !metricType) return;
+    autoFired.current = true;
+    verify.mutate({ companyId, metricType }, { onSuccess: () => setApplied(true) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canApply]);
   // A check that can't corroborate the stored figure must be able to fix the
   // badge — otherwise the metric keeps wearing "Verified" right next to an
   // assessment saying "Unverified" (the two-truth-systems contradiction).
@@ -111,8 +124,8 @@ export function FactCheck({
               <Wand2 className="h-3 w-3" />
             )}
             {verify.isPending
-              ? 'Verifying & updating…'
-              : `Verify & correct to ${formatMetricValue(metricType, result.correctedValue!)}`}
+              ? `Correcting to ${formatMetricValue(metricType, result.correctedValue!)}…`
+              : `Retry correction to ${formatMetricValue(metricType, result.correctedValue!)}`}
           </button>
         )}
         {canReconcile && (

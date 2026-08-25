@@ -171,12 +171,16 @@ export async function researchDashboardTab<T extends DashboardTab>(
     }
 
     case 'history': {
+      // QUALITY CONTRACT: a five-row timeline for a decade-old frontier company
+      // is not "done" (founder audit: "we're missing all the Sora 2 stuff").
+      // The contract demands density: every major product/model release, and
+      // month-level granularity for the recent past where reporting exists.
       const g = await client.ground(
-        `Research the company story and timeline of ${ctx(args)}: the founding story written as a short readable narrative, then key dated milestones from inception to now — funding, launches, pivots, stumbles. For a company only a few years old prefer quarterly-level milestones; for an older company yearly is right. Include notable quotes. Cite sources.`,
+        `Research the company story and detailed timeline of ${ctx(args)}: the founding story written as a short readable narrative, then dated milestones from inception to TODAY. Be exhaustive about milestones: every major product and model release (including recent ones), funding rounds, leadership changes, pivots, stumbles, and partnerships. For the most recent 18 months use month-level granularity wherever coverage supports it (e.g. "2026 Mar"); earlier years may be yearly/quarterly. Aim for 12-20 dated milestones for an established company. Include notable quotes. Cite sources.`,
         system,
       );
       return client.structure(
-        `Convert to JSON { "founderStory" (a well-written multi-paragraph narrative of where the company came from — the one-pager story), "timeline": [ { "date" (e.g. "2023 Q4" or "2019"), "title", "detail" (one or two lines) } ] in chronological order, "quotes": [ { "text", "attribution" } ] }.\n\nNOTES:\n${g.text}`,
+        `Convert to JSON { "founderStory" (a well-written multi-paragraph narrative of where the company came from — the one-pager story), "timeline": [ { "date" (e.g. "2026 Mar", "2023 Q4", or "2019"), "title", "detail" (one or two lines) } ] in chronological order — include EVERY dated milestone the notes support (target 12-20 for an established company; never pad with invented ones), "quotes": [ { "text", "attribution" } ] }.\n\nNOTES:\n${g.text}`,
         historyContentSchema,
         structSys,
       ) as Promise<DashboardContentMap[T]>;
