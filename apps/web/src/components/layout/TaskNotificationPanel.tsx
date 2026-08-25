@@ -153,10 +153,12 @@ function TaskItem({
 
   return (
     <div className="rounded-lg border border-border bg-surface-2 p-3 text-xs">
-      {/* Task Header Row: Icon status, task title linked to /research/:taskId, and dismiss button */}
+      {/* Task Header Row: Icon status, task title linked to the task's deck
+          (or the New Deck session view while one is still forming — tasks are
+          in-memory session state; there is no /research/:id route). */}
       <div className="flex items-start justify-between gap-2">
         <Link
-          to={`/research/${task.id}`}
+          to={task.marketId ? `/markets/${task.marketId}/deck` : '/'}
           onClick={onCloseDrawer}
           className="flex items-center gap-2 min-w-0 hover:underline cursor-pointer"
         >
@@ -218,13 +220,6 @@ function TaskItem({
         </button>
 
         <div className="flex items-center gap-2">
-          <Link
-            to={`/research/${task.id}`}
-            onClick={onCloseDrawer}
-            className="inline-flex items-center gap-1 text-muted hover:text-content font-medium underline"
-          >
-            <span>Stage</span>
-          </Link>
           {task.marketId && (
             <Link
               to={`/markets/${task.marketId}/deck`}

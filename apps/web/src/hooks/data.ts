@@ -228,9 +228,14 @@ export function useVerifyMetric() {
       return repo.verifyMetric(input);
     },
     onSuccess: (result: VerifyMetricResult, input) => {
+      // ALWAYS refresh metric-bearing surfaces: even a "nothing changed"
+      // verification stamps lastVerifiedAt (the "checked Xm ago" chips) and
+      // may have downgraded a badge. Gating this on `changed` left page two
+      // showing what page one had already reconciled — the continuity bug.
+      qc.invalidateQueries({ queryKey: qk.companyMetrics(input.companyId) });
+      qc.invalidateQueries({ queryKey: ['cards'] });
       if (result.changed) {
-        qc.invalidateQueries({ queryKey: qk.companyMetrics(input.companyId) });
-        qc.invalidateQueries({ queryKey: ['cards'] });
+        // A correction also voids the researched tab cache repo-side; refetch it.
         qc.invalidateQueries({ queryKey: ['dashboard', input.companyId] });
       }
     },
