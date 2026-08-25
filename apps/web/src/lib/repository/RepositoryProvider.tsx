@@ -34,7 +34,7 @@ export function selectRepository(apiKey: string, model: string, engine?: string)
     let targetCompanies = 10;
     try {
       const raw = Number(localStorage.getItem('mi.targetCompanies'));
-      if (Number.isFinite(raw) && raw >= 2 && raw <= 25) targetCompanies = raw;
+      if (Number.isFinite(raw) && raw >= 2 && raw <= 30) targetCompanies = raw;
     } catch {
       /* opaque origin — keep default */
     }
