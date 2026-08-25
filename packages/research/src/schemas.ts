@@ -122,17 +122,22 @@ export const tierReviewOutSchema = z.object({
  * relative judgement instead of ten independent guesses — which is what makes the
  * ranking defensible.
  */
-export const tierReviewBatchOutSchema = z.object({
-  reviews: z
-    .array(
-      z.object({
-        name: z.string(),
-        nudge: z.union([z.literal(-1), z.literal(0), z.literal(1)]).default(0),
-        reason: z.string().nullable().default(null),
-      }),
-    )
-    .default([]),
-});
+export const tierReviewBatchOutSchema = z.preprocess(
+  // Bare-array tolerance: single-list schemas crash when the model emits the
+  // list without its wrapper object. Normalizing shape is the parser's job.
+  (input) => (Array.isArray(input) ? { reviews: input } : input),
+  z.object({
+    reviews: z
+      .array(
+        z.object({
+          name: z.string(),
+          nudge: z.union([z.literal(-1), z.literal(0), z.literal(1)]).default(0),
+          reason: z.string().nullable().default(null),
+        }),
+      )
+      .default([]),
+  }),
+);
 
 export const factCheckOutSchema = z.object({
   verdict: z.enum(['supported', 'contradicted', 'unverified']).default('unverified'),
