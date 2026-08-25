@@ -110,9 +110,26 @@ export function verifiedAtMs(metric: CompanyMetric): number | null {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
+/**
+ * True when this figure has never survived a verification pass: an estimate
+ * or a blank that no re-research has ever confirmed. `capturedAt` only says
+ * when the row was WRITTEN — a figure can be born stale (a real production
+ * case: an ARR from 18-month-old coverage landed on a fresh deck, and the
+ * decay timers wouldn't have touched it for hours).
+ */
+export function isUnauditedAtBirth(metric: CompanyMetric): boolean {
+  if (isHumanAuthored(metric)) return false;
+  if (metric.lastVerifiedAt) return false;
+  return metric.confidence === 'estimated' || metric.confidence === 'unknown';
+}
+
 /** Epoch ms when this figure next needs attention, or null if never. */
 export function nextRefreshDueAtMs(metric: CompanyMetric): number | null {
   if (isHumanAuthored(metric)) return null;
+  // BIRTH AUDIT: soft figures with no verification history are due NOW, not
+  // after a decay window. The deck starts fact-checking itself the moment it
+  // lands, instead of trusting first-pass research for hours.
+  if (isUnauditedAtBirth(metric)) return 0;
   const seconds = metric.staleAfterSeconds ?? staleAfterSecondsFor(metric);
   if (seconds === null) return null;
   const from = verifiedAtMs(metric);

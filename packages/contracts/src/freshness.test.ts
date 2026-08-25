@@ -9,6 +9,7 @@ import {
   overdueByMs,
   selectStaleMetrics,
   staleAfterSecondsFor,
+  isUnauditedAtBirth,
 } from './freshness';
 import type { CompanyMetric } from './types';
 
@@ -136,5 +137,52 @@ describe('selectStaleMetrics', () => {
   it('returns nothing when the budget is zero — the loop must be affordable', () => {
     const stale = metric({ capturedAt: new Date(T0 - 99 * DAY_MS).toISOString() });
     expect(selectStaleMetrics([stale], T0, 0)).toEqual([]);
+  });
+});
+
+describe('birth audit — soft figures are due immediately, not after a decay window', () => {
+  const base = {
+    id: 'm1',
+    companyId: 'c1',
+    metricType: 'arr' as const,
+    source: null,
+    citations: [],
+    methodNote: null,
+    capturedAt: new Date('2026-08-25T10:00:00Z').toISOString(),
+  };
+  const now = Date.parse('2026-08-25T10:05:00Z'); // five minutes after creation
+
+  it('an estimated figure with no verification history is stale NOW (the born-stale ARR case)', () => {
+    const metric = { ...base, value: 61_600_000, confidence: 'estimated' as const };
+    expect(isUnauditedAtBirth(metric)).toBe(true);
+    expect(isMetricStale(metric, now)).toBe(true);
+  });
+
+  it('a blank (unknown) figure is due immediately so desks fill gaps first', () => {
+    const metric = { ...base, value: null, confidence: 'unknown' as const };
+    expect(isMetricStale(metric, now)).toBe(true);
+  });
+
+  it('a verified figure fresh from research is NOT due — it earned its window', () => {
+    const metric = { ...base, value: 40_000_000_000, confidence: 'verified' as const };
+    expect(isUnauditedAtBirth(metric)).toBe(false);
+    expect(isMetricStale(metric, now)).toBe(false);
+  });
+
+  it('an estimate that has survived a verification pass follows normal decay', () => {
+    const metric = {
+      ...base,
+      value: 61_600_000,
+      confidence: 'estimated' as const,
+      lastVerifiedAt: new Date('2026-08-25T10:02:00Z').toISOString(),
+    };
+    expect(isUnauditedAtBirth(metric)).toBe(false);
+    expect(isMetricStale(metric, now)).toBe(false);
+  });
+
+  it('human-authored figures are never scheduled, born-soft or not', () => {
+    const metric = { ...base, value: 5, confidence: 'user_verified' as const };
+    expect(isUnauditedAtBirth(metric)).toBe(false);
+    expect(nextRefreshDueAtMs(metric)).toBeNull();
   });
 });

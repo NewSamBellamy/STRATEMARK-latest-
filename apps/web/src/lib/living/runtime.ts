@@ -81,8 +81,10 @@ export interface LivingDeckDeps {
   prefetch(target: PrefetchTarget): Promise<void>;
   onEvent(event: AgentActivityEvent): void;
   now?: () => number;
-  /** Pacing between actions. */
+  /** Pacing between verification actions. */
   intervalMs?: number;
+  /** Pacing after a prefetch (cheaper than verification, so faster). */
+  prefetchIntervalMs?: number;
   /** Re-check cadence while resting. */
   idleIntervalMs?: number;
   /** Hard per-session action budget (verifications + prefetches). */
@@ -94,7 +96,12 @@ export interface LivingDeckDeps {
 export type LivingStatus = 'stopped' | 'running' | 'paused' | 'resting';
 
 export class LivingDeckRuntime {
-  private deps: Required<Pick<LivingDeckDeps, 'now' | 'intervalMs' | 'idleIntervalMs' | 'maxActions' | 'setTimer' | 'clearTimer'>> &
+  private deps: Required<
+    Pick<
+      LivingDeckDeps,
+      'now' | 'intervalMs' | 'prefetchIntervalMs' | 'idleIntervalMs' | 'maxActions' | 'setTimer' | 'clearTimer'
+    >
+  > &
     LivingDeckDeps;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private nextId = 1;
@@ -106,9 +113,12 @@ export class LivingDeckRuntime {
   constructor(deps: LivingDeckDeps) {
     this.deps = {
       now: () => Date.now(),
-      intervalMs: 15_000,
+      // 10s between verifications ≈ 6/min — fast enough that a birth audit of
+      // a fresh deck visibly self-corrects within the first minutes.
+      intervalMs: 10_000,
+      prefetchIntervalMs: 5_000,
       idleIntervalMs: 60_000,
-      maxActions: 40,
+      maxActions: 60,
       setTimer: (fn, ms) => setTimeout(fn, ms),
       clearTimer: (t) => clearTimeout(t),
       ...deps,
@@ -242,7 +252,7 @@ export class LivingDeckRuntime {
           prefetchTarget.companyName,
           `${prefetchTarget.companyName} desk pre-researched the ${prefetchTarget.tabLabel} tab — it will open instantly.`,
         );
-        this.schedule(this.deps.intervalMs);
+        this.schedule(this.deps.prefetchIntervalMs);
         return;
       }
 
