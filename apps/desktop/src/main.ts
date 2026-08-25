@@ -20,6 +20,7 @@ import {
   cardFilterSchema,
   deepDiveInputSchema,
   factCheckInputSchema,
+  verifyMetricInputSchema,
   reportRequestSchema,
   expandFocusSchema,
   overrideMetricInputSchema,
@@ -287,6 +288,10 @@ function registerIpc(): void {
   ipcMain.handle(IPC_CHANNELS.factCheck, (_e, input: unknown) =>
     repository.factCheck(factCheckInputSchema.parse(input)),
   );
+  ipcMain.handle(IPC_CHANNELS.verifyMetric, (_e, input: unknown) => {
+    if (!repository.verifyMetric) throw new Error('verifyMetric unavailable on this backend');
+    return repository.verifyMetric(verifyMetricInputSchema.parse(input));
+  });
   ipcMain.handle(IPC_CHANNELS.generateReport, (_e, request: unknown) =>
     repository.generateReport(reportRequestSchema.parse(request)),
   );
