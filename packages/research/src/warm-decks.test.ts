@@ -113,3 +113,99 @@ describe('getDashboardTab in-flight dedupe', () => {
     expect(ground.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe('refreshDeck = update sweep, not rebuild', () => {
+  function snapshotWithDeck(): RepoSnapshot {
+    const now = new Date().toISOString();
+    const base = snapshotWithCompany() as unknown as {
+      markets: unknown[];
+      decks: unknown[];
+      cards: unknown[];
+      metrics: unknown[];
+    };
+    base.markets = [
+      {
+        id: 'mkt_1',
+        name: 'Frontier AI',
+        scopeDefinition: { vertical: 'AI', geography: null, notes: null },
+        refreshCadence: 'weekly',
+        createdAt: now,
+      },
+    ];
+    base.decks = [{ id: 'deck_1', marketId: 'mkt_1', createdAt: now, lastRefreshedAt: null }];
+    base.cards = [
+      {
+        id: 'card_1',
+        deckId: 'deck_1',
+        companyId: 'cmp_1',
+        cardType: 'company',
+        title: null,
+        summary: null,
+        tier: 7,
+        tierReason: null,
+        citations: [],
+        keyPoints: [],
+        createdAt: now,
+      },
+    ];
+    base.metrics = [
+      {
+        id: 'met_arr',
+        companyId: 'cmp_1',
+        metricType: 'arr',
+        value: 40_000_000_000,
+        confidence: 'verified',
+        source: 'https://reuters.com/x',
+        citations: [{ title: 'reuters.com', url: 'https://reuters.com/x' }],
+        methodNote: null,
+        capturedAt: now,
+        lastVerifiedAt: now,
+        staleAfterSeconds: 86_400,
+      },
+      {
+        id: 'met_users',
+        companyId: 'cmp_1',
+        metricType: 'users',
+        value: 900_000_000,
+        confidence: 'user_verified',
+        source: 'Analyst confirmed',
+        citations: [],
+        methodNote: null,
+        capturedAt: now,
+      },
+    ];
+    return base as unknown as RepoSnapshot;
+  }
+
+  it('marks machine metrics due immediately, preserves human overrides, keeps cards', async () => {
+    // expandDeck's hunt will fail against this stub client — the sweep must stand anyway.
+    const client = {
+      ground: vi.fn().mockRejectedValue(new Error('no live research in this test')),
+      structure: vi.fn().mockRejectedValue(new Error('no live research in this test')),
+    } as unknown as LlmClient;
+    const repo = new GeminiRepository({
+      apiKey: 'k',
+      store: memoryStore(snapshotWithDeck()),
+      client,
+    });
+
+    const before = await repo.listCards('deck_1');
+    const deck = await repo.refreshDeck('mkt_1');
+    const after = await repo.listCards('deck_1');
+
+    // Non-destructive: same cards, refresh stamped.
+    expect(after.map((c) => c.card.id)).toEqual(before.map((c) => c.card.id));
+    expect(deck.lastRefreshedAt).toBeTruthy();
+
+    const metrics = await repo.getCompanyMetrics('cmp_1');
+    const arr = metrics.find((m) => m.metricType === 'arr')!;
+    const users = metrics.find((m) => m.metricType === 'users')!;
+    // The verified figure is queued for re-verification (due now)…
+    expect(arr.lastVerifiedAt ?? null).toBeNull();
+    expect(arr.staleAfterSeconds).toBe(1);
+    expect(arr.value).toBe(40_000_000_000); // value untouched until re-verified
+    // …but the human's figure is never rescheduled.
+    expect(users.confidence).toBe('user_verified');
+    expect(users.staleAfterSeconds ?? null).not.toBe(1);
+  });
+});

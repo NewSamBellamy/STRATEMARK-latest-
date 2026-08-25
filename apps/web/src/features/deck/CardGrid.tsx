@@ -30,7 +30,11 @@ export function CardGrid({
   selected?: Set<string>;
   onToggle?: (cardId: string) => void;
 }) {
-  const [active, setActive] = useState<CardWithCompany | null>(null);
+  // Store the ID, derive the data: when a desk corrects a metric and the cards
+  // refetch, the OPEN reader updates in place instead of showing a frozen
+  // snapshot — change it in one place, it changes everywhere.
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const active = activeId != null ? (cards.find((c) => c.card.id === activeId) ?? null) : null;
   return (
     <>
       <div
@@ -44,7 +48,7 @@ export function CardGrid({
               <GameCard
                 data={c}
                 deckUserValues={deckUserValues}
-                onOpen={() => (selectable ? onToggle?.(c.card.id) : setActive(c))}
+                onOpen={() => (selectable ? onToggle?.(c.card.id) : setActiveId(c.card.id))}
                 className={cn(
                   selectable && 'transition-opacity',
                   selectable && !isSelected && 'opacity-80 hover:opacity-100',
@@ -64,7 +68,7 @@ export function CardGrid({
         data={active}
         open={active !== null}
         onOpenChange={(o) => {
-          if (!o) setActive(null);
+          if (!o) setActiveId(null);
         }}
         deckUserValues={deckUserValues}
         marketId={marketId}

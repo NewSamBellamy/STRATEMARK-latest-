@@ -1025,71 +1025,76 @@ export class GeminiRepository implements MarketIntelRepository {
     return { market: stubsResult.market, deck: stubsResult.deck };
   }
 
+  /**
+   * Refresh = UPDATE, not rebuild.
+   *
+   * The old implementation re-ran the entire research pipeline and replaced
+   * every card — expensive, slow, and destructive to accumulated corrections.
+   * The founder's mental model is the right contract: "search for updated
+   * information to update the information that's already in that deck."
+   *
+   * So a refresh now does two things:
+   *   1. Marks every machine-authored figure in the deck due for immediate
+   *      re-verification (human-verified rows are untouched). The living desks
+   *      then re-verify everything from live sources, visibly, at their paced
+   *      cadence — values that changed get corrected with citations, values
+   *      that held get their freshness re-stamped.
+   *   2. Runs one targeted hunt for NEW market entrants (delta pass), so a
+   *      refresh also catches players that emerged since the deck was built.
+   *
+   * Cost: a few grounded calls for the hunt + paced desk verifications,
+   * instead of a full 30-50-call rebuild.
+   */
   async refreshDeck(marketId: string): Promise<Deck> {
     const market = this.snap.markets.find((m) => m.id === marketId);
     const deck = this.snap.decks.find((d) => d.marketId === marketId);
     if (!market || !deck) return Promise.reject(new Error(`Market/deck not found: ${marketId}`));
-    // Re-run research for the same scope, replacing this deck's cards.
-    const brief: DeckResearchBrief = {
-      prompt: `${market.scopeDefinition.vertical}${market.name ? ` — ${market.name}` : ''}`,
-      region: market.scopeDefinition.geography,
-    };
-    const before = this.snap.cards.filter((c) => c.deckId === deck.id).map((c) => c.id);
-    const result = await runDeckResearch(brief, this.client, {
-      apiKey: '',
-      coverage: this.coverage,
-      catalogMax: this.catalogMax,
-      catalogPasses: this.catalogPasses,
-      concurrency: this.concurrency,
-    });
-    // Re-point the fresh cards at stable company identities before replacing the
-    // deck. A refresh must not create duplicate companies for the same business.
-    const previousDeckCards = this.snap.cards.filter((card) => card.deckId === deck.id);
-    const previousCompanyIds = new Set(
-      previousDeckCards.map((card) => card.companyId).filter(Boolean),
+
+    // 1. Everything machine-authored is due NOW. `markVerified` re-stamps real
+    //    decay windows as the desks work through the queue.
+    const deckCompanyIds = new Set(
+      this.snap.cards
+        .filter((c) => c.deckId === deck.id && c.companyId)
+        .map((c) => c.companyId as string),
     );
-    const previousCompanies = this.snap.companies.filter((company) =>
-      previousCompanyIds.has(company.id),
-    );
-    const existingByName = new Map(
-      previousCompanies.map((company) => [companyKey(company.name), company.id]),
-    );
-    const replacementCompanyIds = new Set<string>();
-    for (const cwc of result.cards) {
-      cwc.card.deckId = deck.id;
-      if (!cwc.company) continue;
-      const stableId = existingByName.get(companyKey(cwc.company.name));
-      if (stableId) {
-        cwc.company.id = stableId;
-        cwc.card.companyId = stableId;
-        cwc.metrics.forEach((metric) => (metric.companyId = stableId));
-        replacementCompanyIds.add(stableId);
-      } else replacementCompanyIds.add(cwc.company.id);
+    let dueCount = 0;
+    for (const metric of this.snap.metrics) {
+      if (!deckCompanyIds.has(metric.companyId)) continue;
+      if (metric.confidence === 'user_verified') continue;
+      metric.lastVerifiedAt = null;
+      metric.staleAfterSeconds = 1;
+      dueCount += 1;
     }
-    this.snap.cards = this.snap.cards.filter((card) => card.deckId !== deck.id);
-    this.snap.metrics = this.snap.metrics.filter(
-      (metric) =>
-        !previousCompanyIds.has(metric.companyId) || replacementCompanyIds.has(metric.companyId),
-    );
-    this.snap.companies = this.snap.companies.filter(
-      (company) => !previousCompanyIds.has(company.id) || replacementCompanyIds.has(company.id),
-    );
-    this.ingest({
-      market,
-      deck: { ...deck, lastRefreshedAt: new Date().toISOString() },
-      cards: result.cards,
-    });
-    const after = this.snap.cards.filter((c) => c.deckId === deck.id).map((c) => c.id);
-    const updated = this.snap.decks.find((d) => d.id === deck.id)!;
+    // Cached tab research also re-runs on next open so prose catches up.
+    for (const companyId of deckCompanyIds) {
+      this.snap.dashboards[companyId] = {};
+    }
+
+    // 2. One targeted hunt for new entrants since the deck was built.
+    try {
+      await this.expandDeck(marketId, {});
+    } catch {
+      // A failed hunt never blocks the refresh — the update sweep stands.
+    }
+
+    const nowIso = new Date().toISOString();
+    const deckIdx = this.snap.decks.findIndex((d) => d.id === deck.id);
+    if (deckIdx >= 0) {
+      this.snap.decks[deckIdx] = { ...this.snap.decks[deckIdx]!, lastRefreshedAt: nowIso };
+    }
+    this.persist();
     this.emit({
       marketId,
       deckId: deck.id,
-      refreshedAt: updated.lastRefreshedAt ?? new Date().toISOString(),
-      addedCardIds: after.filter((id) => !before.includes(id)),
-      updatedCardIds: [],
-      prunedCardIds: before,
+      refreshedAt: nowIso,
+      addedCardIds: [],
+      updatedCardIds: this.snap.cards
+        .filter((c) => c.deckId === deck.id)
+        .map((c) => c.id),
+      prunedCardIds: [],
     });
-    return updated;
+    void dueCount;
+    return this.snap.decks[deckIdx >= 0 ? deckIdx : 0] as Deck;
   }
 
   // Cards -------------------------------------------------------------------

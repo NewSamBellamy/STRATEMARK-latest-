@@ -33,19 +33,25 @@ const ctx = (a: TabResearchArgs): string =>
   `${a.company.name}${a.company.websiteUrl ? ` (${a.company.websiteUrl})` : ''}, a company in the market "${a.marketName}".`;
 
 // Loose intermediate for live intel (server sets timestamps/stale).
-const liveIntelItemsSchema = z.object({
-  items: z
-    .array(
-      z.object({
-        source: z.enum(['news', 'x', 'reddit']).default('news'),
-        title: z.string(),
-        url: z.string().default(''),
-        summary: z.string().default(''),
-        sentiment: z.enum(['positive', 'neutral', 'negative']).default('neutral'),
-      }),
-    )
-    .default([]),
-});
+// Tolerant to the model returning the item list bare instead of wrapped in
+// { items: [...] } — the exact "Expected object, received array" crash class
+// that took down Team & Org (2026-08-25 AM) and then Live Intel (same day PM).
+const liveIntelItemsSchema = z.preprocess(
+  (input) => (Array.isArray(input) ? { items: input } : input),
+  z.object({
+    items: z
+      .array(
+        z.object({
+          source: z.enum(['news', 'x', 'reddit']).default('news'),
+          title: z.string(),
+          url: z.string().default(''),
+          summary: z.string().default(''),
+          sentiment: z.enum(['positive', 'neutral', 'negative']).default('neutral'),
+        }),
+      )
+      .default([]),
+  }),
+);
 
 function metricsFromStored(metrics: CompanyMetric[]): MetricsContent {
   const val = (t: string) => metrics.find((m) => m.metricType === t)?.value ?? null;
