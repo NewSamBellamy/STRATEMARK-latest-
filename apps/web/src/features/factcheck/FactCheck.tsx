@@ -2,11 +2,27 @@
  * Inline grounded fact-check. Sits next to any claim/figure; on click it runs a
  * live Google-Search verification and renders a verdict pill + rationale +
  * sources in place — the "always be able to fact-check" affordance.
+ *
+ * When the claim IS a stored metric (companyId + metricType provided) a
+ * contradiction is no longer a dead end: the verdict carries the corrected
+ * figure, and one click applies it through the repository's live-verification
+ * write path — the value revises with citations, the company re-tiers, and
+ * every open view updates. A fact-check that can't fix anything is a smoke
+ * detector without a bell.
  */
 import { useState } from 'react';
-import { ExternalLink, Loader2, ShieldAlert, ShieldCheck, ShieldQuestion } from 'lucide-react';
-import type { FactCheckResult, FactCheckVerdict } from '@mi/contracts';
-import { useFactCheck } from '@/hooks/data';
+import {
+  CheckCheck,
+  ExternalLink,
+  Loader2,
+  ShieldAlert,
+  ShieldCheck,
+  ShieldQuestion,
+  Wand2,
+} from 'lucide-react';
+import type { FactCheckResult, FactCheckVerdict, MetricType } from '@mi/contracts';
+import { useFactCheck, useVerifyMetric } from '@/hooks/data';
+import { formatMetricValue } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
 const VERDICT_STYLE: Record<FactCheckVerdict, { label: string; cls: string; Icon: typeof ShieldCheck }> = {
@@ -19,22 +35,55 @@ export function FactCheck({
   claim,
   companyName,
   context,
+  companyId,
+  metricType,
+  storedValue,
   className,
 }: {
   claim: string;
   companyName: string | null;
   context?: string | null;
+  /** Present when the claim is a stored metric — unlocks one-click correction. */
+  companyId?: string | null;
+  metricType?: MetricType | null;
+  storedValue?: number | null;
   className?: string;
 }) {
   const factCheck = useFactCheck();
+  const verify = useVerifyMetric();
   const [result, setResult] = useState<FactCheckResult | null>(null);
+  const [applied, setApplied] = useState(false);
 
   const run = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (factCheck.isPending) return;
     factCheck.mutate(
-      { claim, companyName, context: context ?? null },
+      {
+        claim,
+        companyName,
+        context: context ?? null,
+        companyId: companyId ?? null,
+        metricType: metricType ?? null,
+        storedValue: storedValue ?? null,
+      },
       { onSuccess: setResult },
+    );
+  };
+
+  const canApply =
+    result?.verdict === 'contradicted' &&
+    result.correctedValue != null &&
+    !!companyId &&
+    !!metricType &&
+    verify.isAvailable &&
+    !applied;
+
+  const apply = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!companyId || !metricType || verify.isPending) return;
+    verify.mutate(
+      { companyId, metricType },
+      { onSuccess: (r) => setApplied(r.changed) },
     );
   };
 
@@ -48,6 +97,29 @@ export function FactCheck({
         </span>
         {result.rationale && (
           <p className="mt-1.5 text-[11px] leading-relaxed text-muted">{result.rationale}</p>
+        )}
+        {canApply && metricType && (
+          <button
+            type="button"
+            onClick={apply}
+            disabled={verify.isPending}
+            className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-800 transition-colors hover:bg-emerald-100 disabled:opacity-60 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+          >
+            {verify.isPending ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Wand2 className="h-3 w-3" />
+            )}
+            {verify.isPending
+              ? 'Verifying & updating…'
+              : `Verify & correct to ${formatMetricValue(metricType, result.correctedValue!)}`}
+          </button>
+        )}
+        {applied && (
+          <p className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-positive">
+            <CheckCheck className="h-3.5 w-3.5" />
+            Corrected from live sources — card and tier updated.
+          </p>
         )}
         {result.citations.length > 0 && (
           <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
