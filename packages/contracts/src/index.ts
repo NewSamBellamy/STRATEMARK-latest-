@@ -13,3 +13,4 @@ export * from './ipc';
 export * from './adk-trace';
 export * from './living-deck';
 export * from './freshness';
+export * from './consistency';
