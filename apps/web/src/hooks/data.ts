@@ -16,6 +16,8 @@ import type {
   DeckRefreshEvent,
   Market,
   RefreshCadence,
+  VerifyMetricInput,
+  VerifyMetricResult,
 } from '@mi/contracts';
 import { useRepository } from '@/lib/repository/RepositoryProvider';
 import { qk } from '@/lib/query/keys';
@@ -207,6 +209,33 @@ export function useFactCheck() {
   return useMutation({
     mutationFn: (input: Parameters<typeof repo.factCheck>[0]) => repo.factCheck(input),
   });
+}
+
+/**
+ * Live re-verification of a stored metric — the fact-check that WRITES BACK.
+ * Grounded evidence revises the stored figure (citations attached), re-tiers
+ * the company, and every open view reconciles through query invalidation.
+ * Feature-detected: `isAvailable` is false on transports without live research.
+ */
+export function useVerifyMetric() {
+  const repo = useRepository();
+  const qc = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: (input: VerifyMetricInput) => {
+      if (!repo.verifyMetric) {
+        return Promise.reject(new Error('Live verification is not available in this mode.'));
+      }
+      return repo.verifyMetric(input);
+    },
+    onSuccess: (result: VerifyMetricResult, input) => {
+      if (result.changed) {
+        qc.invalidateQueries({ queryKey: qk.companyMetrics(input.companyId) });
+        qc.invalidateQueries({ queryKey: ['cards'] });
+        qc.invalidateQueries({ queryKey: ['dashboard', input.companyId] });
+      }
+    },
+  });
+  return { ...mutation, isAvailable: typeof repo.verifyMetric === 'function' };
 }
 
 /** Targeted micro-research to fill an empty tier/category (intelligent empty states). */

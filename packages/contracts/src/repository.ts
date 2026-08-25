@@ -128,10 +128,54 @@ export interface FactCheckInput {
   claim: string;
   companyName: string | null;
   context?: string | null;
+  /**
+   * When the claim IS a stored metric, identify it so a contradiction can be
+   * turned into a sourced correction instead of dying in the verdict pill.
+   */
+  companyId?: string | null;
+  metricType?: MetricType | null;
+  /** The currently stored value, for the checker to compare against. */
+  storedValue?: number | null;
 }
 
 export interface FactCheckResult {
   verdict: FactCheckVerdict;
+  rationale: string;
+  citations: Citation[];
+  /**
+   * When the check contradicts a stored METRIC and the evidence names a better
+   * figure, this carries it (metric's native unit: USD, count, or percent).
+   * Null when unavailable — a correction without a citation is never emitted
+   * (no-fabrication rule).
+   */
+  correctedValue?: number | null;
+  /** ISO date the corrected figure is reported as-of, when the evidence says. */
+  correctedAsOf?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Live metric verification — the write-back primitive behind the living deck.
+//
+// Fact-check answers "is this claim right?"; verifyMetric goes one step
+// further: re-research the figure, and if the grounded evidence disagrees
+// with what we stored, REVISE the stored metric (with citations) and re-tier
+// the company. This is what turns a static deck into one that heals itself.
+// ---------------------------------------------------------------------------
+
+export interface VerifyMetricInput {
+  companyId: string;
+  metricType: MetricType;
+}
+
+export interface VerifyMetricResult {
+  /** The stored metric AFTER verification (revised or confirmed). */
+  metric: CompanyMetric;
+  /** What the verification concluded about the previously stored figure. */
+  verdict: FactCheckVerdict;
+  /** True when the stored value was actually changed. */
+  changed: boolean;
+  /** Card ids whose tier moved as a result (deck UIs should refresh these). */
+  retieredCardIds: string[];
   rationale: string;
   citations: Citation[];
 }
@@ -326,6 +370,13 @@ export interface MarketIntelRepository {
 
   /** Grounded verification of a single claim — verdict + rationale + sources. */
   factCheck(input: FactCheckInput): Promise<FactCheckResult>;
+
+  /**
+   * Re-research a stored metric and WRITE BACK the grounded result: revise the
+   * value (citations required), bump freshness, re-tier the company. OPTIONAL —
+   * live-research transports implement it; demo transports may confirm-only.
+   */
+  verifyMetric?(input: VerifyMetricInput): Promise<VerifyMetricResult>;
 
   /** Fill a gap in a deck via targeted micro-research (e.g. hunt Seed-stage companies). */
   expandDeck(

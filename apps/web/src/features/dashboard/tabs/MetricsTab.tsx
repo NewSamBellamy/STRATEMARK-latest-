@@ -187,6 +187,9 @@ function MetricTile({
               <FactCheck
                 claim={`${companyName}'s ${METRIC_TYPE_LABELS[metric.metricType]} is ${formatMetricValue(metric.metricType, metric.value)}`}
                 companyName={companyName}
+                companyId={companyId}
+                metricType={metric.metricType}
+                storedValue={metric.value}
               />
             )}
             <DigDeeper

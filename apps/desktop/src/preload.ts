@@ -41,6 +41,7 @@ const api: PreloadRepositoryApi = {
     ipcRenderer.invoke(IPC_CHANNELS.getDashboardTab, companyId, tab, force),
   deepDive: (input) => ipcRenderer.invoke(IPC_CHANNELS.deepDive, input),
   factCheck: (input) => ipcRenderer.invoke(IPC_CHANNELS.factCheck, input),
+  verifyMetric: (input) => ipcRenderer.invoke(IPC_CHANNELS.verifyMetric, input),
   generateReport: (request) => ipcRenderer.invoke(IPC_CHANNELS.generateReport, request),
   listReports: () => ipcRenderer.invoke(IPC_CHANNELS.listReports),
   getReport: (id) => ipcRenderer.invoke(IPC_CHANNELS.getReport, id),

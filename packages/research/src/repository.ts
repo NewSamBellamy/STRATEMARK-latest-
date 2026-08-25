@@ -7,8 +7,10 @@
  * having an API key present — no UI changes.
  */
 import {
+  METRIC_TYPE_LABELS,
   buildCmsInput,
   computeCms,
+  markVerified,
   reconcileMetrics,
   usableCitations,
   type Card,
@@ -26,6 +28,8 @@ import {
   type DeepDiveResult,
   type FactCheckInput,
   type FactCheckResult,
+  type VerifyMetricInput,
+  type VerifyMetricResult,
   type Report,
   type ReportRequest,
   type SavedCard,
@@ -59,7 +63,7 @@ import { researchMarketSignals } from './signal-agents';
 import { mapWithConcurrency, throwIfAborted } from './util';
 import { expandDeckWithDeltaAgent } from './delta-agent';
 import { CHAT_SYSTEM, GROUNDED_SYSTEM, STRUCTURE_SYSTEM } from './prompts';
-import { factCheckOutSchema } from './schemas';
+import { factCheckOutSchema, verifyMetricOutSchema } from './schemas';
 import type { LlmClient, ResearchCoverage, RunResearchOptions } from './types';
 
 interface CachedTab {
@@ -1134,27 +1138,183 @@ export class GeminiRepository implements MarketIntelRepository {
   }
 
   async factCheck(input: FactCheckInput): Promise<FactCheckResult> {
+    const metricLabel = input.metricType ? METRIC_TYPE_LABELS[input.metricType] : null;
     const g = await this.client.ground(
       [
         `Fact-check this claim${input.companyName ? ` about ${input.companyName}` : ''} using Google Search:`,
         `"${input.claim}"`,
         input.context ? `Context: ${input.context}` : '',
+        metricLabel && input.storedValue != null
+          ? `The claim states the company's ${metricLabel} as a stored figure (${input.storedValue}). If coverage names a different current figure, state that figure explicitly with its date and source.`
+          : '',
         `State clearly whether the search results SUPPORT the claim, CONTRADICT it, or cannot verify it, and summarize the strongest evidence either way with specifics (figures, dates, sources). Never guess.`,
       ]
         .filter(Boolean)
         .join('\n'),
       { system: GROUNDED_SYSTEM },
     );
+    const wantsCorrection = Boolean(metricLabel);
     const out = await this.client.structure(
-      `Based ONLY on these fact-check notes, output JSON { "verdict": "supported"|"contradicted"|"unverified", "rationale": string (1-3 sentences) }.\n\nNOTES:\n${g.text}`,
+      [
+        `Based ONLY on these fact-check notes, output JSON {`,
+        `  "verdict": "supported"|"contradicted"|"unverified",`,
+        `  "rationale": string (1-3 sentences)`,
+        wantsCorrection
+          ? `, "correctedValue": number|null — ONLY when the notes name a concrete current figure for the company's ${metricLabel} that differs from the claim; the raw number in ${metricLabel === 'Market Share' ? 'percent (0-100)' : metricLabel === 'Users' || metricLabel === 'Employees' ? 'plain count' : 'US dollars'}; null otherwise. NEVER invent a figure the notes do not state.`
+          : '',
+        wantsCorrection ? `, "correctedAsOf": string|null — ISO date the corrected figure is reported as-of, when stated.` : '',
+        `}`,
+        ``,
+        `NOTES:`,
+        g.text,
+      ]
+        .filter(Boolean)
+        .join('\n'),
       factCheckOutSchema,
       { system: STRUCTURE_SYSTEM },
     );
+    // No-fabrication gate: a correction is only usable when the grounded pass
+    // produced at least one citation to stand behind it.
+    const correctionUsable = out.correctedValue != null && g.citations.length > 0;
     return {
       verdict: out.verdict ?? 'unverified',
       rationale: out.rationale ?? '',
       citations: g.citations,
+      correctedValue: correctionUsable ? out.correctedValue : null,
+      correctedAsOf: correctionUsable ? (out.correctedAsOf ?? null) : null,
     };
+  }
+
+  /**
+   * Live re-verification of ONE stored metric — the write-back primitive that
+   * makes a deck heal itself. Grounded search → structured figure → if the
+   * evidence disagrees with the stored value, REVISE it (citations attached,
+   * confidence 'verified'), stamp freshness, re-tier the company, and emit a
+   * deck-refresh event so every open view reconciles.
+   *
+   * No-fabrication invariants held here:
+   *  - a revision requires grounded citations; otherwise we record verification
+   *    time only and leave the value untouched
+   *  - 'user_verified' is never assigned by this path (humans only)
+   *  - an inconclusive check ('unverified') changes nothing but the timestamp
+   */
+  async verifyMetric(input: VerifyMetricInput): Promise<VerifyMetricResult> {
+    const company = this.snap.companies.find((c) => c.id === input.companyId);
+    if (!company) throw new Error(`Company not found: ${input.companyId}`);
+    const metric = this.snap.metrics.find(
+      (m) => m.companyId === input.companyId && m.metricType === input.metricType,
+    );
+    if (!metric) throw new Error(`Metric not found: ${input.companyId}/${input.metricType}`);
+
+    const label = METRIC_TYPE_LABELS[input.metricType];
+    const stored =
+      metric.value != null
+        ? `${metric.value} (confidence: ${metric.confidence})`
+        : 'unknown';
+    const g = await this.client.ground(
+      [
+        `What is the most current, reliable figure for ${company.name}'s ${label}?`,
+        `Company: ${company.name} — ${company.oneLiner}`,
+        `Our stored figure: ${stored}.`,
+        `Use Google Search. Prefer primary sources and recent reputable coverage; name the figure, its as-of date, and the source. If coverage disagrees, say which figure is best supported. If no reliable current figure exists, say so plainly. Never guess.`,
+      ].join('\n'),
+      { system: GROUNDED_SYSTEM },
+    );
+    const out = await this.client.structure(
+      [
+        `Based ONLY on these verification notes about ${company.name}'s ${label}, output JSON {`,
+        `  "verdict": "supported" (stored figure holds) | "contradicted" (evidence names a different figure) | "unverified" (no reliable current figure),`,
+        `  "currentValue": number|null — the best-supported current figure in ${label === 'Market Share' ? 'percent (0-100)' : label === 'Users' || label === 'Employees' ? 'plain count' : 'US dollars'}; null when the notes name none. NEVER invent one.`,
+        `  "rationale": string (1-2 sentences),`,
+        `  "methodNote": string|null — one line naming where the figure comes from`,
+        `}`,
+        ``,
+        `Stored figure for comparison: ${stored}`,
+        ``,
+        `NOTES:`,
+        g.text,
+      ].join('\n'),
+      verifyMetricOutSchema,
+      { system: STRUCTURE_SYSTEM },
+    );
+
+    const nowIso = new Date().toISOString();
+    const cited = usableCitations(g.citations);
+    let changed = false;
+
+    // Revise ONLY on a grounded, cited, concrete figure that actually differs
+    // beyond noise (2% relative tolerance absorbs rounding between sources).
+    if (out.currentValue != null && cited.length > 0) {
+      const prior = metric.value;
+      const differs =
+        prior == null ||
+        prior === 0 ||
+        Math.abs(out.currentValue - prior) / Math.max(Math.abs(prior), 1) > 0.02;
+      // A human-verified figure outranks machine re-verification — never
+      // overwrite user_verified rows; the human resolves those.
+      if (differs && metric.confidence !== 'user_verified') {
+        metric.value = out.currentValue;
+        metric.confidence = 'verified';
+        metric.citations = cited;
+        metric.source = cited[0]?.url ?? metric.source;
+        metric.methodNote = out.methodNote ?? `Live verification: ${out.rationale}`;
+        metric.capturedAt = nowIso;
+        changed = true;
+        // Researched tabs quoting the stale figure re-research on next open.
+        this.snap.dashboards[input.companyId] = {};
+      }
+    }
+    Object.assign(metric, markVerified(metric, nowIso));
+
+    const retieredCardIds = changed
+      ? this.retierCompany(input.companyId, `Re-tiered after live verification of ${label}.`)
+      : [];
+    this.persist();
+    if (changed) {
+      const card = this.snap.cards.find(
+        (c) => c.companyId === input.companyId && c.cardType === 'company',
+      );
+      const deck = card ? this.snap.decks.find((d) => d.id === card.deckId) : undefined;
+      if (deck) {
+        this.emit({
+          marketId: deck.marketId,
+          deckId: deck.id,
+          refreshedAt: nowIso,
+          addedCardIds: [],
+          updatedCardIds: retieredCardIds.length > 0 ? retieredCardIds : card ? [card.id] : [],
+          prunedCardIds: [],
+        });
+      }
+    }
+    return {
+      metric,
+      verdict: out.verdict ?? 'unverified',
+      changed,
+      retieredCardIds,
+      rationale: out.rationale ?? '',
+      citations: g.citations,
+    };
+  }
+
+  /** Recompute CMS tiers for a company's company-cards; returns moved card ids. */
+  private retierCompany(companyId: string, reason: string): string[] {
+    const companyCards = this.snap.cards.filter(
+      (c) => c.companyId === companyId && c.cardType === 'company',
+    );
+    const updatedIds: string[] = [];
+    for (const card of companyCards) {
+      const deckUserValues = this.snap.metrics
+        .filter((m) => m.metricType === 'users' && m.confidence !== 'unknown' && m.value !== null)
+        .map((m) => m.value as number);
+      const metrics = this.snap.metrics.filter((m) => m.companyId === companyId);
+      const result = computeCms(buildCmsInput(metrics), { deckUserValues });
+      if (result.finalTier !== card.tier) {
+        card.tier = result.finalTier;
+        card.tierReason = reason;
+        updatedIds.push(card.id);
+      }
+    }
+    return updatedIds;
   }
 
   async generateReport(request: ReportRequest): Promise<Report> {
@@ -1525,22 +1685,13 @@ export class GeminiRepository implements MarketIntelRepository {
 
     // Recompute the CMS tier for this company's company-cards (auditable: base
     // tier from rules; prior LLM nudge is dropped as stale after an override).
+    const updatedIds = this.retierCompany(
+      input.companyId,
+      'Re-tiered after a user-verified metric override.',
+    );
     const companyCards = this.snap.cards.filter(
       (c) => c.companyId === input.companyId && c.cardType === 'company',
     );
-    const updatedIds: string[] = [];
-    for (const card of companyCards) {
-      const deckUserValues = this.snap.metrics
-        .filter((m) => m.metricType === 'users' && m.confidence !== 'unknown' && m.value !== null)
-        .map((m) => m.value as number);
-      const metrics = this.snap.metrics.filter((m) => m.companyId === input.companyId);
-      const result = computeCms(buildCmsInput(metrics), { deckUserValues });
-      if (result.finalTier !== card.tier) {
-        card.tier = result.finalTier;
-        card.tierReason = 'Re-tiered after a user-verified metric override.';
-        updatedIds.push(card.id);
-      }
-    }
     this.persist();
     if (updatedIds.length > 0) {
       const deck = this.snap.decks.find((d) => companyCards.some((c) => c.deckId === d.id));

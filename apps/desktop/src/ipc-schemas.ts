@@ -35,6 +35,11 @@ export const deckResearchBriefSchema = z.object({
   region: z.string().nullable().optional().default(null),
 });
 
+export const verifyMetricInputSchema = z.object({
+  companyId: z.string().min(1),
+  metricType: metricTypeSchema,
+});
+
 export const cardFilterSchema = z
   .object({
     cardType: cardTypeSchema.optional(),
