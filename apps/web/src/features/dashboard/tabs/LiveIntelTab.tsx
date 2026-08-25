@@ -1,10 +1,26 @@
-import { AlertCircle, ExternalLink, MessageSquare, Newspaper, Hash } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import {
+  AlertCircle,
+  CalendarDays,
+  ExternalLink,
+  Hash,
+  MessageSquare,
+  Newspaper,
+} from 'lucide-react';
 import { publisherOf, type LiveIntelItem } from '@mi/contracts';
 import { useCompany, useDashboardTab } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
+import { Modal } from '@/components/ui/Modal';
 import { LiveBadge } from '../LiveBadge';
 import { DigDeeper } from '@/features/deepdive/DeepDive';
 import { formatRelative } from '@/lib/format';
+import {
+  SHOT_MAX_ATTEMPTS,
+  SHOT_PLACEHOLDER_MAX_WIDTH,
+  SHOT_RETRY_MS,
+  faviconUrl,
+  pageShotUrl,
+} from '@/lib/screenshot';
 import { cn } from '@/lib/cn';
 
 const SOURCE_ICON = { news: Newspaper, x: Hash, reddit: MessageSquare } as const;
@@ -14,55 +30,207 @@ const SENTIMENT_STYLE = {
   negative: 'text-negative',
 } as const;
 
-function IntelRow({ item, companyId, companyName }: { item: LiveIntelItem; companyId: string; companyName: string }) {
+/** "2026-08-19" → "Aug 19, 2026"; unparseable strings render as written. */
+function fmtPublishDate(raw: string): string {
+  const t = Date.parse(raw);
+  if (Number.isNaN(t)) return raw;
+  return new Date(t).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+/**
+ * A real capture of the article page — its hero image, masthead, and headline.
+ * Retries past the "generating…" placeholder until the true capture arrives;
+ * hides itself entirely if the capture never materializes (no broken frames).
+ */
+function ArticleShot({ url, className }: { url: string; className?: string }) {
+  const [attempt, setAttempt] = useState(0);
+  const [failed, setFailed] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
+  if (failed) return null;
+  const retry = () => {
+    if (attempt >= SHOT_MAX_ATTEMPTS) {
+      setFailed(true);
+      return;
+    }
+    timer.current = setTimeout(() => setAttempt((a) => a + 1), SHOT_RETRY_MS);
+  };
+  return (
+    <img
+      key={attempt}
+      src={pageShotUrl(url, attempt)}
+      alt=""
+      loading="lazy"
+      className={className}
+      onLoad={(e) => {
+        const w = (e.target as HTMLImageElement).naturalWidth;
+        if (w > 0 && w < SHOT_PLACEHOLDER_MAX_WIDTH) retry();
+      }}
+      onError={retry}
+    />
+  );
+}
+
+/** The story, opened: capture, dated meta, reported paragraph with quotes. */
+function ArticleReader({
+  item,
+  companyId,
+  companyName,
+  onClose,
+}: {
+  item: LiveIntelItem;
+  companyId: string;
+  companyName: string;
+  onClose: () => void;
+}) {
+  const Icon = SOURCE_ICON[item.source];
+  const hasUrl = /^https?:\/\//.test(item.url);
+  const publisher = hasUrl ? publisherOf(item.url, null) : null;
+  return (
+    <Modal
+      open
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+      title={item.title}
+      description={item.summary}
+    >
+      <div className="space-y-4">
+        {hasUrl && (
+          <div className="overflow-hidden rounded-xl border border-border bg-surface-2">
+            <ArticleShot url={item.url} className="max-h-[280px] w-full object-cover object-top" />
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted">
+          <span className="inline-flex items-center gap-1.5">
+            <Icon className="h-3.5 w-3.5" />
+            <span className="uppercase">{item.source}</span>
+          </span>
+          {publisher && (
+            <span className="inline-flex items-center gap-1.5">
+              <img src={faviconUrl(item.url)} alt="" className="h-3.5 w-3.5 rounded-sm" />
+              {publisher}
+            </span>
+          )}
+          <span className="inline-flex items-center gap-1.5">
+            <CalendarDays className="h-3.5 w-3.5" />
+            {item.publishedDate
+              ? `Published ${fmtPublishDate(item.publishedDate)}`
+              : `Found by research ${formatRelative(item.publishedAt)}`}
+          </span>
+          <span className={cn('font-semibold', SENTIMENT_STYLE[item.sentiment])}>
+            {item.sentiment}
+          </span>
+        </div>
+
+        <p className="text-sm leading-relaxed text-content/90">
+          {item.detail ?? item.summary}
+        </p>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+          {hasUrl ? (
+            <a
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-primary"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Read the full article
+            </a>
+          ) : (
+            <span className="text-[11px] text-faint">No public link surfaced for this item.</span>
+          )}
+          <DigDeeper
+            topic={item.title}
+            companyId={companyId}
+            companyName={companyName}
+            context={item.detail ?? item.summary ?? null}
+            label="Research this story"
+          />
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function IntelRow({
+  item,
+  onOpen,
+}: {
+  item: LiveIntelItem;
+  onOpen: () => void;
+}) {
   const Icon = SOURCE_ICON[item.source];
   const hasUrl = /^https?:\/\//.test(item.url);
   return (
-    <li className={cn('panel p-4', item.stale && 'opacity-60')}>
-      <div className="flex items-center gap-2 text-xs text-muted">
-        <Icon className="h-3.5 w-3.5" />
-        <span className="uppercase">{item.source}</span>
-        <span>·</span>
-        <span>{formatRelative(item.publishedAt)}</span>
-        <span className={cn('ml-auto font-semibold', SENTIMENT_STYLE[item.sentiment])}>
-          {item.sentiment}
-        </span>
-      </div>
-      {/* A dead anchor is worse than no anchor: the headline only links when a
-          real URL exists, and the publisher is named so the reader can judge it. */}
-      {hasUrl ? (
-        <a
-          href={item.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-1.5 block font-medium text-content hover:text-primary-ink"
-        >
-          {item.title}
-        </a>
-      ) : (
-        <p className="mt-1.5 font-medium text-content">{item.title}</p>
+    <li
+      className={cn(
+        'panel cursor-pointer p-4 transition-all hover:-translate-y-px hover:shadow-card-hover',
+        item.stale && 'opacity-60',
       )}
-      <p className="mt-1 text-sm text-muted">{item.summary}</p>
-      <div className="mt-2 flex items-center gap-2">
+      onClick={onOpen}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+    >
+      <div className="flex gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 text-xs text-muted">
+            <Icon className="h-3.5 w-3.5" />
+            <span className="uppercase">{item.source}</span>
+            <span>·</span>
+            {/* The honest date: the story's reported publish date when research
+                surfaced one; otherwise when WE found it — never a fake "just now". */}
+            <span title={item.publishedDate ? 'Reported publish date' : 'When our research surfaced this item'}>
+              {item.publishedDate
+                ? fmtPublishDate(item.publishedDate)
+                : `found ${formatRelative(item.publishedAt)}`}
+            </span>
+            <span className={cn('ml-auto font-semibold', SENTIMENT_STYLE[item.sentiment])}>
+              {item.sentiment}
+            </span>
+          </div>
+          <p className="mt-1.5 font-medium text-content">{item.title}</p>
+          <p className="mt-1 line-clamp-2 text-sm text-muted">{item.summary}</p>
+          <div className="mt-2 flex items-center gap-2">
+            {hasUrl && (
+              <a
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2 py-0.5 text-[10.5px] text-muted hover:border-primary/50 hover:text-primary-ink"
+              >
+                <img src={faviconUrl(item.url)} alt="" className="h-3 w-3 rounded-sm" />
+                {publisherOf(item.url, null)}
+                <ExternalLink className="h-2.5 w-2.5" />
+              </a>
+            )}
+            <span className="ml-auto text-[11px] text-faint">Open story →</span>
+          </div>
+        </div>
+        {/* Real article imagery: a live capture of the story page itself. */}
         {hasUrl && (
-          <a
-            href={item.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 rounded-full border border-border bg-surface px-2 py-0.5 text-[10.5px] text-muted hover:border-primary/50 hover:text-primary-ink"
-          >
-            <ExternalLink className="h-2.5 w-2.5" />
-            {publisherOf(item.url, null)}
-          </a>
+          <div className="hidden h-[84px] w-[128px] shrink-0 overflow-hidden rounded-lg border border-border bg-surface-2 sm:block">
+            <ArticleShot url={item.url} className="h-full w-full object-cover object-top" />
+          </div>
         )}
-        <DigDeeper
-          topic={item.title}
-          companyId={companyId}
-          companyName={companyName}
-          context={item.summary || null}
-          label="Research this"
-          className="ml-auto"
-        />
       </div>
       {item.stale && (
         <p className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-700">
@@ -77,24 +245,36 @@ function IntelRow({ item, companyId, companyName }: { item: LiveIntelItem; compa
 export function LiveIntelTab({ companyId }: { companyId: string }) {
   const query = useDashboardTab(companyId, 'live_intel');
   const companyName = useCompany(companyId).data?.name ?? 'this company';
+  const [openId, setOpenId] = useState<string | null>(null);
   return (
     <QueryBoundary query={query} isEmpty={(r) => r.content.items.length === 0}>
-      {(result) => (
-        <div>
-          <div className="mb-4 flex items-center justify-between">
-            <p className="text-sm text-muted">
-              News, X, and Reddit sentiment. Stale or contradicted items are flagged and pruned
-              (spec §8).
-            </p>
-            <LiveBadge lastRefreshedAt={result.content.lastRefreshedAt} />
+      {(result) => {
+        const open = openId != null ? (result.content.items.find((i) => i.id === openId) ?? null) : null;
+        return (
+          <div>
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-sm text-muted">
+                News, X, and Reddit sentiment — click a story for the full picture. Stale or
+                contradicted items are flagged and pruned (spec §8).
+              </p>
+              <LiveBadge lastRefreshedAt={result.content.lastRefreshedAt} />
+            </div>
+            <ul className="space-y-3">
+              {result.content.items.map((item) => (
+                <IntelRow key={item.id} item={item} onOpen={() => setOpenId(item.id)} />
+              ))}
+            </ul>
+            {open && (
+              <ArticleReader
+                item={open}
+                companyId={companyId}
+                companyName={companyName}
+                onClose={() => setOpenId(null)}
+              />
+            )}
           </div>
-          <ul className="space-y-3">
-            {result.content.items.map((item) => (
-              <IntelRow key={item.id} item={item} companyId={companyId} companyName={companyName} />
-            ))}
-          </ul>
-        </div>
-      )}
+        );
+      }}
     </QueryBoundary>
   );
 }

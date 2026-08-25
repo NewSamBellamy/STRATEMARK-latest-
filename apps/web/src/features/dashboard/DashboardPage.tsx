@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, NavLink, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useIsFetching, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ChevronDown, FileText, Search } from 'lucide-react';
 import { DASHBOARD_TABS, DASHBOARD_TAB_LABELS, type DashboardTab } from '@mi/contracts';
 import { useCompany, useReports, useRerunDashboardTab } from '@/hooks/data';
@@ -118,6 +118,29 @@ function TabView({ tab, companyId }: { tab: DashboardTab; companyId: string }) {
 
 const VISIBLE_TAB_COUNT = 6;
 
+/**
+ * The non-intrusive agentic trace: while desk agents research tabs in the
+ * background (the warm loop, tab reruns, correction refetches), a quiet
+ * pulsing pill rides the tab bar. Driven by REAL in-flight query state —
+ * it appears when work is genuinely happening and vanishes when it's done.
+ */
+function AgentWorkingPill({ companyId }: { companyId: string }) {
+  const inFlight = useIsFetching({ queryKey: ['dashboard', companyId] });
+  if (inFlight === 0) return null;
+  return (
+    <span
+      className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap pb-1 text-[11px] font-medium text-muted"
+      title="Desk agents are researching sections of this dashboard in the background — each finishes and fills in live."
+    >
+      <span className="relative flex h-1.5 w-1.5">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+      </span>
+      {inFlight === 1 ? 'Agent researching 1 section…' : `Agents researching ${inFlight} sections…`}
+    </span>
+  );
+}
+
 function DashboardTabNav({
   companyId,
   activeTab,
@@ -204,6 +227,7 @@ function DashboardTabNav({
           )}
         </div>
       )}
+      <AgentWorkingPill companyId={companyId} />
     </nav>
   );
 }

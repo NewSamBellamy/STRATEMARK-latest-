@@ -3,22 +3,12 @@ import { ClipboardCheck, ExternalLink, Globe, Loader2, MonitorPlay } from 'lucid
 import { useCompany, useDashboardTab } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { useDeepDive } from '@/features/deepdive/DeepDive';
-
-/**
- * Keyless full-page screenshot of any URL (WordPress mShots). While the shot
- * is being generated the service returns a small placeholder image; we detect
- * that by its width and keep re-requesting with a cache-buster until the real
- * capture arrives — the preview visibly "comes to life".
- */
-function mshotsUrl(url: string, attempt: number): string {
-  const base = `https://s.wordpress.com/mshots/v1/${encodeURIComponent(url)}?w=1280&h=800`;
-  return attempt === 0 ? base : `${base}&r=${attempt}`;
-}
-
-const MAX_ATTEMPTS = 8;
-const RETRY_MS = 3500;
-/** mShots' "generating…" placeholder is far narrower than a real 1280px capture. */
-const PLACEHOLDER_MAX_WIDTH = 700;
+import {
+  SHOT_MAX_ATTEMPTS as MAX_ATTEMPTS,
+  SHOT_PLACEHOLDER_MAX_WIDTH as PLACEHOLDER_MAX_WIDTH,
+  SHOT_RETRY_MS as RETRY_MS,
+  pageShotUrl,
+} from '@/lib/screenshot';
 
 function SitePreview({ url, fallbackShot }: { url: string; fallbackShot: string | null }) {
   const [attempt, setAttempt] = useState(0);
@@ -71,7 +61,7 @@ function SitePreview({ url, fallbackShot }: { url: string; fallbackShot: string 
     <div className="relative h-full w-full">
       <img
         key={attempt}
-        src={mshotsUrl(url, attempt)}
+        src={pageShotUrl(url, attempt)}
         alt={`Live preview of ${url}`}
         className="h-full w-full object-cover object-top"
         onLoad={(e) => {
