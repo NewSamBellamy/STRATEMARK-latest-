@@ -32,6 +32,8 @@ import {
   useMarket,
   useRefreshDeck,
 } from '@/hooks/data';
+import { useLivingDeck } from '@/lib/living/useLivingDeck';
+import { AgentActivityFeed } from './AgentActivityFeed';
 import { useDeepDive } from '@/features/deepdive/DeepDive';
 import { ThreadHistoryButton } from '@/features/research/ResearchControls';
 import { cn } from '@/lib/cn';
@@ -111,6 +113,7 @@ export default function DeckPage() {
   const typeParam = params.get('type') as CardType | null;
 
   const all = useMemo(() => cards.data ?? [], [cards.data]);
+  const living = useLivingDeck(deckId, all);
   const userValues = useMemo(() => deckUserValuesFrom(all), [all]);
   const countByType = useMemo(() => {
     const m = new Map<CardType, number>();
@@ -193,6 +196,9 @@ export default function DeckPage() {
             <MoreMenu marketId={marketId} refreshDeck={refreshDeck} />
           </div>
         </div>
+
+        {/* The visible heartbeat: desks verifying, correcting, and warming tabs live. */}
+        <AgentActivityFeed living={living} />
       </div>
 
       <QueryBoundary
@@ -294,14 +300,29 @@ export default function DeckPage() {
                 </p>
               </div>
               {filtered.length > 0 ? (
-                <CardGrid
-                  cards={filtered}
-                  deckUserValues={userValues}
-                  marketId={marketId}
-                  selectable={compare}
-                  selected={selected}
-                  onToggle={toggleSelected}
-                />
+                <>
+                  <CardGrid
+                    cards={filtered}
+                    deckUserValues={userValues}
+                    marketId={marketId}
+                    selectable={compare}
+                    selected={selected}
+                    onToggle={toggleSelected}
+                  />
+                  {/* The deck never "just stops": hunting more of this type is always one click. */}
+                  <div className="mt-6">
+                    <ExpandPrompt
+                      marketId={marketId}
+                      focus={typeParam ? { cardType: typeParam } : {}}
+                      label={
+                        typeParam
+                          ? `Hunt for more ${CARD_TYPE_LABELS[typeParam].toLowerCase()} players`
+                          : 'Hunt for more companies in this market'
+                      }
+                      compact
+                    />
+                  </div>
+                </>
               ) : (
                 <ExpandPrompt
                   marketId={marketId}
@@ -545,15 +566,21 @@ function TypeNav({
   );
 }
 
-/** Intelligent empty state: turn a dead end into a targeted micro-research run. */
+/**
+ * Targeted micro-research affordance. As an empty state it turns a dead end
+ * into a hunt; in `compact` mode it sits under a full grid so the deck never
+ * hard-stops at its initial company count — expanding is always one click.
+ */
 function ExpandPrompt({
   marketId,
   focus,
   label,
+  compact = false,
 }: {
   marketId: string | undefined;
   focus: { tier?: MaturityTier; cardType?: CardType };
   label: string;
+  compact?: boolean;
 }) {
   const hasKey = useApiKey((s) => s.hasKey);
   const expand = useExpandDeck(marketId);
@@ -562,6 +589,7 @@ function ExpandPrompt({
     expand.variables?.tier === focus.tier &&
     expand.variables?.cardType === focus.cardType;
   if (!hasKey) {
+    if (compact) return null;
     return (
       <p className="py-3 text-sm text-muted">
         Nothing found here in the sample data. With a key connected, the agent can hunt for these
@@ -570,8 +598,8 @@ function ExpandPrompt({
     );
   }
   return (
-    <div className="flex flex-wrap items-center gap-3 py-3">
-      <p className="text-sm text-muted">Nothing surfaced in the first pass.</p>
+    <div className={cn('flex flex-wrap items-center gap-3', compact ? 'justify-center py-1' : 'py-3')}>
+      {!compact && <p className="text-sm text-muted">Nothing surfaced in the first pass.</p>}
       <button
         type="button"
         className="btn-ghost text-sm"
