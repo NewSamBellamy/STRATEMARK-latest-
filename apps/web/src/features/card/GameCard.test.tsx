@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import { buildDataset } from '@mi/mocks';
+import { buildCmsInput, computeCms } from '@mi/contracts';
 import { renderWithProviders } from '@/test/test-utils';
 import { GameCard } from './GameCard';
 
@@ -22,16 +23,36 @@ function hydrate(cardId: string) {
 describe('GameCard', () => {
   it('renders the required face fields (spec §7) for a company card', () => {
     const cwc = hydrate(companyCard.id);
-    renderWithProviders(<GameCard data={cwc} />);
+    const deckUserValues = data.metrics
+      .filter((m) => m.metricType === 'users' && m.confidence !== 'unknown' && m.value !== null)
+      .map((m) => m.value as number);
+    renderWithProviders(<GameCard data={cwc} deckUserValues={deckUserValues} />);
     expect(screen.getAllByText('GraceWear Global').length).toBeGreaterThan(0);
     expect(screen.getByText(cwc.company!.oneLiner)).toBeInTheDocument();
     expect(screen.getByText('ARR')).toBeInTheDocument();
     expect(screen.getByText('Team')).toBeInTheDocument();
-    // Compact tier badge present (this is a Titan → T8; full label lives in the tooltip).
-    // Tier 8 = score 95 + "The Titans" label
-    expect(screen.getByText('95')).toBeInTheDocument();
+    // The score is REAL: derived from the same shared CMS engine the tiers use
+    // (continuous weighted-tier average → 0–100), never a hardcoded per-tier
+    // constant. This replaced `tierToScore`, which pinned every Tier-8 company
+    // to a cosmetic "95" and produced meaningless four-way ties.
+    const cms = computeCms(buildCmsInput(cwc.metrics), { deckUserValues });
+    const nudge = cwc.card.tier != null && cms.baseTier != null ? cwc.card.tier - cms.baseTier : 0;
+    const adjusted = Math.min(8, Math.max(1, (cms.weightedTierRaw as number) + nudge));
+    const expected = Math.round((adjusted / 8) * 100);
+    expect(screen.getByText(String(expected))).toBeInTheDocument();
     // HQ shown.
     expect(screen.getByText(/Los Angeles/)).toBeInTheDocument();
+  });
+
+  it('never renders a fabricated YoY growth arrow (no-fabrication rule)', () => {
+    // The card used to paint `fakeYoY` percentages invented from the metric's
+    // own digits. Growth indicators are banned until real history exists.
+    renderWithProviders(<GameCard data={hydrate(companyCard.id)} />);
+    expect(screen.queryByText(/%\s*YoY/i)).not.toBeInTheDocument();
+    // Confidence provenance chips render instead (Verified / Estimated).
+    expect(
+      screen.getAllByText(/Verified|Estimated|User verified/).length,
+    ).toBeGreaterThan(0);
   });
 
   it('fires onOpen when clicked', async () => {

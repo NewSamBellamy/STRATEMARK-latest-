@@ -43,6 +43,7 @@ export function CardGrid({
             <div key={c.card.id} className={cn('relative', selectable && 'cursor-pointer')}>
               <GameCard
                 data={c}
+                deckUserValues={deckUserValues}
                 onOpen={() => (selectable ? onToggle?.(c.card.id) : setActive(c))}
                 className={cn(
                   selectable && 'transition-opacity',
