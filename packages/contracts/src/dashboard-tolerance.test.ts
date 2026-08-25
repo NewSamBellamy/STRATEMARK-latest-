@@ -95,6 +95,8 @@ describe('dashboard content schemas degrade instead of collapsing', () => {
       board: [],
       positives: [],
       negatives: [],
+      fundingRounds: [],
+      investors: [],
     });
   });
 });

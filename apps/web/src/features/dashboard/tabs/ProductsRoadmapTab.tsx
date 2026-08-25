@@ -83,7 +83,14 @@ export function ProductsRoadmapTab({ companyId }: { companyId: string }) {
                         .filter((r) => r.horizon === key)
                         .map((r, i) => (
                           <li key={i}>
-                            <div className="text-sm font-medium text-content">{r.title}</div>
+                            <div className="flex items-baseline justify-between gap-2">
+                              <span className="text-sm font-medium text-content">{r.title}</span>
+                              {r.date && (
+                                <span className="shrink-0 text-[10px] font-bold tabular-nums text-primary-ink">
+                                  {r.date}
+                                </span>
+                              )}
+                            </div>
                             <div className="text-xs text-muted">{r.detail}</div>
                           </li>
                         ))}

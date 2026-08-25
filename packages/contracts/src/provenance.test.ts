@@ -9,6 +9,7 @@ import {
   isRedirectCitation,
   publisherOf,
   usableCitations,
+  isJunkSource,
 } from './provenance';
 import type { CompanyMetric } from './types';
 
@@ -143,5 +144,60 @@ describe('provenance enforcement', () => {
     // publisher — that would imply Google published the figure. Admit the gap.
     expect(publisherOf(redirect, 'vertexaisearch.cloud.google.com')).toBe(UNRECORDED_PUBLISHER);
     expect(publisherOf(redirect, null)).toBe(UNRECORDED_PUBLISHER);
+  });
+});
+
+describe('source credibility gate — junk domains can never verify a metric', () => {
+  const base = {
+    id: 'm1',
+    companyId: 'c1',
+    metricType: 'market_share' as const,
+    value: 53.3,
+    confidence: 'verified' as const,
+    source: null,
+    methodNote: null,
+    capturedAt: new Date().toISOString(),
+  };
+
+  it('flags SEO/content-mill domains as junk (the fatjoe.com production case)', () => {
+    expect(isJunkSource('https://fatjoe.com/some-post', 'fatjoe.com')).toBe(true);
+    expect(isJunkSource('https://backlinko.com/stats', null)).toBe(true);
+    expect(isJunkSource('https://best-promo-codes.example.com', null)).toBe(true);
+  });
+
+  it('does NOT flag legitimate niche analysts or trade press', () => {
+    expect(isJunkSource('https://counterpointresearch.com/insights', null)).toBe(false);
+    expect(isJunkSource('https://sacra.com/c/mistral/', null)).toBe(false);
+    expect(isJunkSource('https://reuters.com/tech', null)).toBe(false);
+  });
+
+  it('downgrades a Verified badge whose only sources are junk, keeping the value', () => {
+    const metric = {
+      ...base,
+      citations: [{ title: 'fatjoe.com', url: 'https://fatjoe.com/market-share-stats' }],
+    };
+    const out = enforceMetricProvenance(metric);
+    expect(out.value).toBe(53.3);
+    expect(out.confidence).toBe('estimated');
+    expect(out.methodNote).toContain('low-credibility');
+  });
+
+  it('keeps Verified when at least one verification-grade source stands behind it', () => {
+    const metric = {
+      ...base,
+      citations: [
+        { title: 'fatjoe.com', url: 'https://fatjoe.com/market-share-stats' },
+        { title: 'counterpointresearch.com', url: 'https://counterpointresearch.com/report' },
+      ],
+    };
+    expect(enforceMetricProvenance(metric).confidence).toBe('verified');
+  });
+
+  it('user-generated sources alone cannot verify either', () => {
+    const metric = {
+      ...base,
+      citations: [{ title: 'reddit.com', url: 'https://reddit.com/r/stocks/comments/x' }],
+    };
+    expect(enforceMetricProvenance(metric).confidence).toBe('estimated');
   });
 });

@@ -10,6 +10,7 @@ import {
   METRIC_TYPE_LABELS,
   buildCmsInput,
   computeCms,
+  hasVerificationGradeCitation,
   markVerified,
   reconcileMetrics,
   usableCitations,
@@ -1173,9 +1174,11 @@ export class GeminiRepository implements MarketIntelRepository {
       factCheckOutSchema,
       { system: STRUCTURE_SYSTEM },
     );
-    // No-fabrication gate: a correction is only usable when the grounded pass
-    // produced at least one citation to stand behind it.
-    const correctionUsable = out.correctedValue != null && g.citations.length > 0;
+    // No-fabrication gate: a correction needs a VERIFICATION-GRADE citation —
+    // clickable isn't enough; junk domains (SEO shops, content farms) and
+    // user-generated posts can never stand behind a corrected figure.
+    const correctionUsable =
+      out.correctedValue != null && hasVerificationGradeCitation(usableCitations(g.citations));
     return {
       verdict: out.verdict ?? 'unverified',
       rationale: out.rationale ?? '',
@@ -1243,9 +1246,11 @@ export class GeminiRepository implements MarketIntelRepository {
     const cited = usableCitations(g.citations);
     let changed = false;
 
-    // Revise ONLY on a grounded, cited, concrete figure that actually differs
-    // beyond noise (2% relative tolerance absorbs rounding between sources).
-    if (out.currentValue != null && cited.length > 0) {
+    // Revise ONLY on a grounded, concrete figure backed by a
+    // VERIFICATION-GRADE citation (junk domains and user-generated content
+    // carry no verification weight) that differs beyond noise (2% relative
+    // tolerance absorbs rounding between sources).
+    if (out.currentValue != null && hasVerificationGradeCitation(cited)) {
       const prior = metric.value;
       const differs =
         prior == null ||
