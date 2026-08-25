@@ -126,7 +126,9 @@ function identityKeys(name: string, domain: string | null): string[] {
 }
 
 const DEFAULT_COVERAGE: ResearchCoverage = {
-  companies: { min: 10, target: 12, max: 20 },
+  // max raised 20 -> 30: the deck must never hard-stop while the user wants
+  // more coverage; 'Hunt for more' can keep expanding to this ceiling.
+  companies: { min: 10, target: 12, max: 30 },
   infrastructure: { min: 4, target: 6, max: 10 },
   distribution: { min: 2, target: 4, max: 10 },
   vice: { min: 4, target: 4, max: 10 },
