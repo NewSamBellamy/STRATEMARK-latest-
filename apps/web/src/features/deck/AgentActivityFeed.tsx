@@ -90,22 +90,41 @@ export function AgentActivityFeed({ living }: { living: LivingDeckState }) {
     <div className="mt-3 rounded-lg border border-border bg-surface">
       <div className="flex items-center gap-2 px-3 py-1.5">
         <span className="relative flex h-2 w-2 shrink-0">
-          {active && (
+          {active && living.canVerify && (
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
           )}
           <span
             className={cn(
               'relative inline-flex h-2 w-2 rounded-full',
-              active ? 'bg-emerald-500' : paused ? 'bg-amber-400' : 'bg-slate-400',
+              !living.canVerify
+                ? 'bg-slate-400'
+                : active
+                  ? 'bg-emerald-500'
+                  : paused
+                    ? 'bg-amber-400'
+                    : 'bg-slate-400',
             )}
           />
         </span>
         <span className="text-[11px] font-semibold text-content">
-          {paused ? 'Live research paused' : active ? 'Live research' : 'Research resting'}
+          {!living.canVerify
+            ? 'Sample deck — live research off'
+            : paused
+              ? 'Live research paused'
+              : active
+                ? 'Live research'
+                : 'Research resting'}
         </span>
         <span className="text-[11px] text-faint">
-          · {living.deskCount} company desk{living.deskCount === 1 ? '' : 's'}
-          {living.actionCount > 0 && ` · ${living.actionCount} action${living.actionCount === 1 ? '' : 's'} this session`}
+          {living.canVerify ? (
+            <>
+              · {living.deskCount} company desk{living.deskCount === 1 ? '' : 's'}
+              {living.actionCount > 0 &&
+                ` · ${living.actionCount} action${living.actionCount === 1 ? '' : 's'} this session`}
+            </>
+          ) : (
+            <>· add your Gemini key in Settings to put desks on this deck</>
+          )}
         </span>
         {!expanded && latest && (
           <span className="hidden min-w-0 flex-1 truncate text-[11px] text-muted sm:inline">

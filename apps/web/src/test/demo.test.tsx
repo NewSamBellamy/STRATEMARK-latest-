@@ -130,21 +130,34 @@ describe('NewDeckPage Deck Creation in Unblocked Mode', () => {
     await user.click(submitBtn);
   }
 
-  it('allows uninterrupted deck creation and navigates to live deck view', async () => {
+  /**
+   * These two tests used to assert that keyless "deck creation" NAVIGATES to a
+   * deck — which enshrined research theater: the mock transport returned the
+   * built-in SAMPLE deck renamed to whatever the user typed. A founder asking
+   * for "frontier ai labs" got Christian-apparel sample companies wearing an
+   * AI-labs title under a "Live research" pill. The honest contract: without a
+   * key (and outside the cloud engine), submission shows the key-required
+   * gate, runs nothing, and never fakes research.
+   */
+  it('without a key, submitting shows the honest key-required gate instead of fake research', async () => {
     const { user } = renderNewDeckApp();
 
     await submitDeckPrompt(user, 'AI code-review startups');
 
-    expect(await screen.findByText(/Live Deck View/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Researching a new market needs your Gemini API key/i),
+    ).toBeInTheDocument();
+    // No navigation, no theater.
+    expect(screen.queryByText(/Live Deck View/i)).not.toBeInTheDocument();
     expect(screen.queryByText('Unlock Stratemark Pro')).not.toBeInTheDocument();
   });
 
-  it('allows subsequent deck creation without hitting limits', async () => {
+  it('the gate names demo mode honestly and links to Settings', async () => {
     const { user } = renderNewDeckApp();
 
     await submitDeckPrompt(user, 'Precision fermentation companies');
 
-    expect(await screen.findByText(/Live Deck View/i)).toBeInTheDocument();
-    expect(screen.queryByText('Unlock Stratemark Pro')).not.toBeInTheDocument();
+    expect(await screen.findByText(/will never pretend/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Add your key in Settings/i })).toBeInTheDocument();
   });
 });
