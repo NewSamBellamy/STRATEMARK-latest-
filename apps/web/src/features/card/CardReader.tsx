@@ -158,9 +158,15 @@ export function CardReader({
                     )}
                     {m.value != null && m.confidence !== 'unknown' && (
                       <div className="mt-1">
+                        {/* Metric-anchored: a contradicted verdict AUTO-CORRECTS
+                            the stored figure everywhere — deck card, reader,
+                            metrics tab — Wikipedia-style continuity. */}
                         <FactCheck
                           claim={`${company.name}'s ${METRIC_TYPE_LABELS[m.metricType]} is ${formatMetricValue(m.metricType, m.value)}`}
                           companyName={company.name}
+                          companyId={company.id}
+                          metricType={m.metricType}
+                          storedValue={m.value}
                         />
                       </div>
                     )}
