@@ -298,6 +298,23 @@ export const metricsContentSchema = z.object({
 });
 
 export const boardMemberSchema = z.object({ name: z.string(), affiliation: prose() });
+/** A reported funding round — every field is what sources SAY, never derived. */
+export const fundingRoundSchema = z.object({
+  round: z.string(), // e.g. "Series C", "Secondary", "Debt financing"
+  /** Reported round size in USD; null when undisclosed. */
+  amountUsd: z.number().nullable().catch(null),
+  /** When it was reported (e.g. "2026 Mar"); null when unclear. */
+  date: prose().nullable().catch(null),
+  leadInvestors: rows(z.string()),
+});
+/** An investor with reported context — the investor-board treatment. */
+export const investorSchema = z.object({
+  name: z.string(),
+  /** What kind of money this is, when reported. */
+  kind: z.enum(['vc', 'corporate', 'sovereign', 'angel', 'debt', 'other']).catch('other'),
+  /** One reported line of context (stake, board seat, round led), or "". */
+  note: prose(),
+});
 export const missionGovernanceContentSchema = z.object({
   mission: prose(),
   ethos: prose(),
@@ -305,6 +322,9 @@ export const missionGovernanceContentSchema = z.object({
   board: rows(boardMemberSchema),
   positives: rows(z.string()),
   negatives: rows(z.string()),
+  // Additive (defaulted) so governance content cached before this ships still parses.
+  fundingRounds: rows(fundingRoundSchema).catch([]),
+  investors: rows(investorSchema).catch([]),
 });
 
 export const timelineEventSchema = z.object({
@@ -336,6 +356,8 @@ export const roadmapItemSchema = z.object({
   title: z.string(),
   horizon: z.enum(['now', 'next', 'later']),
   detail: prose(),
+  /** Announced/reported date when sources give one (e.g. "2026 H2"); additive. */
+  date: prose().nullable().catch(null),
 });
 export const productsRoadmapContentSchema = z.object({
   products: rows(productSchema),
