@@ -137,6 +137,25 @@ export const tierReviewBatchOutSchema = z.object({
 export const factCheckOutSchema = z.object({
   verdict: z.enum(['supported', 'contradicted', 'unverified']).default('unverified'),
   rationale: z.string().default(''),
+  /**
+   * When the claim was a stored METRIC and the evidence names a better figure,
+   * the corrected value in the metric's native unit (USD / count / percent).
+   * Null when the evidence doesn't support a concrete number — a correction
+   * without evidence is never emitted.
+   */
+  correctedValue: z.number().nullable().default(null),
+  /** ISO date the corrected figure is reported as-of, when the evidence says. */
+  correctedAsOf: z.string().nullable().default(null),
+});
+
+/** Structured output for a single-metric live verification (verifyMetric). */
+export const verifyMetricOutSchema = z.object({
+  verdict: z.enum(['supported', 'contradicted', 'unverified']).default('unverified'),
+  /** Best current grounded value in the metric's native unit; null if unknown. */
+  currentValue: z.number().nullable().default(null),
+  rationale: z.string().default(''),
+  /** One-line method note explaining where the figure comes from. */
+  methodNote: z.string().nullable().default(null),
 });
 
 /**
