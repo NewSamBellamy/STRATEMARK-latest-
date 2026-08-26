@@ -2069,11 +2069,35 @@ export class GeminiRepository implements MarketIntelRepository {
       .map((m) => `${m.role === 'user' ? 'ANALYST' : 'RESEARCHER'}: ${m.text.slice(0, 700)}`)
       .join('\n');
 
+    // Pinned references: attached reports/conversations become the MAIN FOCUS.
+    const attachedReports = (input.attachments?.reportIds ?? [])
+      .map((id) => this.snap.reports.find((r) => r.id === id))
+      .filter((r): r is Report => r != null)
+      .slice(0, 3);
+    const attachedThreads = (input.attachments?.threadIds ?? [])
+      .map((id) => this.snap.threads.find((t) => t.id === id))
+      .filter((t): t is ResearchThread => t != null && t.id !== thread!.id)
+      .slice(0, 3);
+    const references = [
+      ...attachedReports.map((r) => `REPORT — "${r.title}":\n${r.markdown.slice(0, 4000)}`),
+      ...attachedThreads.map(
+        (t) =>
+          `PRIOR CONVERSATION — "${t.title}":\n` +
+          t.messages
+            .map((m) => `${m.role === 'user' ? 'ANALYST' : 'RESEARCHER'}: ${m.text.slice(0, 500)}`)
+            .join('\n')
+            .slice(0, 3000),
+      ),
+    ].join('\n\n');
+
     const g = await this.client.ground(
       [
         `DECK DATA (this deck's prior grounded research — confidence tags and publishers are part of the record):`,
         this.scopeDigest(thread.scope),
         thread.scope.subject ? `\nTHE ANALYST IS FOCUSED ON: ${thread.scope.subject}` : '',
+        references
+          ? `\nATTACHED REFERENCES — the analyst pinned these; treat their findings as the main focus and build on them (re-verify anything surprising):\n${references}`
+          : '',
         history ? `\nCONVERSATION SO FAR:\n${history}` : '',
         ``,
         `ANALYST'S QUESTION: ${input.question}`,
