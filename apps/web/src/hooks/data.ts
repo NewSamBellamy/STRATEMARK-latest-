@@ -21,6 +21,7 @@ import type {
   VerifyMetricResult,
 } from '@mi/contracts';
 import { useRepository } from '@/lib/repository/RepositoryProvider';
+import { traceAgent } from '@/lib/agentic/agentTrace';
 import { qk } from '@/lib/query/keys';
 
 export function useMarkets(): UseQueryResult<Market[]> {
@@ -55,6 +56,12 @@ export function useCards(
     queryKey: qk.cards(deckId ?? '', filter),
     queryFn: () => repo.listCards(deckId as string, filter),
     enabled: !!deckId,
+    // SAFE STATE for back-navigation: returning to a deck renders the cached
+    // cards INSTANTLY (any refetch happens quietly behind them). Without this,
+    // coming back from a dashboard re-fetched from scratch and the deck sat on
+    // a skeleton — "it doesn't load your deck back how you had it".
+    staleTime: 60_000,
+    gcTime: 30 * 60_000,
     refetchInterval: (query) => {
       const cards = query.state.data;
       if (cards && cards.some((c) => c.card.tier === null)) {
@@ -229,6 +236,13 @@ export function useVerifyMetric() {
       return repo.verifyMetric(input);
     },
     onSuccess: (result: VerifyMetricResult, input) => {
+      traceAgent(
+        'Verifier',
+        result.changed
+          ? `Corrected a figure — value, badge, and tier updated everywhere`
+          : `Re-checked a figure — ${result.verdict === 'supported' ? 'it holds' : 'no better evidence found'}`,
+        `${result.citations.length} sources`,
+      );
       // ALWAYS refresh metric-bearing surfaces: even a "nothing changed"
       // verification stamps lastVerifiedAt (the "checked Xm ago" chips) and
       // may have downgraded a badge. Gating this on `changed` left page two
@@ -260,6 +274,12 @@ export function useHuntMetrics() {
       return repo.huntCompanyMetrics(companyId);
     },
     onSuccess: (result: HuntMetricsResult, companyId) => {
+      traceAgent(
+        'Metrics hunter',
+        result.filledTypes.length > 0
+          ? `Filled ${result.filledTypes.length} soft figure${result.filledTypes.length === 1 ? '' : 's'} from live sources`
+          : 'Hunted soft figures — nothing met the sourcing bar (gaps stay honest)',
+      );
       qc.invalidateQueries({ queryKey: qk.companyMetrics(companyId) });
       if (result.filledTypes.length > 0) {
         qc.invalidateQueries({ queryKey: ['cards'] });

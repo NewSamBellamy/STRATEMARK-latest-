@@ -31,11 +31,11 @@ import {
 import {
   useCards,
   useDeckByMarket,
-  useExpandDeck,
   useMarket,
   useRefreshDeck,
 } from '@/hooks/data';
 import { useLivingDeck } from '@/lib/living/useLivingDeck';
+import { useAgentTrace } from '@/lib/agentic/agentTrace';
 import { buildDeckShare } from '@/lib/share/codec';
 import { useShareAction } from '@/lib/share/useShareAction';
 import { AgentActivityFeed } from './AgentActivityFeed';
@@ -120,6 +120,14 @@ export default function DeckPage() {
   const all = useMemo(() => cards.data ?? [], [cards.data]);
   const living = useLivingDeck(deckId, all);
   const { share: shareDeck, status: shareStatus } = useShareAction();
+
+  // Anchor the floating presence's "Chat" to THIS deck's synthesized research.
+  const setChatContext = useAgentTrace((s) => s.setChatContext);
+  const marketName = market.data?.name;
+  useEffect(() => {
+    if (deckId) setChatContext({ kind: 'deck', deckId, subject: marketName ?? 'this deck' });
+    return () => setChatContext(null);
+  }, [deckId, marketName, setChatContext]);
   const userValues = useMemo(() => deckUserValuesFrom(all), [all]);
   const countByType = useMemo(() => {
     const m = new Map<CardType, number>();
@@ -610,11 +618,18 @@ function ExpandPrompt({
   compact?: boolean;
 }) {
   const hasKey = useApiKey((s) => s.hasKey);
-  const expand = useExpandDeck(marketId);
-  const isThisPending =
-    expand.isPending &&
-    expand.variables?.tier === focus.tier &&
-    expand.variables?.cardType === focus.cardType;
+  // QUEUED, never blocked: clicking while another hunt runs enqueues this one
+  // in click order — the rate limiter still only ever sees one hunt at a time.
+  const jobs = useAgentTrace((s) => s.jobs);
+  const enqueueHunt = useAgentTrace((s) => s.enqueueHunt);
+  const mine = jobs.find(
+    (j) =>
+      j.marketId === marketId && j.focus.tier === focus.tier && j.focus.cardType === focus.cardType,
+  );
+  const queuePosition =
+    mine?.status === 'queued'
+      ? jobs.filter((j) => j.status === 'queued').findIndex((j) => j.id === mine.id) + 1
+      : 0;
   if (!hasKey) {
     if (compact) return null;
     return (
@@ -630,14 +645,22 @@ function ExpandPrompt({
       <button
         type="button"
         className="btn-ghost text-sm"
-        disabled={expand.isPending}
-        onClick={() => expand.mutate(focus)}
+        disabled={mine?.status === 'queued' || mine?.status === 'running' || !marketId}
+        title="Hunts run one at a time (rate-limit friendly) — extra clicks queue in order."
+        onClick={() => marketId && enqueueHunt({ marketId, focus, label })}
       >
-        <Search className={`h-4 w-4 ${isThisPending ? 'animate-pulse' : ''}`} />
-        {isThisPending ? 'Hunting…' : label}
+        <Search className={`h-4 w-4 ${mine?.status === 'running' ? 'animate-pulse' : ''}`} />
+        {mine?.status === 'running'
+          ? 'Hunting…'
+          : mine?.status === 'queued'
+            ? `Queued${queuePosition > 0 ? ` (#${queuePosition})` : ''}…`
+            : label}
       </button>
-      {expand.isSuccess && expand.data.added === 0 && !expand.isPending && (
+      {mine?.status === 'done' && mine.added === 0 && (
         <span className="text-xs text-muted">Search ran — nothing credible found (that’s honest).</span>
+      )}
+      {mine?.status === 'failed' && (
+        <span className="text-xs text-negative">Hunt failed — try again.</span>
       )}
     </div>
   );

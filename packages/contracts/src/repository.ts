@@ -165,6 +165,19 @@ export interface FactCheckResult {
 export interface VerifyMetricInput {
   companyId: string;
   metricType: MetricType;
+  /**
+   * A pre-verified correction from an immediately-preceding fact-check pass.
+   * When present (and its citations clear the credibility gate) the repository
+   * applies it DIRECTLY — no second research pass. This is why an on-screen
+   * "Contradicted → corrected" now takes milliseconds instead of re-running
+   * the whole grounded hunt the fact-check just finished.
+   */
+  correction?: {
+    value: number;
+    citations: Citation[];
+    rationale?: string | null;
+    asOf?: string | null;
+  } | null;
 }
 
 export interface VerifyMetricResult {

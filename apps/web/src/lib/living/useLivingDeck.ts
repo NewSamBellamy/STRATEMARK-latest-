@@ -22,6 +22,7 @@ import {
 } from '@mi/contracts';
 import { useRepository } from '@/lib/repository/RepositoryProvider';
 import { qk } from '@/lib/query/keys';
+import { traceAgent } from '@/lib/agentic/agentTrace';
 import { formatMetricValue } from '@/lib/format';
 import {
   LivingDeckRuntime,
@@ -188,6 +189,13 @@ export function useLivingDeck(
         setEvents((prev) => [event, ...prev].slice(0, MAX_FEED_EVENTS));
         setActionCount(runtime.actionCount);
         setStatus(runtime.status);
+        // Mirror into the global agent trace (the floating presence bubble):
+        // labeled by desk, real events only.
+        traceAgent(
+          event.companyName ? `${event.companyName} desk` : 'Deck sentinel',
+          event.message,
+          event.citations ? `${event.citations} sources` : null,
+        );
       },
     });
 
