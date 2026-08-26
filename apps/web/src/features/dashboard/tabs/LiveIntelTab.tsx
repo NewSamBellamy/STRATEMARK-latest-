@@ -12,12 +12,29 @@ import { publisherOf, type LiveIntelItem } from '@mi/contracts';
 import { useCompany, useDashboardTab, useRerunDashboardTab } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { Modal } from '@/components/ui/Modal';
-import { PageShot } from '@/components/media/PageShot';
+import { EditorialCover } from '@/components/media/EditorialCover';
 import { LiveBadge } from '../LiveBadge';
 import { DigDeeper } from '@/features/deepdive/DeepDive';
 import { formatRelative } from '@/lib/format';
 import { faviconUrl } from '@/lib/screenshot';
 import { cn } from '@/lib/cn';
+
+/**
+ * A link the reader can ACTUALLY open. Grounding often returns opaque
+ * `vertexaisearch…/grounding-api-redirect` URLs that expire or bounce off bot
+ * walls — a dead "Read the full article" is a broken promise. For those, link
+ * a Google search for the exact headline + publisher instead: it always
+ * resolves, and the real article is the top result.
+ */
+function articleHref(item: LiveIntelItem): string | null {
+  if (!/^https?:\/\//.test(item.url)) return null;
+  if (/vertexaisearch|grounding-api-redirect/i.test(item.url)) {
+    const publisher = publisherOf(item.url, null);
+    const q = `"${item.title}"${publisher && publisher !== 'source' ? ` ${publisher}` : ''}`;
+    return `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+  }
+  return item.url;
+}
 
 const SOURCE_ICON = { news: Newspaper, x: Hash, reddit: MessageSquare } as const;
 const SENTIMENT_STYLE = {
@@ -69,8 +86,8 @@ function ArticleReader({
   onClose: () => void;
 }) {
   const Icon = SOURCE_ICON[item.source];
-  const hasUrl = /^https?:\/\//.test(item.url);
-  const publisher = hasUrl ? publisherOf(item.url, null) : null;
+  const href = articleHref(item);
+  const publisher = href ? publisherOf(item.url, null) : null;
   return (
     <Modal
       open
@@ -81,11 +98,10 @@ function ArticleReader({
       description={item.summary}
     >
       <div className="space-y-4">
-        {hasUrl && (
-          <div className="overflow-hidden rounded-xl border border-border bg-surface-2">
-            <PageShot url={item.url} className="max-h-[280px] w-full object-cover object-top" />
-          </div>
-        )}
+        {/* Cover by default — composed from the story itself, never a CAPTCHA. */}
+        <div className="h-[200px] overflow-hidden rounded-xl border border-border">
+          <EditorialCover title={item.title} url={item.url} source={item.source} />
+        </div>
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted">
           <span className="inline-flex items-center gap-1.5">
@@ -114,15 +130,20 @@ function ArticleReader({
         </p>
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-          {hasUrl ? (
+          {href ? (
             <a
-              href={item.url}
+              href={href}
               target="_blank"
               rel="noopener noreferrer"
               className="btn-primary"
+              title={
+                href === item.url
+                  ? 'Open the original article'
+                  : 'The research link was a temporary redirect — this finds the original article by its exact headline.'
+              }
             >
               <ExternalLink className="h-4 w-4" />
-              Read the full article
+              {href === item.url ? 'Read the full article' : 'Find the full article'}
             </a>
           ) : (
             <span className="text-[11px] text-faint">No public link surfaced for this item.</span>
@@ -148,7 +169,7 @@ function IntelRow({
   onOpen: () => void;
 }) {
   const Icon = SOURCE_ICON[item.source];
-  const hasUrl = /^https?:\/\//.test(item.url);
+  const href = articleHref(item);
   return (
     <li
       className={cn(
@@ -185,9 +206,9 @@ function IntelRow({
           <p className="mt-1.5 font-medium text-content">{item.title}</p>
           <p className="mt-1 line-clamp-2 text-sm text-muted">{item.summary}</p>
           <div className="mt-2 flex items-center gap-2">
-            {hasUrl && (
+            {href && (
               <a
-                href={item.url}
+                href={href}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
@@ -201,12 +222,10 @@ function IntelRow({
             <span className="ml-auto text-[11px] text-faint">Open story →</span>
           </div>
         </div>
-        {/* Real article imagery: a live capture of the story page itself. */}
-        {hasUrl && (
-          <div className="hidden h-[84px] w-[128px] shrink-0 overflow-hidden rounded-lg border border-border bg-surface-2 sm:block">
-            <PageShot url={item.url} className="h-full w-full object-cover object-top" />
-          </div>
-        )}
+        {/* Cover by default — composed from the story, never a CAPTCHA shot. */}
+        <div className="hidden h-[84px] w-[128px] shrink-0 overflow-hidden rounded-lg border border-border sm:block">
+          <EditorialCover title={item.title} url={item.url} source={item.source} compact />
+        </div>
       </div>
       {item.stale && (
         <p className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-700">

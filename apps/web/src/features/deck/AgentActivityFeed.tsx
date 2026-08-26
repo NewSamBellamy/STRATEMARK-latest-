@@ -19,7 +19,6 @@ import {
   Play,
   Sparkles,
   Wand2,
-  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import type { LivingDeckState } from '@/lib/living/useLivingDeck';
@@ -40,7 +39,7 @@ function EventRow({ event, now }: { event: AgentActivityEvent; now: number }) {
     ) : event.kind === 'verified' ? (
       <BadgeCheck className="h-3 w-3 text-positive" />
     ) : event.kind === 'prefetched' ? (
-      <Zap className="h-3 w-3 text-primary-ink" />
+      <Sparkles className="h-3 w-3 text-primary-ink" />
     ) : event.kind === 'finding' ? (
       <AlertTriangle
         className={cn(
