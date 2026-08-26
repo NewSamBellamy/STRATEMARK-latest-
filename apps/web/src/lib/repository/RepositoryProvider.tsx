@@ -8,7 +8,7 @@
  * The whole app talks only to the MarketIntelRepository interface, so flipping
  * between demo and live research is exactly this one decision — no UI changes.
  */
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { MarketIntelRepository } from '@mi/contracts';
 import { MockRepository, type SeedSnapshot } from '@mi/mocks';
 import sampleSnapshot from '@/sample/frontier-snapshot.json';
@@ -16,6 +16,7 @@ import { GeminiRepository } from '@mi/research';
 import { IpcRepository, isElectron } from './ipc-repository';
 import { SentinelRepository } from './SentinelRepository';
 import { createLocalStore } from './localStore';
+import { hydrateFromVault } from './vault';
 import { useApiKey } from '@/lib/settings/apiKey';
 import { useEngineChoice } from '@/lib/settings/engine';
 import { recordCall } from '@/lib/usage';
@@ -67,10 +68,27 @@ export function RepositoryProvider({
   const apiKey = useApiKey((s) => s.apiKey);
   const model = useApiKey((s) => s.model);
   const { engine } = useEngineChoice();
-  const value = useMemo(
-    () => repository ?? selectRepository(apiKey, model, engine),
-    [repository, apiKey, model, engine],
+  // Vault hydration runs BEFORE the repository ever reads localStorage: if the
+  // working copy was wiped (co-tenant clear, eviction) the IndexedDB replica
+  // restores it first. Skipped instantly when injected (tests) or no IDB.
+  const [hydrated, setHydrated] = useState(
+    () => repository != null || typeof indexedDB === 'undefined',
   );
+  useEffect(() => {
+    if (hydrated) return;
+    let live = true;
+    void hydrateFromVault().finally(() => {
+      if (live) setHydrated(true);
+    });
+    return () => {
+      live = false;
+    };
+  }, [hydrated]);
+  const value = useMemo(
+    () => (hydrated ? (repository ?? selectRepository(apiKey, model, engine)) : null),
+    [hydrated, repository, apiKey, model, engine],
+  );
+  if (!value) return null; // a few ms while the vault check runs
   return <RepositoryContext.Provider value={value}>{children}</RepositoryContext.Provider>;
 }
 

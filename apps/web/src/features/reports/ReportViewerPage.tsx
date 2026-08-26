@@ -139,13 +139,16 @@ export default function ReportViewerPage() {
       </Link>
 
       <QueryBoundary query={report}>
-        {(r) => (
+        {(r) => {
+          const markdown = typeof r.markdown === 'string' ? r.markdown : '';
+          const citations = Array.isArray(r.citations) ? r.citations : [];
+          return (
           <article className="panel p-6">
             <header className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-border pb-4">
               <div>
                 <h1 className="font-display text-2xl font-semibold text-content">{r.title}</h1>
                 <p className="mt-1 text-xs text-muted">
-                  Generated {formatRelative(r.createdAt)} · {r.citations.length} sources
+                  Generated {formatRelative(r.createdAt)} · {citations.length} sources
                 </p>
               </div>
               <div className="no-print flex flex-wrap gap-2">
@@ -180,7 +183,7 @@ export default function ReportViewerPage() {
                   type="button"
                   className="btn-ghost"
                   onClick={() => {
-                    const blob = new Blob([`# ${r.title}\n\n${r.markdown}`], {
+                    const blob = new Blob([`# ${r.title}\n\n${markdown}`], {
                       type: 'text/markdown',
                     });
                     const url = URL.createObjectURL(blob);
@@ -202,17 +205,17 @@ export default function ReportViewerPage() {
             <div className="markdown">
               {/* Strip a leading H1 if the model repeated the title — the header above owns it. */}
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {r.markdown.replace(/^#\s[^\n]*\n+/, '')}
+                {markdown.replace(/^#\s[^\n]*\n+/, '')}
               </ReactMarkdown>
             </div>
 
-            {r.citations.length > 0 && (
+            {citations.length > 0 && (
               <footer className="mt-6 border-t border-border pt-4">
                 <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-                  Sources ({r.citations.length})
+                  Sources ({citations.length})
                 </h2>
                 <ul className="space-y-1.5">
-                  {r.citations.map((c, i) => (
+                  {citations.map((c, i) => (
                     <li key={i}>
                       <a
                         href={c.url}
@@ -229,7 +232,8 @@ export default function ReportViewerPage() {
               </footer>
             )}
           </article>
-        )}
+          );
+        }}
       </QueryBoundary>
     </div>
   );

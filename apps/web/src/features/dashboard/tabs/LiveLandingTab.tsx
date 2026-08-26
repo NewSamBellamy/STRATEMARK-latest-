@@ -126,10 +126,14 @@ export function LiveLandingTab({ companyId }: { companyId: string }) {
                     type="button"
                     className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-muted transition-colors hover:bg-surface-2 hover:text-content"
                     onClick={() => setTryEmbed((v) => !v)}
-                    title="Attempt an interactive in-app embed (some sites block this)"
+                    title={
+                      tryEmbed
+                        ? 'Back to the screenshot preview (fast, always works)'
+                        : 'Load the real site inside the app — browse it interactively (some sites block this)'
+                    }
                   >
                     <MonitorPlay className="h-3.5 w-3.5" />
-                    {tryEmbed ? 'Preview' : 'Live embed'}
+                    {tryEmbed ? 'Screenshot preview' : 'Use live site'}
                   </button>
                 )}
                 <a

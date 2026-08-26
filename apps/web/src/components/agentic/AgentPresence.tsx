@@ -15,6 +15,7 @@ import { MessagesSquare, Minus, ListTree } from 'lucide-react';
 import { useAgentTrace } from '@/lib/agentic/agentTrace';
 import { useDeepDive } from '@/features/deepdive/DeepDive';
 import { cn } from '@/lib/cn';
+import wordmark from '@/assets/wordmark.svg';
 
 const POS_KEY = 'stratemark_presence_pos';
 
@@ -126,13 +127,18 @@ export function AgentPresence() {
         }
         className={cn(
           'relative grid h-12 w-12 cursor-grab touch-none select-none place-items-center rounded-full border border-border bg-surface shadow-card transition-transform hover:scale-105 active:cursor-grabbing',
+          busy && 'mi-presence-glow border-primary/40',
         )}
         aria-label="Agent activity"
       >
-        {busy && (
-          <span className="absolute inset-0 animate-ping rounded-full bg-emerald-400/30" />
-        )}
-        <span className="font-display text-lg font-black tracking-tight text-primary-ink">S</span>
+        {/* The brand mark, breathing a soft glow while agents work — the old
+            ping ring read as an alarm; presence should feel like a heartbeat. */}
+        <img
+          src={wordmark}
+          alt=""
+          draggable={false}
+          className={cn('h-7 w-7 select-none', busy && 'mi-presence-active')}
+        />
         {(busy || queuedHunts > 0) && (
           <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-emerald-500 px-1 text-[10px] font-bold text-white shadow">
             {activeCount + queuedHunts}

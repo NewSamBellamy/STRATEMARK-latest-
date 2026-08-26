@@ -1,4 +1,5 @@
 import type { RepoSnapshot, ResearchStore } from '@mi/research';
+import { marketCountOf, vaultPut } from './vault';
 
 /**
  * localStorage-backed snapshot store — now QUOTA-RESILIENT.
@@ -34,9 +35,27 @@ export function createLocalStore(key = 'mi.repo.v1'): ResearchStore {
       }
     },
     write(snapshot: RepoSnapshot): void {
+      // DECK-LOSS GUARD: before any write that would DROP markets (an
+      // intentional delete or a clobber from a stale tab — indistinguishable
+      // here), stash the richer stored copy under `.backup` so the Settings
+      // Data Safety panel can always bring it back.
+      try {
+        const stored = localStorage.getItem(key);
+        const storedMarkets = marketCountOf(stored);
+        if (stored && storedMarkets > (snapshot.markets?.length ?? 0)) {
+          localStorage.setItem(`${key}.backup`, stored);
+        }
+      } catch {
+        /* backup is best-effort; never block the real write */
+      }
+
       const attempt = (snap: RepoSnapshot): boolean => {
         try {
-          localStorage.setItem(key, JSON.stringify(snap));
+          const json = JSON.stringify(snap);
+          localStorage.setItem(key, json);
+          // Mirror to the IndexedDB vault (bigger quota, survives co-tenant
+          // localStorage.clear() and most eviction) — fire and forget.
+          void vaultPut(key, json);
           return true;
         } catch {
           return false;
@@ -59,7 +78,13 @@ export function createLocalStore(key = 'mi.repo.v1'): ResearchStore {
         return;
       }
 
-      console.error('[store] persist FAILED even after shedding caches — this session is memory-only. Export or share the deck to avoid loss.');
+      // localStorage is out of room entirely — the vault has no such limit.
+      try {
+        void vaultPut(key, JSON.stringify(snapshot));
+        console.error('[store] localStorage persist FAILED — snapshot saved to the IndexedDB vault instead; it will auto-restore on next launch.');
+      } catch {
+        console.error('[store] persist FAILED even after shedding caches — this session is memory-only. Export the deck from Settings → Data safety to avoid loss.');
+      }
     },
   };
 }
