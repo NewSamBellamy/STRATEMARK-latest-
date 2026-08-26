@@ -41,10 +41,24 @@ const AREA_LABEL: Record<SiteAuditArea, string> = {
   seo: 'Findability / SEO',
 };
 
-/** Live page capture in a browser-chrome frame, retried until it's real. */
-function PageCapture({ url, siteName }: { url: string; siteName: string }) {
+/**
+ * Live page capture in a browser-chrome frame, retried until it's real.
+ * Anti-bot walls can still poison a capture (a CAPTCHA is not site art), so
+ * a one-click swap replaces the frame with a generated impression of the
+ * site's design language instead.
+ */
+function PageCapture({
+  url,
+  siteName,
+  designSummary,
+}: {
+  url: string;
+  siteName: string;
+  designSummary?: string;
+}) {
   const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState(false);
+  const [swapped, setSwapped] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
     () => () => {
@@ -66,7 +80,15 @@ function PageCapture({ url, siteName }: { url: string; siteName: string }) {
         </span>
       </div>
       <div className="relative h-[300px] bg-surface-2 sm:h-[360px]">
-        {failed ? (
+        {swapped ? (
+          <AiCover
+            cacheKey={`audit-hero:${url}`}
+            title={`${siteName} — landing page impression`}
+            context={`An artist's impression of this website's landing page design language${designSummary ? `: ${designSummary}` : ''}. A clean generic webpage layout in that style — abstract placeholder blocks, NO readable text, NO real interface.`}
+            url={url}
+            source="news"
+          />
+        ) : failed ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-muted">
             <Globe className="h-7 w-7" />
             <p className="text-sm">Capture unavailable — open the site directly.</p>
@@ -88,8 +110,19 @@ function PageCapture({ url, siteName }: { url: string; siteName: string }) {
           />
         )}
       </div>
-      <figcaption className="border-t border-border bg-surface-2/60 px-3 py-1.5 text-[10px] text-faint">
-        Live capture of the audited page.
+      <figcaption className="flex items-center justify-between gap-3 border-t border-border bg-surface-2/60 px-3 py-1.5 text-[10px] text-faint">
+        <span>
+          {swapped
+            ? 'Generated impression of the design language (the live capture hit an anti-bot wall).'
+            : 'Live capture of the audited page. Some sites serve anti-bot challenges to capture services — if this frame looks wrong, swap it.'}
+        </span>
+        <button
+          type="button"
+          className="brf-no-print shrink-0 font-medium text-primary-ink hover:underline"
+          onClick={() => setSwapped((v) => !v)}
+        >
+          {swapped ? 'Show live capture' : 'Swap to illustration'}
+        </button>
       </figcaption>
     </figure>
   );
@@ -168,7 +201,7 @@ export function SiteAuditView({ report, audit }: { report: Report; audit: SiteAu
 
       {/* ── The page itself ── */}
       <div className="mt-6">
-        <PageCapture url={audit.url} siteName={audit.siteName} />
+        <PageCapture url={audit.url} siteName={audit.siteName} designSummary={audit.designStyle.summary} />
       </div>
 
       {/* ── Scorecard ── */}

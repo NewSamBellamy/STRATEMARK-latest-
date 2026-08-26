@@ -21,6 +21,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useApiKey } from '@/lib/settings/apiKey';
 import { imageDelete, imageGet, imagePut } from '@/lib/repository/vault';
+import { imagesAllowed, recordCall } from '@/lib/usage';
 
 const IMAGE_MODEL = 'gemini-2.5-flash-image';
 const MAX_CONCURRENT = 2;
@@ -152,6 +153,10 @@ export function getAiCover(
     }
     const apiKey = useApiKey.getState().apiKey;
     if (!apiKey) return null;
+    // Opt-out + spending cap: generation is autonomous spend — it asks first.
+    // (Vault reads above still serve already-paid-for images either way.)
+    if (!imagesAllowed()) return null;
+    recordCall('image');
     const url = await slot(() => generate(apiKey, cacheKey, subject, context, aspect));
     if (url) {
       cache.set(key, url);
@@ -210,7 +215,7 @@ export function useAiCover(
   }, [cacheKey, subject, context, aspect, enabled, hasKey]);
 
   const respin = useCallback(() => {
-    if (!useApiKey.getState().apiKey || respinning) return;
+    if (!useApiKey.getState().apiKey || respinning || !imagesAllowed()) return;
     setRespinning(true);
     void respinAiCover(cacheKey, subject, context, aspect)
       .then((u) => {

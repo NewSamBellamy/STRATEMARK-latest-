@@ -47,7 +47,9 @@ function SitePreview({ url, fallbackShot }: { url: string; fallbackShot: string 
           <Globe className="h-7 w-7" />
         </div>
         <p className="max-w-sm text-sm text-muted">
-          A live preview couldn’t be captured for this site. Open it directly instead.
+          This site blocks embedding and automated capture (anti-bot policy — common for large
+          companies). The audit still works: it reads the site through grounded search, not
+          scraping. Open the page directly instead.
         </p>
         <a href={url} target="_blank" rel="noopener noreferrer" className="btn-primary">
           <MonitorPlay className="h-4 w-4" />

@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { FileText, Loader2 } from 'lucide-react';
 import { ReactFlow, Background, Controls, type Edge, type Node } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { OrgNode } from '@mi/contracts';
-import { useCompany, useDashboardTab } from '@/hooks/data';
+import { useCompany, useDashboardTab, useGenerateReport } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { Modal } from '@/components/ui/Modal';
 import { useDeepDive } from '@/features/deepdive/DeepDive';
@@ -155,17 +157,45 @@ export function TeamOrgTab({ companyId }: { companyId: string }) {
   const name = useCompany(companyId).data?.name ?? 'this company';
   const { chat } = useDeepDive();
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
+  const orgReport = useGenerateReport();
+  const navigate = useNavigate();
 
   return (
     <QueryBoundary query={query} isEmpty={(r) => r.content.nodes.length === 0}>
       {(result) => (
         <div>
-          <p className="mb-3 text-sm text-muted">
-            Exec, AI, product, and design leadership. Hover a portrait for their reported
-            background; click for the full profile and grounded research. The chart below maps
-            who reports to whom.
-          </p>
-
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted">
+              Exec, AI, product, and design leadership. Hover a portrait for their background;
+              click for the full profile. The chart below maps who reports to whom.
+            </p>
+            {/* The org-chart teardown: a report researched specifically about
+                how this team is set up — competitive-analysis gold. */}
+            <button
+              type="button"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-[12px] font-medium text-content transition-colors hover:bg-surface-2 disabled:opacity-60"
+              disabled={orgReport.isPending}
+              title="Research a full report on this org: leadership, structure, how the teams are set up (one grounded pass on your key)"
+              onClick={() =>
+                orgReport.mutate(
+                  {
+                    kind: 'company',
+                    subjectId: companyId,
+                    focus:
+                      'The team and org chart: leadership, reporting structure, how the teams are organized, key hires and departures, and what the org design signals about strategy.',
+                  },
+                  { onSuccess: (r) => navigate(`/reports/${r.id}`) },
+                )
+              }
+            >
+              {orgReport.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <FileText className="h-3.5 w-3.5" />
+              )}
+              {orgReport.isPending ? 'Researching the org…' : 'Org report'}
+            </button>
+          </div>
           {/* The human layer: framed portraits, hover profiles, click-through research. */}
           <LeaderGrid
             nodes={result.content.nodes}

@@ -10,6 +10,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { isLowPower } from '@/lib/usage';
 import {
   METRIC_TYPE_LABELS,
   auditDeckConsistency,
@@ -125,12 +126,15 @@ export function useLivingDeck(
         );
 
         const allMetrics: CompanyMetric[] = current.flatMap((c) => c.metrics);
-        const staleTargets = selectStaleMetrics(allMetrics, nowMs, STALE_BUDGET_PER_TURN).map(
-          (candidate) =>
-            toTarget(candidate.metric.companyId, candidate.metric.metricType, 'stale'),
-        );
+        // LOW POWER MODE: the spending cap pauses autonomous re-verification;
+        // manual fact-checks and reads still work.
+        const staleTargets = isLowPower()
+          ? []
+          : selectStaleMetrics(allMetrics, nowMs, STALE_BUDGET_PER_TURN).map((candidate) =>
+              toTarget(candidate.metric.companyId, candidate.metric.metricType, 'stale'),
+            );
 
-        return { consistencyTargets, staleTargets, freshFindings };
+        return { consistencyTargets: isLowPower() ? [] : consistencyTargets, staleTargets, freshFindings };
       },
 
       verify: canVerify

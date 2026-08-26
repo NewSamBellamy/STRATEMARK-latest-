@@ -8,6 +8,9 @@ import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRepository } from '@/lib/repository/RepositoryProvider';
 import { useAgentTrace } from './agentTrace';
+import { isLowPower } from '@/lib/usage';
+
+let lowPowerAnnounced = false;
 
 export function useHuntRunner(): void {
   const repo = useRepository();
@@ -18,6 +21,18 @@ export function useHuntRunner(): void {
     if (jobs.some((j) => j.status === 'running')) return;
     const next = jobs.find((j) => j.status === 'queued');
     if (!next) return;
+    // LOW POWER MODE: the spending cap is hit — autonomous hunts stay queued
+    // (never silently dropped) until the cap is raised or the month rolls.
+    if (isLowPower()) {
+      if (!lowPowerAnnounced) {
+        lowPowerAnnounced = true;
+        useAgentTrace
+          .getState()
+          .trace('Sentinel', 'Low power mode — spending cap reached; queued hunts are paused', 'Raise or clear the cap in Settings → Usage & billing to resume.');
+      }
+      return;
+    }
+    lowPowerAnnounced = false;
 
     // No cleanup/cancellation here on purpose: marking the job "running"
     // re-fires this effect (jobs changed), and an effect-local cancel flag

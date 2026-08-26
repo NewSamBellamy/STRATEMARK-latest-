@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FileText, ArrowRight, ClipboardCheck, Loader2 } from 'lucide-react';
+import { FileText, ArrowRight, ClipboardCheck, Layers, Building2, Loader2 } from 'lucide-react';
 import { useAuditSite, useReports } from '@/hooks/data';
 import { useRepository } from '@/lib/repository/RepositoryProvider';
 import { useApiKey } from '@/lib/settings/apiKey';
@@ -86,8 +86,6 @@ export default function ReportsListPage() {
         organized here.
       </p>
 
-      <AuditAnySite />
-
       <div className="mt-6">
         <QueryBoundary
           query={reports}
@@ -106,16 +104,33 @@ export default function ReportsListPage() {
                 <li key={r.id}>
                   <Link
                     to={`/reports/${r.id}`}
-                    className="panel group flex items-center justify-between gap-4 p-4 transition-colors hover:border-primary/50"
+                    className="panel group flex items-center gap-4 p-4 transition-all hover:-translate-y-px hover:border-primary/50 hover:shadow-card"
                   >
-                    <div className="min-w-0">
+                    <span
+                      className={
+                        r.kind === 'site_audit'
+                          ? 'grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-rose-200/70 bg-rose-50/70 text-rose-600 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-400'
+                          : r.kind === 'deck'
+                            ? 'grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-teal-200/70 bg-teal-50/70 text-teal-600 dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-400'
+                            : 'grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-indigo-200/70 bg-indigo-50/70 text-indigo-600 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-400'
+                      }
+                    >
+                      {r.kind === 'site_audit' ? (
+                        <ClipboardCheck className="h-5 w-5" />
+                      ) : r.kind === 'deck' ? (
+                        <Layers className="h-5 w-5" />
+                      ) : (
+                        <Building2 className="h-5 w-5" />
+                      )}
+                    </span>
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="chip border-border text-muted capitalize">{KIND_LABEL[r.kind] ?? r.kind}</span>
                         <h2 className="truncate font-display text-base font-semibold text-content">
                           {r.title}
                         </h2>
                       </div>
                       <p className="mt-1 text-xs text-muted">
+                        <span className="capitalize">{KIND_LABEL[r.kind] ?? r.kind}</span> ·{' '}
                         {formatRelative(r.createdAt)} · {r.citations.length} sources
                       </p>
                     </div>
@@ -127,6 +142,9 @@ export default function ReportsListPage() {
           )}
         </QueryBoundary>
       </div>
+
+      {/* The teardown tool lives BELOW the library — reports first. */}
+      <AuditAnySite />
     </div>
   );
 }

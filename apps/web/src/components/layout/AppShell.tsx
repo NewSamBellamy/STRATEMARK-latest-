@@ -10,6 +10,7 @@ import { useDeckRefreshSubscription } from '@/hooks/data';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { useDeepDive } from '@/features/deepdive/DeepDive';
 import { useHuntRunner } from '@/lib/agentic/useHuntRunner';
+import { useSentinel } from '@/lib/agentic/useSentinel';
 import { AgentPresence } from '@/components/agentic/AgentPresence';
 
 export function AppShell() {
@@ -17,6 +18,7 @@ export function AppShell() {
   useAutoRefresh();
   // Queued hunts keep draining across navigation — the runner lives here.
   useHuntRunner();
+  useSentinel();
   const { isOpen: aiPanelOpen, closePanel } = useDeepDive();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

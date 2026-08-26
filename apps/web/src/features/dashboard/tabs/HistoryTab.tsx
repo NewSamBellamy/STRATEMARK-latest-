@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Quote } from 'lucide-react';
+import { ChevronDown, Quote } from 'lucide-react';
 import { useCompany, useDashboardTab } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { History } from 'lucide-react';
@@ -20,6 +20,7 @@ export function HistoryTab({ companyId }: { companyId: string }) {
   const name = useCompany(companyId).data?.name ?? 'this company';
   // Click a milestone → it opens as its own readable card with the whole gist.
   const [openIdx, setOpenIdx] = useState<number | null>(null);
+  const [allQuotes, setAllQuotes] = useState(false);
   return (
     <QueryBoundary query={query}>
       {(result) => {
@@ -102,7 +103,7 @@ export function HistoryTab({ companyId }: { companyId: string }) {
               <div className="panel h-fit p-5">
                 <h3 className="font-display text-sm font-semibold text-content">Notable quotes</h3>
                 <ul className="mt-3 space-y-4">
-                  {c.quotes.map((q, i) => {
+                  {(allQuotes ? c.quotes : c.quotes.slice(0, 2)).map((q, i) => {
                     const speaker = q.attribution ? speakerNameOf(q.attribution) : null;
                     return (
                       <li key={i} className="text-sm">
@@ -122,6 +123,17 @@ export function HistoryTab({ companyId }: { companyId: string }) {
                     );
                   })}
                 </ul>
+                {c.quotes.length > 2 && (
+                  <button
+                    type="button"
+                    className="mt-3 inline-flex items-center gap-1 text-[11px] font-medium text-muted transition-colors hover:text-primary-ink"
+                    aria-expanded={allQuotes}
+                    onClick={() => setAllQuotes((v) => !v)}
+                  >
+                    <ChevronDown className={allQuotes ? 'h-3.5 w-3.5 rotate-180 transition-transform' : 'h-3.5 w-3.5 transition-transform'} />
+                    {allQuotes ? 'Fewer quotes' : `${c.quotes.length - 2} more quote${c.quotes.length - 2 === 1 ? '' : 's'}`}
+                  </button>
+                )}
               </div>
             </div>
           </div>

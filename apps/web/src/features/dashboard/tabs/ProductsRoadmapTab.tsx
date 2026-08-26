@@ -15,15 +15,19 @@ const STATUS_STYLE: Record<Product['status'], string> = {
   sunset: 'border-slate-300 text-slate-600 bg-slate-100',
 };
 
+/**
+ * Quiet horizon columns (audit: the loud tinted headers read "vibe code-y").
+ * The colored DOT carries each horizon's identity; headers stay neutral.
+ */
 const HORIZONS: {
   key: RoadmapItem['horizon'];
   label: string;
   accent: string;
   dot: string;
 }[] = [
-  { key: 'now', label: 'Now', accent: 'text-emerald-700 border-emerald-200 bg-emerald-50/60', dot: 'bg-emerald-500' },
-  { key: 'next', label: 'Next', accent: 'text-amber-700 border-amber-200 bg-amber-50/60', dot: 'bg-amber-500' },
-  { key: 'later', label: 'Later', accent: 'text-slate-600 border-slate-200 bg-slate-50/60', dot: 'bg-slate-400' },
+  { key: 'now', label: 'Now', accent: 'text-content border-border bg-surface-2/60', dot: 'bg-emerald-500' },
+  { key: 'next', label: 'Next', accent: 'text-content border-border bg-surface-2/60', dot: 'bg-amber-500' },
+  { key: 'later', label: 'Later', accent: 'text-muted border-border bg-surface-2/60', dot: 'bg-slate-400' },
 ];
 
 /** The product, opened like a newsletter feature: capture, paragraph, link. */
@@ -192,7 +196,8 @@ export function ProductsRoadmapTab({ companyId }: { companyId: string }) {
                   const items = c.roadmap.filter((r) => r.horizon === key);
                   return (
                     <div key={key} className="panel overflow-hidden p-0">
-                      <div className={cn('border-b px-4 py-2 text-xs font-semibold uppercase tracking-wide', accent)}>
+                      <div className={cn('flex items-center gap-2 border-b px-4 py-2 text-xs font-semibold uppercase tracking-wide', accent)}>
+                        <span className={cn('h-2 w-2 rounded-full', dot)} />
                         {label}
                         <span className="ml-1.5 font-normal normal-case opacity-70">
                           {items.length} item{items.length === 1 ? '' : 's'}
