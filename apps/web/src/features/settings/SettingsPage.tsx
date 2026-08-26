@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { createGeminiClient } from '@mi/research';
 import { exportSnapshot, importSnapshot, marketCountOf } from '@/lib/repository/vault';
+import { clearAccess, getAccessProfile } from '@/lib/access';
 import {
   DAILY_REQUEST_CAP,
   getCostControls,
@@ -214,6 +215,8 @@ export default function SettingsPage() {
       </div>
 
       <UsageBillingPanel />
+
+      <AccessPanel />
 
       <div className="panel mt-6 space-y-4 p-6">
         <div className="flex items-center gap-2">
@@ -691,6 +694,36 @@ function PricingPanel() {
         Bring your own Gemini key above (you pay Google directly, this app takes nothing) — or
         run the open-source build entirely on your own machine.
       </p>
+    </div>
+  );
+}
+
+
+/** Private-preview access — who this session belongs to (trackable). */
+function AccessPanel() {
+  const profile = getAccessProfile();
+  if (!profile) return null;
+  return (
+    <div className="panel mt-6 flex flex-wrap items-center justify-between gap-3 p-6">
+      <div>
+        <h2 className="font-display text-lg text-content">Preview access</h2>
+        <p className="mt-1 text-sm text-muted">
+          Signed in as <span className="font-semibold text-content">{profile.name}</span>
+          {profile.kind === 'test' ? ' (test account)' : ''} · since{' '}
+          {new Date(profile.unlockedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+          . Usage on this browser is tracked under this name.
+        </p>
+      </div>
+      <button
+        type="button"
+        className="btn-ghost text-sm"
+        onClick={() => {
+          clearAccess();
+          window.location.reload();
+        }}
+      >
+        Sign out
+      </button>
     </div>
   );
 }
