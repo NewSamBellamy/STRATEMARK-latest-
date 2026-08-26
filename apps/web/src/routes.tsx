@@ -14,12 +14,16 @@ const SettingsPage = lazy(() => import('@/features/settings/SettingsPage'));
 const ReportsListPage = lazy(() => import('@/features/reports/ReportsListPage'));
 const ReportViewerPage = lazy(() => import('@/features/reports/ReportViewerPage'));
 const SavedCardsPage = lazy(() => import('@/features/saved/SavedCardsPage'));
+const SharePage = lazy(() => import('@/features/share/SharePage'));
 const NotFoundPage = lazy(() => import('@/features/NotFoundPage'));
 
 /** Shared route tree, used by both the app (HashRouter) and tests (MemoryRouter). */
 export function AppRoutes() {
   return (
     <Routes>
+      {/* Shared-research links render OUTSIDE the app shell: recipients get a
+          clean read-only snapshot — no sidebar, no auth, no AI layer. */}
+      <Route path="/share/:blob" element={<SharePage />} />
       <Route
         path="/"
         element={

@@ -2,14 +2,17 @@ import { useMemo, useEffect, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
+  Check,
   ChevronRight,
   FileText,
   Layers,
+  Loader2,
   MessagesSquare,
   MoreHorizontal,
   RefreshCw,
   Search,
   Settings,
+  Share2,
   SquareMousePointer,
   Target,
   X,
@@ -33,6 +36,8 @@ import {
   useRefreshDeck,
 } from '@/hooks/data';
 import { useLivingDeck } from '@/lib/living/useLivingDeck';
+import { buildDeckShare } from '@/lib/share/codec';
+import { useShareAction } from '@/lib/share/useShareAction';
 import { AgentActivityFeed } from './AgentActivityFeed';
 import { useDeepDive } from '@/features/deepdive/DeepDive';
 import { ThreadHistoryButton } from '@/features/research/ResearchControls';
@@ -114,6 +119,7 @@ export default function DeckPage() {
 
   const all = useMemo(() => cards.data ?? [], [cards.data]);
   const living = useLivingDeck(deckId, all);
+  const { share: shareDeck, status: shareStatus } = useShareAction();
   const userValues = useMemo(() => deckUserValuesFrom(all), [all]);
   const countByType = useMemo(() => {
     const m = new Map<CardType, number>();
@@ -191,6 +197,27 @@ export default function DeckPage() {
             >
               <SquareMousePointer className="h-3.5 w-3.5" />
               {compare ? 'Cancel' : 'Compare'}
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-[12px] font-medium text-content transition-colors hover:bg-surface-2"
+              disabled={all.length === 0 || shareStatus === 'working'}
+              title="Share this whole deck as a clean interactive snapshot — all the research travels inside the link, AI layer removed."
+              onClick={() =>
+                void shareDeck(
+                  buildDeckShare(all, market.data?.name ?? null),
+                  `${market.data?.name ?? 'Market deck'} — research snapshot`,
+                )
+              }
+            >
+              {shareStatus === 'working' ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : shareStatus === 'copied' || shareStatus === 'shared' ? (
+                <Check className="h-3.5 w-3.5 text-positive" />
+              ) : (
+                <Share2 className="h-3.5 w-3.5" />
+              )}
+              {shareStatus === 'copied' ? 'Link copied' : shareStatus === 'shared' ? 'Shared' : 'Share'}
             </button>
             <ThreadHistoryButton deckId={deckId} />
             <MoreMenu marketId={marketId} refreshDeck={refreshDeck} />

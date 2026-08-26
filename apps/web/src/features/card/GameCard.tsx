@@ -13,13 +13,11 @@ import {
   BadgeCheck,
   Bookmark,
   Building2,
-  ExternalLink,
   Heart,
   Landmark,
   Layers,
   Lightbulb,
   MapPin,
-  MessageCircle,
   MoreHorizontal,
   Share2,
   ShieldAlert,
@@ -201,10 +199,21 @@ export interface GameCardProps {
   /** All usable user-count values in the deck — context for relative CMS scoring. */
   deckUserValues?: number[];
   onOpen?: () => void;
+  /** Wire the card's Share action (native share sheet / copy link). */
+  onShare?: () => void;
+  /** Read-only contexts (the shared-snapshot view): no bookmark, no menu. */
+  hideActions?: boolean;
   className?: string;
 }
 
-export function GameCard({ data, deckUserValues = [], onOpen, className }: GameCardProps) {
+export function GameCard({
+  data,
+  deckUserValues = [],
+  onOpen,
+  onShare,
+  hideActions = false,
+  className,
+}: GameCardProps) {
   const { card, company, metrics } = data;
   const [, setLogoColor] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -442,16 +451,18 @@ export function GameCard({ data, deckUserValues = [], onOpen, className }: GameC
         ) : (
           <span />
         )}
-        <div className="flex items-center gap-0.5">
-          <Button
-            variant="ghost" size="icon"
-            className={cn('h-6 w-6 border-0', saved ? 'text-primary' : 'text-faint hover:text-content')}
-            onClick={onBookmark} tabIndex={-1} title={saved ? 'Unsave card' : 'Save card'}
-          >
-            <Bookmark className="h-3.5 w-3.5" strokeWidth={1.5} fill={saved ? 'currentColor' : 'none'} />
-          </Button>
-          <CardMoreMenu />
-        </div>
+        {!hideActions && (
+          <div className="flex items-center gap-0.5">
+            <Button
+              variant="ghost" size="icon"
+              className={cn('h-6 w-6 border-0', saved ? 'text-primary' : 'text-faint hover:text-content')}
+              onClick={onBookmark} tabIndex={-1} title={saved ? 'Unsave card' : 'Save card'}
+            >
+              <Bookmark className="h-3.5 w-3.5" strokeWidth={1.5} fill={saved ? 'currentColor' : 'none'} />
+            </Button>
+            <CardMoreMenu onShare={onShare} />
+          </div>
+        )}
         {/* Save toast */}
         {toast && (
           <span className="absolute bottom-12 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-lg bg-content px-3 py-1.5 text-[11px] font-medium text-bg shadow-card">
@@ -464,7 +475,7 @@ export function GameCard({ data, deckUserValues = [], onOpen, className }: GameC
 }
 
 /** More menu dropdown on each card. */
-function CardMoreMenu() {
+function CardMoreMenu({ onShare }: { onShare?: () => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -489,15 +500,24 @@ function CardMoreMenu() {
       </Button>
       {open && (
         <div className="absolute bottom-full right-0 z-30 mb-1 w-40 rounded-lg border border-border bg-surface p-1 shadow-card" onClick={(e) => e.stopPropagation()}>
-          <button type="button" className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] text-content hover:bg-surface-2" onClick={() => setOpen(false)}>
-            <Share2 className="h-3.5 w-3.5 text-muted" /> Share
-          </button>
-          <button type="button" className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] text-content hover:bg-surface-2" onClick={() => setOpen(false)}>
-            <MessageCircle className="h-3.5 w-3.5 text-muted" /> Research
-          </button>
-          <button type="button" className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] text-content hover:bg-surface-2" onClick={() => setOpen(false)}>
-            <ExternalLink className="h-3.5 w-3.5 text-muted" /> Open deck
-          </button>
+          {onShare && (
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] text-content hover:bg-surface-2"
+              onClick={() => {
+                setOpen(false);
+                onShare();
+              }}
+            >
+              <Share2 className="h-3.5 w-3.5 text-muted" /> Share card
+            </button>
+          )}
+          {/* Dead affordances removed: menu items that only closed the menu
+              ("Research", "Open deck") eroded trust — the card click already
+              opens the reader, which carries the real research actions. */}
+          {!onShare && (
+            <p className="px-2.5 py-1.5 text-[11px] text-faint">Open the card for actions.</p>
+          )}
         </div>
       )}
     </div>
