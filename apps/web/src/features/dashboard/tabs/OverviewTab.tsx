@@ -100,7 +100,7 @@ export function OverviewTab({ companyId }: { companyId: string }) {
                       <AiCover
                         cacheKey={`hq:${companyId}`}
                         title={`${name} — ${company.hqLocation}`}
-                        context={`Atmospheric cityscape illustration of ${company.hqLocation}: the skyline, landmark silhouettes, light and character of the place. Painterly, evocative, no text, no logos.`}
+                        context={`A cityscape of ${company.hqLocation} that is INSTANTLY RECOGNIZABLE as that specific place: its most famous landmarks, skyline silhouette, geography and light (e.g. San Francisco = Golden Gate Bridge + fog + hills + bay). Concrete and place-specific, never a generic city.`}
                         url={company.websiteUrl ?? ''}
                         source="news"
                         compact

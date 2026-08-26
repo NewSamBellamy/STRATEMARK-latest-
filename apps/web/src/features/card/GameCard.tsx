@@ -108,6 +108,20 @@ const ENTITY_TINT: Partial<Record<CardType, { card: string; stamp: string }>> = 
  *
  * Returns null when no signal is available — an honest blank, never a fake 50.
  */
+/**
+ * The 2K rule (founder's framing: think NBA 2K / Madden player ratings):
+ * the ceiling is 99 — nobody rates a perfect 100, because every company has
+ * weak points — and even 99 demands FULL signal coverage. Unknown signals
+ * shave rating points, so a giant the desk hasn't finished measuring shows
+ * a high-80s rating, not a fake perfect score (the filmed "Anthropic and
+ * DeepMind both at 100 while loading" bug).
+ */
+export function ratingFrom(adjusted: number, signals: number): number {
+  const base = (adjusted / 8) * 99;
+  const coveragePenalty = Math.max(0, 5 - signals) * 2;
+  return Math.max(1, Math.min(99, Math.round(base - coveragePenalty)));
+}
+
 function computeRealScore(
   metrics: CompanyMetric[],
   deckUserValues: number[],
@@ -115,14 +129,12 @@ function computeRealScore(
 ): { score: number; signals: number } | null {
   const result = computeCms(buildCmsInput(metrics), { deckUserValues });
   if (result.weightedTierRaw == null || result.baseTier == null) {
-    return storedTier != null
-      ? { score: Math.round((storedTier / 8) * 100), signals: 0 }
-      : null;
+    return storedTier != null ? { score: ratingFrom(storedTier, 0), signals: 0 } : null;
   }
   const nudge = storedTier != null ? storedTier - result.baseTier : 0;
   const adjusted = Math.min(8, Math.max(1, result.weightedTierRaw + nudge));
   return {
-    score: Math.round((adjusted / 8) * 100),
+    score: ratingFrom(adjusted, result.availableSignalCount),
     signals: result.availableSignalCount,
   };
 }
@@ -502,8 +514,10 @@ export function GameCard({
       <CardFooter className="justify-between pt-2">
         {tierInfo ? (
           <span className="flex min-w-0 items-center gap-1.5 text-[11px]">
+            {/* Subtle by request: the dot carries the tier color; the label
+                stays quiet muted text (the old full-color label read loud). */}
             <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: tierInfo.color }} />
-            <span className="font-medium truncate" style={{ color: tierInfo.color }}>{tierInfo.label}</span>
+            <span className="truncate font-medium text-muted">{tierInfo.label}</span>
             {checkedAgo && (
               <span className="shrink-0 text-[10px] text-faint" title="A desk agent last re-verified one of this company's figures from live sources at this time.">
                 · {checkedAgo}

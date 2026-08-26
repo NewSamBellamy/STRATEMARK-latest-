@@ -25,6 +25,7 @@ import { Modal } from '@/components/ui/Modal';
 import { AiCover } from '@/components/media/AiCover';
 import { DigDeeper } from '@/features/deepdive/DeepDive';
 import { useRepository } from '@/lib/repository/RepositoryProvider';
+import { isDirectSource, sourceHref } from '@/lib/sourceHref';
 import { cn } from '@/lib/cn';
 
 export type InsightTone = 'positive' | 'negative' | 'milestone' | 'roadmap';
@@ -158,10 +159,11 @@ export function InsightReader({
                   {expansion.citations.slice(0, 5).map((c, i) => (
                     <a
                       key={i}
-                      href={c.url}
+                      href={sourceHref(c.url, c.title)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-[11px] text-primary-ink hover:underline"
+                      title={isDirectSource(c.url) ? 'Read the source' : 'Find the original story'}
                     >
                       <ExternalLink className="h-3 w-3" />
                       {publisherOf(c.url, c.title)}

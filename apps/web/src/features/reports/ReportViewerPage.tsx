@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { isDirectSource, sourceHref } from '@/lib/sourceHref';
 import { Link, useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -240,10 +241,11 @@ export default function ReportViewerPage() {
                   {citations.map((c, i) => (
                     <li key={i}>
                       <a
-                        href={c.url}
+                        href={sourceHref(c.url, c.title)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-start gap-1.5 text-xs text-primary-ink hover:underline"
+                        title={isDirectSource(c.url) ? 'Read the source' : 'Find the original story'}
                       >
                         <ExternalLink className="mt-0.5 h-3 w-3 shrink-0" />
                         <span className="line-clamp-1">{c.title || c.url}</span>
