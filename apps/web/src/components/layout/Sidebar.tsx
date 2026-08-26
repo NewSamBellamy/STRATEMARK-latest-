@@ -144,6 +144,23 @@ export function Sidebar() {
             <span className={cn('h-2 w-2 rounded-full', hasKey ? 'bg-positive' : 'bg-neutral')} />
           </div>
         )}
+        {/* The build stamp: browsers cache the published app hard, and a stale
+            build reads as "you broke my features". One glance answers it —
+            if this time looks old, hard-refresh (Cmd/Ctrl+Shift+R). */}
+        {!collapsed && (
+          <p
+            className="mt-2 text-[9px] tabular-nums text-faint"
+            title="When this build was made. If features look missing, hard-refresh (Cmd/Ctrl+Shift+R) to pull the newest build."
+          >
+            build{' '}
+            {new Date(__BUILD_AT__).toLocaleString(undefined, {
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+            })}
+          </p>
+        )}
       </div>
     </aside>
   );

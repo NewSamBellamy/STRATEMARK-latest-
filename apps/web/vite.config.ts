@@ -15,6 +15,12 @@ const base = isElectron || singleFile ? './' : '/';
 export default defineConfig({
   plugins: [react(), ...(singleFile ? [viteSingleFile()] : [])],
   base,
+  // Visible build stamp: browsers cache the published single-file HTML hard,
+  // and a stale build looks exactly like "you broke my features". The stamp in
+  // the sidebar makes "which build am I on?" answerable in one glance.
+  define: {
+    __BUILD_AT__: JSON.stringify(new Date().toISOString()),
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
