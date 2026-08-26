@@ -3,7 +3,6 @@ import { ExternalLink } from 'lucide-react';
 import type { Product, RoadmapItem } from '@mi/contracts';
 import { useCompany, useDashboardTab } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
-import { PageShot } from '@/components/media/PageShot';
 import { AiCover } from '@/components/media/AiCover';
 import { Modal } from '@/components/ui/Modal';
 import { InsightReader } from '@/components/reader/InsightReader';
@@ -50,29 +49,18 @@ function ProductReader({
       description={`${companyName} · ${product.status}`}
     >
       <div className="space-y-4">
-        {hasUrl ? (
-          <a
-            href={product.url!}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block overflow-hidden rounded-xl border border-border bg-surface-2"
-            title={`Open ${product.name}'s official page`}
-          >
-            <PageShot url={product.url!} className="max-h-[260px] w-full object-cover object-top" />
-          </a>
-        ) : (
-          // No official page surfaced — a generated illustration of the
-          // product experience (nano banana, prompted from the research).
-          <div className="h-[180px] overflow-hidden rounded-xl border border-border">
-            <AiCover
-              cacheKey={`product:${companyName}:${product.name}`}
-              title={`${companyName} — ${product.name}`}
-              context={product.description}
-              url=""
-              source="news"
-            />
-          </div>
-        )}
+        {/* The card art: a generated illustration of the product experience,
+            prompted from the research (page captures kept hitting bot walls —
+            a CAPTCHA is not product art). */}
+        <div className="h-[200px] overflow-hidden rounded-xl border border-border">
+          <AiCover
+            cacheKey={`product:${companyName}:${product.name}`}
+            title={`${companyName} — ${product.name}`}
+            context={`Product card art. ${product.description} Depict the essence of using this product — the experience, the interface mood, the domain — as premium collectible-card artwork.`}
+            url={product.url ?? ''}
+            source="news"
+          />
+        </div>
         <p className="text-sm leading-relaxed text-content/90">{product.description}</p>
         {product.revenueNote && (
           <p className="rounded-lg border border-border bg-surface-2/60 px-3 py-2 text-[12px] text-muted">
@@ -180,12 +168,17 @@ export function ProductsRoadmapTab({ companyId }: { companyId: string }) {
                           </a>
                         )}
                       </div>
-                      {/* The product, seen: a live capture of its official page. */}
-                      {hasUrl && (
-                        <span className="hidden h-[76px] w-[120px] shrink-0 overflow-hidden rounded-lg border border-border bg-surface-2 sm:block">
-                          <PageShot url={p.url!} className="h-full w-full object-cover object-top" />
-                        </span>
-                      )}
+                      {/* The card art, in miniature — generated, never a CAPTCHA. */}
+                      <span className="hidden h-[76px] w-[120px] shrink-0 overflow-hidden rounded-lg border border-border sm:block">
+                        <AiCover
+                          cacheKey={`product:${name}:${p.name}`}
+                          title={`${name} — ${p.name}`}
+                          context={`Product card art. ${p.description} Depict the essence of using this product — the experience, the interface mood, the domain — as premium collectible-card artwork.`}
+                          url={p.url ?? ''}
+                          source="news"
+                          compact
+                        />
+                      </span>
                     </li>
                   );
                 })}

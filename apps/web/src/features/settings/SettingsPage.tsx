@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import {
   AlertTriangle,
+  BadgeCheck,
   CheckCircle2,
   Cloud,
   Cpu,
   ExternalLink,
   Loader2,
+  Monitor,
   ShieldCheck,
-  Sparkles,
   Trash2,
 } from 'lucide-react';
 import { createGeminiClient } from '@mi/research';
@@ -199,7 +200,7 @@ export default function SettingsPage() {
 
       <div className="panel mt-6 space-y-4 p-6">
         <div className="flex items-center gap-2">
-          <Cpu className="h-5 w-5 text-sky-400" />
+          <Cpu className="h-5 w-5 text-primary-ink" />
           <h2 className="font-display text-lg text-content">Research Execution Engine</h2>
         </div>
         <p className="text-sm text-muted">
@@ -211,12 +212,12 @@ export default function SettingsPage() {
             onClick={() => setEngine('cloud')}
             className={`flex flex-col items-start rounded-xl border p-4 text-left transition-all ${
               engine === 'cloud'
-                ? 'border-sky-500/50 bg-sky-500/10 ring-1 ring-sky-500/40'
+                ? 'border-primary/50 bg-primary/10 ring-1 ring-primary/40'
                 : 'border-border bg-surface-2 hover:border-border-strong'
             }`}
           >
             <div className="flex items-center gap-2 font-medium text-content text-sm">
-              <Cloud className="h-4 w-4 text-sky-400" />
+              <Cloud className="h-4 w-4 text-primary-ink" />
               <span>Sentinel Cloud Agent</span>
               {isPro && <span className="chip border-emerald-300 bg-emerald-50 text-emerald-700 text-[10px] py-0 px-1.5">Default (Pro)</span>}
             </div>
@@ -230,7 +231,7 @@ export default function SettingsPage() {
             onClick={() => setEngine('local')}
             className={`flex flex-col items-start rounded-xl border p-4 text-left transition-all ${
               engine === 'local'
-                ? 'border-sky-500/50 bg-sky-500/10 ring-1 ring-sky-500/40'
+                ? 'border-primary/50 bg-primary/10 ring-1 ring-primary/40'
                 : 'border-border bg-surface-2 hover:border-border-strong'
             }`}
           >
@@ -247,7 +248,7 @@ export default function SettingsPage() {
 
       <div className="panel mt-6 space-y-4 p-6">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-amber-500" />
+          <BadgeCheck className="h-5 w-5 text-primary-ink" />
           <h2 className="font-display text-lg text-content">Stratemark Pro Subscription</h2>
         </div>
         <p className="text-sm text-muted">
@@ -285,10 +286,9 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={() => openUpgradeModal('Upgrade to Stratemark Pro for unlimited AI market research.')}
-                  className="btn-primary flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-semibold"
+                  className="btn-primary"
                 >
-                  <Sparkles className="h-4 w-4" />
-                  <span>Upgrade to Pro — $49</span>
+                  Upgrade to Pro — $49
                 </button>
                 <button
                   type="button"
@@ -300,6 +300,30 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Where your research lives — and the desktop path for keeping it local. */}
+      <div className="panel mt-6 space-y-4 p-6">
+        <div className="flex items-center gap-2">
+          <Monitor className="h-5 w-5 text-primary-ink" />
+          <h2 className="font-display text-lg text-content">Storage & Desktop App</h2>
+        </div>
+        <p className="text-sm text-muted">
+          Right now your research lives in this browser (local storage) — your key and your data
+          never leave your machine. Pro subscribers will get cloud sync (Firestore) with the same
+          bring-your-own-key option.
+        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface-2 p-4">
+          <div>
+            <p className="text-sm font-semibold text-content">STRATEMARK Desktop</p>
+            <p className="mt-0.5 text-xs text-muted">
+              Everything fully local — your key in the OS keychain, your decks on your disk.
+            </p>
+          </div>
+          <span className="chip border-border bg-surface text-muted" title="Shipping with launch — the same app, packaged for desktop.">
+            Coming with launch
+          </span>
         </div>
       </div>
     </div>

@@ -6,6 +6,13 @@ import { History } from 'lucide-react';
 import { DigDeeperMenu } from '@/features/deepdive/DeepDive';
 import { InsightReader } from '@/components/reader/InsightReader';
 import { useRerunDashboardTab } from '@/hooks/data';
+import { WikiAvatar } from './LeaderGrid';
+
+/** "— Sam Altman, CEO (2024)" → "Sam Altman" for the headshot lookup. */
+function speakerNameOf(attribution: string): string | null {
+  const name = attribution.split(/[,(—–-]/)[0]?.trim() ?? '';
+  return /^[A-Z][\w.'-]+(\s+[A-Z][\w.'-]+){1,3}$/.test(name) ? name : null;
+}
 
 export function HistoryTab({ companyId }: { companyId: string }) {
   const expand = useRerunDashboardTab(companyId, 'history');
@@ -95,13 +102,25 @@ export function HistoryTab({ companyId }: { companyId: string }) {
               <div className="panel h-fit p-5">
                 <h3 className="font-display text-sm font-semibold text-content">Notable quotes</h3>
                 <ul className="mt-3 space-y-4">
-                  {c.quotes.map((q, i) => (
-                    <li key={i} className="text-sm">
-                      <Quote className="h-4 w-4 text-muted" />
-                      <p className="mt-1 italic text-content">{q.text}</p>
-                      {q.attribution && <p className="mt-1 text-xs text-muted">— {q.attribution}</p>}
-                    </li>
-                  ))}
+                  {c.quotes.map((q, i) => {
+                    const speaker = q.attribution ? speakerNameOf(q.attribution) : null;
+                    return (
+                      <li key={i} className="text-sm">
+                        <Quote className="h-4 w-4 text-muted" />
+                        <p className="mt-1 italic text-content">{q.text}</p>
+                        {q.attribution && (
+                          <span className="mt-2 flex items-center gap-2">
+                            {/* The face behind the words — verified headshot or
+                                clean initials, same honesty gate as leadership. */}
+                            {speaker && (
+                              <WikiAvatar name={speaker} companyName={name} size="sm" />
+                            )}
+                            <span className="text-xs text-muted">— {q.attribution}</span>
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             </div>
