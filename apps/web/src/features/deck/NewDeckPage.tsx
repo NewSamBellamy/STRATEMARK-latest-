@@ -20,7 +20,7 @@ import {
   ScanSearch,
   TrendingUp,
   X,
-  Zap,
+  Cpu,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { runCloudResearchDeck } from '@/lib/sentinelApi';
@@ -218,7 +218,7 @@ function EnginePicker({
           </>
         ) : (
           <>
-            <Zap className="h-3 w-3 text-amber-500" />
+            <Cpu className="h-3 w-3 text-muted" />
             <span>Local Engine</span>
           </>
         )}
@@ -238,7 +238,7 @@ function EnginePicker({
               value === 'local' && 'bg-surface-2 font-medium',
             )}
           >
-            <Zap className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+            <Cpu className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted" />
             <div>
               <div className="font-medium text-content">Local Engine</div>
               <div className="text-[11px] text-faint">In-browser Gemini API processing</div>

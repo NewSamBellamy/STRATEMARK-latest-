@@ -49,6 +49,14 @@ import { EmptyState } from '@/components/states/EmptyState';
 import { CardGrid } from './CardGrid';
 import { TierBadge } from '@/features/card/TierBadge';
 
+/**
+ * Retired for now (founder's call): Vice and Culture read as too ambiguous
+ * next to company cards. Barrier and Insight stay. Cards remain in storage —
+ * this is a display retirement, reversible by deleting two entries.
+ */
+const HIDDEN_CARD_TYPES: ReadonlySet<CardType> = new Set(['vice', 'culture'] as CardType[]);
+const VISIBLE_CARD_TYPE_ORDER = CARD_TYPE_ORDER.filter((t) => !HIDDEN_CARD_TYPES.has(t));
+
 /** Human count noun per card type — fixes the old "20 company companies" bug. */
 function cardCountNoun(type: CardType, count: number): string {
   const one: Record<CardType, string> = {
@@ -117,7 +125,10 @@ export default function DeckPage() {
   const split = params.get('split'); // 'types' | 'company' | null
   const typeParam = params.get('type') as CardType | null;
 
-  const all = useMemo(() => cards.data ?? [], [cards.data]);
+  const all = useMemo(
+    () => (cards.data ?? []).filter((c) => !HIDDEN_CARD_TYPES.has(c.card.cardType)),
+    [cards.data],
+  );
   const living = useLivingDeck(deckId, all);
   const { share: shareDeck, status: shareStatus } = useShareAction();
 
@@ -303,7 +314,7 @@ export default function DeckPage() {
           if (split === 'types') {
             return (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {CARD_TYPE_ORDER.map((t) => (
+                {VISIBLE_CARD_TYPE_ORDER.map((t) => (
                   <SubDeckTile
                     key={t}
                     type={t}
@@ -530,7 +541,7 @@ function TypeNav({
 }) {
   const counts = new Map<CardType, number>();
   for (const c of cards) counts.set(c.card.cardType, (counts.get(c.card.cardType) ?? 0) + 1);
-  const present = CARD_TYPE_ORDER.filter((t) => (counts.get(t) ?? 0) > 0);
+  const present = VISIBLE_CARD_TYPE_ORDER.filter((t) => (counts.get(t) ?? 0) > 0);
   if (present.length <= 1 && !onToggleSplit) return null;
 
   const Tab = ({

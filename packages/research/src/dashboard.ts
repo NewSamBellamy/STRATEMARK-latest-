@@ -137,7 +137,7 @@ export async function researchDashboardTab<T extends DashboardTab>(
       // hungry, not unbounded.
       const MIN_LEADERS = 5;
       const g = await client.ground(
-        `Identify the leadership and key org structure of ${ctx(args)} — founders, C-suite, and heads of product/AI/design where known. Note who reports to whom, and for each person one or two sentences of reported background (prior roles, tenure, what they own) where the sources actually say it.`,
+        `Identify the leadership and key org structure of ${ctx(args)} — founders, C-suite, and heads of product/AI/design where known. Note who reports to whom, and for each person one or two sentences of reported background (prior roles, tenure, what they own) where the sources actually say it. TITLES MUST BE CURRENT AND COMPLETE: use each person's exact present title as recent sources report it — a "President & CEO" must carry both, a departed executive must not appear at all. When sources disagree, prefer the most recent.`,
         system,
       );
       let notes = g.text;

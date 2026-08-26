@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useDemo } from '@/lib/demo/DemoContext';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { Sparkles, CheckCircle2, ShieldCheck, Zap, X, Loader2 } from 'lucide-react';
+import { Sparkles, CheckCircle2, ShieldCheck, X, Loader2 } from 'lucide-react';
 
 export function UpgradeModal() {
   const { isUpgradeModalOpen, closeUpgradeModal, upgradeReason } = useDemo();
@@ -76,7 +76,7 @@ export function UpgradeModal() {
 
         {upgradeReason && (
           <div className="mb-5 rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 text-sm text-amber-300 flex items-start gap-2">
-            <Zap className="w-4 h-4 mt-0.5 shrink-0 text-amber-400" />
+            <Sparkles className="w-4 h-4 mt-0.5 shrink-0 text-primary-ink" />
             <span>{upgradeReason}</span>
           </div>
         )}

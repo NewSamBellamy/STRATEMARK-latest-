@@ -1,10 +1,13 @@
+import { useState } from 'react';
 import { ExternalLink } from 'lucide-react';
 import type { Product, RoadmapItem } from '@mi/contracts';
 import { useCompany, useDashboardTab } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { PageShot } from '@/components/media/PageShot';
+import { Modal } from '@/components/ui/Modal';
+import { InsightReader } from '@/components/reader/InsightReader';
+import { DigDeeper, DigDeeperMenu } from '@/features/deepdive/DeepDive';
 import { cn } from '@/lib/cn';
-import { DigDeeperMenu } from '@/features/deepdive/DeepDive';
 
 const STATUS_STYLE: Record<Product['status'], string> = {
   live: 'border-emerald-300 text-emerald-700 bg-emerald-50',
@@ -23,9 +26,74 @@ const HORIZONS: {
   { key: 'later', label: 'Later', accent: 'text-slate-600 border-slate-200 bg-slate-50/60', dot: 'bg-slate-400' },
 ];
 
+/** The product, opened like a newsletter feature: capture, paragraph, link. */
+function ProductReader({
+  product,
+  companyId,
+  companyName,
+  onClose,
+}: {
+  product: Product;
+  companyId: string;
+  companyName: string;
+  onClose: () => void;
+}) {
+  const hasUrl = !!product.url && /^https?:\/\//.test(product.url);
+  return (
+    <Modal
+      open
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+      title={product.name}
+      description={`${companyName} · ${product.status}`}
+    >
+      <div className="space-y-4">
+        {hasUrl && (
+          <a
+            href={product.url!}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block overflow-hidden rounded-xl border border-border bg-surface-2"
+            title={`Open ${product.name}'s official page`}
+          >
+            <PageShot url={product.url!} className="max-h-[260px] w-full object-cover object-top" />
+          </a>
+        )}
+        <p className="text-sm leading-relaxed text-content/90">{product.description}</p>
+        {product.revenueNote && (
+          <p className="rounded-lg border border-border bg-surface-2/60 px-3 py-2 text-[12px] text-muted">
+            <span className="font-semibold text-content">Reported revenue role:</span>{' '}
+            {product.revenueNote}
+          </p>
+        )}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+          {hasUrl ? (
+            <a href={product.url!} target="_blank" rel="noopener noreferrer" className="btn-primary">
+              <ExternalLink className="h-4 w-4" />
+              Open the product
+            </a>
+          ) : (
+            <span className="text-[11px] text-faint">No official page surfaced yet.</span>
+          )}
+          <DigDeeper
+            topic={`${product.name} — product deep dive`}
+            companyId={companyId}
+            companyName={companyName}
+            context={`${companyName}'s product "${product.name}": ${product.description}. Research its positioning, pricing, adoption, and how it fits the company's strategy — grounded and current.`}
+            label="Research this product"
+          />
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 export function ProductsRoadmapTab({ companyId }: { companyId: string }) {
   const query = useDashboardTab(companyId, 'products_roadmap');
   const name = useCompany(companyId).data?.name ?? 'this company';
+  const [openProduct, setOpenProduct] = useState<Product | null>(null);
+  const [openRoadmap, setOpenRoadmap] = useState<RoadmapItem | null>(null);
   return (
     <QueryBoundary query={query}>
       {(result) => {
@@ -51,7 +119,20 @@ export function ProductsRoadmapTab({ companyId }: { companyId: string }) {
                 {c.products.map((p, i) => {
                   const hasUrl = !!p.url && /^https?:\/\//.test(p.url);
                   return (
-                    <li key={p.name} className="panel flex items-start gap-3.5 p-4">
+                    <li
+                      key={p.name}
+                      className="panel flex cursor-pointer items-start gap-3.5 p-4 transition-all hover:-translate-y-px hover:shadow-card-hover"
+                      onClick={() => setOpenProduct(p)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setOpenProduct(p);
+                        }
+                      }}
+                      title="Open this product — capture, full description, research"
+                    >
                       <span
                         className={cn(
                           'mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg font-display text-sm font-bold',
@@ -78,6 +159,7 @@ export function ProductsRoadmapTab({ companyId }: { companyId: string }) {
                             href={p.url!}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
                             className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-primary-ink hover:underline"
                           >
                             <ExternalLink className="h-3 w-3" />
@@ -87,15 +169,9 @@ export function ProductsRoadmapTab({ companyId }: { companyId: string }) {
                       </div>
                       {/* The product, seen: a live capture of its official page. */}
                       {hasUrl && (
-                        <a
-                          href={p.url!}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="hidden h-[76px] w-[120px] shrink-0 overflow-hidden rounded-lg border border-border bg-surface-2 transition-transform hover:scale-[1.02] sm:block"
-                          title={`Open ${p.name}'s official page`}
-                        >
+                        <span className="hidden h-[76px] w-[120px] shrink-0 overflow-hidden rounded-lg border border-border bg-surface-2 sm:block">
                           <PageShot url={p.url!} className="h-full w-full object-cover object-top" />
-                        </a>
+                        </span>
                       )}
                     </li>
                   );
@@ -124,15 +200,22 @@ export function ProductsRoadmapTab({ companyId }: { companyId: string }) {
                             {i < items.length - 1 && (
                               <span className="absolute bottom-0 left-[3.5px] top-4 w-px bg-border" />
                             )}
-                            <div className="flex items-baseline justify-between gap-2">
-                              <span className="text-sm font-medium text-content">{r.title}</span>
-                              {r.date && (
-                                <span className="shrink-0 text-[10px] font-bold tabular-nums text-primary-ink">
-                                  {r.date}
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-xs text-muted">{r.detail}</div>
+                            <button
+                              type="button"
+                              className="w-full rounded-md text-left transition-colors hover:bg-surface-2/70"
+                              title="Open this roadmap item — the full gist, plus grounded research"
+                              onClick={() => setOpenRoadmap(r)}
+                            >
+                              <div className="flex items-baseline justify-between gap-2">
+                                <span className="text-sm font-medium text-content">{r.title}</span>
+                                {r.date && (
+                                  <span className="shrink-0 text-[10px] font-bold tabular-nums text-primary-ink">
+                                    {r.date}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="line-clamp-2 text-xs text-muted">{r.detail}</div>
+                            </button>
                           </li>
                         ))}
                         {items.length === 0 && (
@@ -144,6 +227,28 @@ export function ProductsRoadmapTab({ companyId }: { companyId: string }) {
                 })}
               </div>
             </section>
+
+            {openProduct && (
+              <ProductReader
+                product={openProduct}
+                companyId={companyId}
+                companyName={name}
+                onClose={() => setOpenProduct(null)}
+              />
+            )}
+            {openRoadmap && (
+              <InsightReader
+                open
+                onClose={() => setOpenRoadmap(null)}
+                tone="roadmap"
+                title={openRoadmap.title}
+                date={openRoadmap.date ?? null}
+                body={openRoadmap.detail ?? null}
+                companyId={companyId}
+                companyName={name}
+                researchSeed={`${name}'s announced roadmap item: "${openRoadmap.title}"${openRoadmap.date ? ` (${openRoadmap.date})` : ''}. Research the full story with grounded sources: what exactly was announced, by whom, the timeline, and what it signals about their strategy.`}
+              />
+            )}
           </div>
         );
       }}

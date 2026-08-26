@@ -103,10 +103,11 @@ export function LiveLandingTab({ companyId }: { companyId: string }) {
                 {name}’s live website, captured for a first-hand look at how they present
                 themselves right now — audit the messaging or open the site directly.
               </p>
-              <div className="flex items-center gap-2">
+              {/* Compact actions (the full-size trio read as overwhelming). */}
+              <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  className="btn-ghost"
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-muted transition-colors hover:bg-surface-2 hover:text-content"
                   title="Grounded audit of this landing page: positioning, message, conversion"
                   onClick={() =>
                     chat(
@@ -117,22 +118,27 @@ export function LiveLandingTab({ companyId }: { companyId: string }) {
                     )
                   }
                 >
-                  <ClipboardCheck className="h-4 w-4" />
-                  Audit this page
+                  <ClipboardCheck className="h-3.5 w-3.5" />
+                  Audit
                 </button>
                 {embeddable && (
                   <button
                     type="button"
-                    className="btn-ghost"
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-muted transition-colors hover:bg-surface-2 hover:text-content"
                     onClick={() => setTryEmbed((v) => !v)}
                     title="Attempt an interactive in-app embed (some sites block this)"
                   >
-                    <MonitorPlay className="h-4 w-4" />
-                    {tryEmbed ? 'Back to preview' : 'Try live embed'}
+                    <MonitorPlay className="h-3.5 w-3.5" />
+                    {tryEmbed ? 'Preview' : 'Live embed'}
                   </button>
                 )}
-                <a href={url} target="_blank" rel="noopener noreferrer" className="btn-ghost">
-                  <ExternalLink className="h-4 w-4" />
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-muted transition-colors hover:bg-surface-2 hover:text-content"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
                   Open site
                 </a>
               </div>

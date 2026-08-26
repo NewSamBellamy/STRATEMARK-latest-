@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Banknote, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { useCompany, useDashboardTab } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { DigDeeperMenu } from '@/features/deepdive/DeepDive';
+import { InsightReader, type InsightTone } from '@/components/reader/InsightReader';
 import { WikiAvatar } from './LeaderGrid';
 
 const INVESTOR_KIND_LABEL: Record<string, string> = {
@@ -23,6 +25,8 @@ function fmtUsd(value: number): string {
 export function MissionGovernanceTab({ companyId }: { companyId: string }) {
   const query = useDashboardTab(companyId, 'mission_governance');
   const name = useCompany(companyId).data?.name ?? 'this company';
+  // Click a signal → it opens as its own readable card (the deck-of-cards gist).
+  const [openSignal, setOpenSignal] = useState<{ tone: InsightTone; text: string } | null>(null);
   return (
     <QueryBoundary query={query}>
       {(result) => {
@@ -130,14 +134,25 @@ export function MissionGovernanceTab({ companyId }: { companyId: string }) {
               </div>
             )}
 
-            {/* Balanced view of positive and negative actions (spec §8). */}
+            {/* Balanced view of positive and negative actions (spec §8).
+                Every signal opens as its own readable card — click to expand. */}
             <div className="panel p-5">
               <h3 className="flex items-center gap-2 font-display text-sm font-semibold text-positive">
                 <ThumbsUp className="h-4 w-4" /> Positive signals
               </h3>
-              <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-muted">
+              <ul className="mt-2 space-y-1">
                 {c.positives.map((p, i) => (
-                  <li key={i}>{p}</li>
+                  <li key={i}>
+                    <button
+                      type="button"
+                      className="w-full rounded-md px-2 py-1 text-left text-sm text-muted transition-colors hover:bg-emerald-50/60 hover:text-content dark:hover:bg-emerald-950/30"
+                      title="Open as a card — full text + grounded research"
+                      onClick={() => setOpenSignal({ tone: 'positive', text: p })}
+                    >
+                      <span className="mr-1.5 text-positive">•</span>
+                      {p}
+                    </button>
+                  </li>
                 ))}
               </ul>
             </div>
@@ -145,12 +160,35 @@ export function MissionGovernanceTab({ companyId }: { companyId: string }) {
               <h3 className="flex items-center gap-2 font-display text-sm font-semibold text-negative">
                 <ThumbsDown className="h-4 w-4" /> Concerns
               </h3>
-              <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-muted">
+              <ul className="mt-2 space-y-1">
                 {c.negatives.map((n, i) => (
-                  <li key={i}>{n}</li>
+                  <li key={i}>
+                    <button
+                      type="button"
+                      className="w-full rounded-md px-2 py-1 text-left text-sm text-muted transition-colors hover:bg-rose-50/60 hover:text-content dark:hover:bg-rose-950/30"
+                      title="Open as a card — full text + grounded research"
+                      onClick={() => setOpenSignal({ tone: 'negative', text: n })}
+                    >
+                      <span className="mr-1.5 text-negative">•</span>
+                      {n}
+                    </button>
+                  </li>
                 ))}
               </ul>
             </div>
+
+            {openSignal && (
+              <InsightReader
+                open
+                onClose={() => setOpenSignal(null)}
+                tone={openSignal.tone}
+                title={openSignal.text.length > 90 ? `${openSignal.text.slice(0, 90)}…` : openSignal.text}
+                body={openSignal.text}
+                companyId={companyId}
+                companyName={name}
+                researchSeed={`Reported ${openSignal.tone === 'positive' ? 'positive signal' : 'concern'} about ${name}: "${openSignal.text}". Verify it with grounded current sources, expand the full story behind it (what happened, when, who reported it), and assess how material it is.`}
+              />
+            )}
           </div>
         );
       }}

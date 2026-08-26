@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Cloud, MapPin, PlusCircle, Trash2, Zap } from 'lucide-react';
+import { ArrowRight, Cloud, Cpu, MapPin, PlusCircle, Trash2 } from 'lucide-react';
 import { useDeleteDeck, useMarkets } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { CardGridSkeleton } from '@/components/states/Skeleton';
@@ -107,7 +107,7 @@ export default function MarketsListPage() {
               {localDecks.length > 0 && (
                 <section>
                   <div className="mb-3 flex items-center gap-2 border-b border-border/60 pb-2">
-                    <Zap className="h-4 w-4 text-amber-500" />
+                    <Cpu className="h-4 w-4 text-muted" />
                     <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-muted">
                       Local Engine Decks ({localDecks.length})
                     </h2>

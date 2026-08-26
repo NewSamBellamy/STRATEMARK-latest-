@@ -9,7 +9,6 @@ import {
   ShieldCheck,
   Sparkles,
   Trash2,
-  Zap,
 } from 'lucide-react';
 import { createGeminiClient } from '@mi/research';
 import { looksLikeGeminiKey, sanitizeApiKey, useApiKey } from '@/lib/settings/apiKey';
@@ -236,7 +235,7 @@ export default function SettingsPage() {
             }`}
           >
             <div className="flex items-center gap-2 font-medium text-content text-sm">
-              <Zap className="h-4 w-4 text-amber-400" />
+              <Cpu className="h-4 w-4 text-muted" />
               <span>Local Engine</span>
             </div>
             <p className="mt-2 text-xs text-muted leading-relaxed">
