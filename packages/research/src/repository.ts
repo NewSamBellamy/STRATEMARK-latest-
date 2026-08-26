@@ -41,6 +41,8 @@ import {
   type Report,
   type ReportRequest,
   type SavedCard,
+  type SiteAuditContent,
+  type SiteAuditInput,
   type Deck,
   type DeckRefreshEvent,
   type DeckRefreshListener,
@@ -71,7 +73,7 @@ import { researchMarketSignals } from './signal-agents';
 import { mapWithConcurrency, throwIfAborted } from './util';
 import { expandDeckWithDeltaAgent } from './delta-agent';
 import { CHAT_SYSTEM, GROUNDED_SYSTEM, STRUCTURE_SYSTEM } from './prompts';
-import { briefingOutSchema, factCheckOutSchema, huntMetricsOutSchema, verifyMetricOutSchema } from './schemas';
+import { briefingOutSchema, factCheckOutSchema, huntMetricsOutSchema, siteAuditOutSchema, verifyMetricOutSchema } from './schemas';
 import type { LlmClient, ResearchCoverage, RunResearchOptions } from './types';
 
 interface CachedTab {
@@ -1608,6 +1610,25 @@ export class GeminiRepository implements MarketIntelRepository {
     return updatedIds;
   }
 
+  /**
+   * Deck-level artifacts (reports, briefings) wait for the deck to finish
+   * forming — but only while research is ACTIVELY running. A finished deck
+   * whose odd card carries no tier (a company with zero sourced metrics is an
+   * honest blank, not an unfinished one) must never deadlock the gate.
+   */
+  private assertDeckSettled(deckId: string, artifact: string): void {
+    const cards = this.snap.cards.filter((c) => c.deckId === deckId);
+    const baked = deckBakedState(cards);
+    const active = this.snap.researchJobs.some(
+      (j) => j.deck?.id === deckId && (j.status === 'running' || j.status === 'queued'),
+    );
+    if (active && !baked.baked) {
+      throw new Error(
+        `Deck still forming (${baked.formed}/${baked.total} cards baked) — the ${artifact} waits until every card is done.`,
+      );
+    }
+  }
+
   async generateReport(request: ReportRequest): Promise<Report> {
     let title = 'Research Report';
     let digest = '';
@@ -1615,6 +1636,9 @@ export class GeminiRepository implements MarketIntelRepository {
       const deck = this.snap.decks.find((d) => d.id === request.subjectId);
       const market = deck ? this.snap.markets.find((m) => m.id === deck.marketId) : null;
       if (!deck || !market) throw new Error('Deck not found for report');
+      // Reports are gated the same way briefings are: digesting a
+      // half-researched deck would launder skeletons into prose.
+      this.assertDeckSettled(deck.id, 'report');
       title = `${market.name} — Market Report`;
       const cards = this.snap.cards.filter((c) => c.deckId === deck.id);
       const lines: string[] = [`MARKET: ${market.name} (${market.scopeDefinition.vertical})`];
@@ -1727,14 +1751,10 @@ export class GeminiRepository implements MarketIntelRepository {
     if (!market || !deck) throw new Error('Deck not found for briefing');
 
     const deckCards = this.snap.cards.filter((c) => c.deckId === deck.id);
-    const baked = deckBakedState(deckCards);
-    if (!baked.baked) {
-      throw new Error(
-        baked.total === 0
-          ? 'This deck has no company cards yet — run research first.'
-          : `Deck still forming (${baked.formed}/${baked.total} cards baked) — the briefing waits until every card is done.`,
-      );
+    if (deckBakedState(deckCards).total === 0) {
+      throw new Error('This deck has no company cards yet — run research first.');
     }
+    this.assertDeckSettled(deck.id, 'briefing');
 
     const windowHours = Math.max(1, Math.min(24 * 14, opts?.windowHours ?? 24));
     const companies = deckCards
@@ -1829,6 +1849,118 @@ export class GeminiRepository implements MarketIntelRepository {
 
   listDeckBriefings(marketId: string): Promise<DeckBriefing[]> {
     return Promise.resolve(this.snap.briefings.filter((b) => b.marketId === marketId));
+  }
+
+  // Site Audit ----------------------------------------------------------------
+
+  /**
+   * The landing-page teardown. One grounded pass reads how the site presents
+   * itself (its copy, offers, coverage, reviews) through a senior CRO/UX
+   * auditor's framework — the canon: five-second value-prop clarity, message
+   * match, call-to-action strength, trust & social proof, visual hierarchy,
+   * findability. Structured for the visual report; every claim keeps its
+   * sources and junk domains are filtered, the same as everywhere else.
+   */
+  async auditSite(input: SiteAuditInput): Promise<Report> {
+    const url = /^https?:\/\//i.test(input.url) ? input.url.trim() : `https://${input.url.trim()}`;
+    let host = url;
+    try {
+      host = new URL(url).hostname.replace(/^www\./, '');
+    } catch {
+      /* keep raw */
+    }
+    const name = input.siteName?.trim() || host;
+
+    const g = await this.client.ground(
+      [
+        `You are a senior conversion-rate-optimization and UX auditor — the kind agencies bill five figures for. Audit the landing page at ${url} ("${name}").`,
+        `Use Google Search to learn what the page actually says and shows (its headline, offers, pricing, copy), how the company presents itself, and how the site is discussed, reviewed, and found.`,
+        `Score SIX areas from 1-10, each with a one-sentence verdict grounded in evidence:`,
+        `1. VALUE PROPOSITION — would a first-time visitor pass the five-second test? Is the promise concrete and differentiated?`,
+        `2. MESSAGING & COPY — specificity over buzzwords; does the copy match how customers and coverage describe the product?`,
+        `3. CALLS TO ACTION — is the next step obvious, low-friction, and worth taking?`,
+        `4. TRUST & SOCIAL PROOF — logos, reviews, numbers, security signals; is the claim load carried by evidence?`,
+        `5. DESIGN & VISUAL HIERARCHY — does the visual language guide the eye and match the brand's price point?`,
+        `6. FINDABILITY / SEO FUNDAMENTALS — how the site surfaces in search, what it ranks for, obvious gaps.`,
+        `Then report:`,
+        `WHAT'S WORKING — the specific elements doing their job (quote real headlines/claims when sources show them).`,
+        `WHAT'S MISSING — the gaps costing conversions, trust, or traffic; for EACH gap name its concrete impact.`,
+        `DESIGN STYLE — describe the visual language plainly: palette, typography vibe, density, what era/register it reads as.`,
+        `TEST FIRST — the 3-5 highest-leverage experiments (hypothesis + why it should move the number).`,
+        `Honesty rules: never invent page elements you cannot support from search evidence; when you can't verify something, say so instead of guessing.`,
+      ].join('\n'),
+      { system: GROUNDED_SYSTEM },
+    );
+
+    const out = await this.client.structure(
+      [
+        `Extract the audit notes into JSON: { "scores": [{ "area": "value_proposition"|"messaging"|"cta"|"trust"|"design"|"seo", "score": 1-10, "verdict": string }], "working": [{ "title", "detail" }], "missing": [{ "title", "detail", "impact": string|null }], "designSummary": string, "designNotes": string[], "testFirst": [{ "title", "detail" }] }.`,
+        `Copy scores and claims EXACTLY as the notes state them. Keep titles tight (a few words) and details to 1-3 sentences.`,
+        ``,
+        `NOTES:`,
+        g.text,
+      ].join('\n'),
+      siteAuditOutSchema,
+      { system: STRUCTURE_SYSTEM },
+    );
+
+    const clamp = (n: number): number => Math.min(10, Math.max(1, Math.round(n)));
+    const scores = out.scores.map((x) => ({ area: x.area, score: clamp(x.score), verdict: x.verdict.trim() }));
+    const overall =
+      scores.length > 0
+        ? Math.round((scores.reduce((sum, x) => sum + x.score, 0) / scores.length) * 10)
+        : 0;
+    const trimFindings = <T extends { title: string; detail: string }>(list: T[]): T[] =>
+      list.filter((f) => f.title.trim() || f.detail.trim()).slice(0, 8);
+
+    const audit: SiteAuditContent = {
+      url,
+      siteName: name,
+      overall,
+      scores,
+      working: trimFindings(out.working),
+      missing: trimFindings(out.missing),
+      designStyle: {
+        summary: out.designSummary.trim(),
+        notes: out.designNotes.map((x) => x.trim()).filter(Boolean).slice(0, 6),
+      },
+      testFirst: trimFindings(out.testFirst).slice(0, 5),
+    };
+
+    const citations = usableCitations(g.citations).filter((c) => !isJunkSource(c.url, c.title));
+    const title = `${name} — Site Audit`;
+    // A faithful markdown twin so the .md export and share paths keep working.
+    const markdown = [
+      `## Scorecard (overall ${overall}/100)`,
+      ...audit.scores.map((x) => `- **${x.area.replace(/_/g, ' ')}** — ${x.score}/10. ${x.verdict}`),
+      ``,
+      `## What's working`,
+      ...audit.working.map((f) => `- **${f.title}** — ${f.detail}`),
+      ``,
+      `## What's missing`,
+      ...audit.missing.map((f) => `- **${f.title}** — ${f.detail}${f.impact ? ` _Impact: ${f.impact}_` : ''}`),
+      ``,
+      `## Design style`,
+      audit.designStyle.summary,
+      ...audit.designStyle.notes.map((n) => `- ${n}`),
+      ``,
+      `## Test first`,
+      ...audit.testFirst.map((f, i) => `${i + 1}. **${f.title}** — ${f.detail}`),
+    ].join('\n');
+
+    const report: Report = {
+      id: `rpt_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+      kind: 'site_audit',
+      subjectId: input.companyId ?? url,
+      title,
+      markdown,
+      citations,
+      audit,
+      createdAt: new Date().toISOString(),
+    };
+    this.snap.reports = [report, ...this.snap.reports];
+    this.persist();
+    return report;
   }
 
   // Research conversations ---------------------------------------------------

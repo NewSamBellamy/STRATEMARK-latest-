@@ -5,6 +5,9 @@ import remarkGfm from 'remark-gfm';
 import { ArrowDown, ArrowLeft, ArrowUp, Download, ExternalLink, Presentation, Printer } from 'lucide-react';
 import { TIER_LABELS, type CardWithCompany, type MaturityTier, type MetricType } from '@mi/contracts';
 import { useCards, useReport } from '@/hooks/data';
+import { SiteAuditView } from './SiteAuditView';
+import { AiCover } from '@/components/media/AiCover';
+import { printScoped } from '@/lib/print';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { formatMetricValue, formatRelative } from '@/lib/format';
 import { METRIC_COLORS, TIER_COLORS, tint } from '@/lib/theme';
@@ -133,25 +136,30 @@ export default function ReportViewerPage() {
 
   return (
     <div className="mx-auto max-w-4xl">
-      <Link to="/reports" className="no-print mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-content">
+      <Link to="/reports" className="brf-no-print mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-content">
         <ArrowLeft className="h-4 w-4" />
         Reports
       </Link>
 
       <QueryBoundary query={report}>
         {(r) => {
+          if (r.kind === 'site_audit' && r.audit) return <SiteAuditView report={r} audit={r.audit} />;
           const markdown = typeof r.markdown === 'string' ? r.markdown : '';
           const citations = Array.isArray(r.citations) ? r.citations : [];
           return (
-          <article className="panel p-6">
-            <header className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-border pb-4">
+          <article className="brf-print-root panel p-6">
+            <header className="mb-4 border-y-[3px] border-double border-content/70 py-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h1 className="font-display text-2xl font-semibold text-content">{r.title}</h1>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-muted">
+                  Stratemark · {r.kind === 'deck' ? 'Market Report' : 'Company Report'}
+                </p>
+                <h1 className="mt-1 font-display text-2xl font-bold tracking-tight text-content sm:text-3xl">{r.title}</h1>
                 <p className="mt-1 text-xs text-muted">
                   Generated {formatRelative(r.createdAt)} · {citations.length} sources
                 </p>
               </div>
-              <div className="no-print flex flex-wrap gap-2">
+              <div className="brf-no-print flex flex-wrap gap-2">
                 {r.kind === 'deck' && (
                   <button
                     type="button"
@@ -175,7 +183,7 @@ export default function ReportViewerPage() {
                     {exporting ? 'Building…' : 'Export .pptx'}
                   </button>
                 )}
-                <button type="button" className="btn-ghost" onClick={() => window.print()} title="Print or save as PDF">
+                <button type="button" className="btn-ghost" onClick={printScoped} title="Print or save as PDF">
                   <Printer className="h-4 w-4" />
                   PDF
                 </button>
@@ -198,7 +206,21 @@ export default function ReportViewerPage() {
                   .md
                 </button>
               </div>
+              </div>
             </header>
+
+            {/* The report's face: generated from ITS OWN title + evidence, so a
+                wall of text opens with an image instead (owner-key only;
+                designed fallback otherwise). */}
+            <div className="mb-5 h-[160px] overflow-hidden rounded-xl border border-border">
+              <AiCover
+                cacheKey={`report:${r.id}`}
+                title={r.title}
+                context={`Editorial cover illustration for a market-intelligence report titled "${r.title}". ${(r.evidenceDigest ?? markdown).slice(0, 240)}`}
+                url={citations[0]?.url ?? ''}
+                source="news"
+              />
+            </div>
 
             {r.kind === 'deck' && <LandscapeTable deckId={r.subjectId} />}
 

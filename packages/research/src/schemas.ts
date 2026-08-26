@@ -249,3 +249,32 @@ export const briefingOutSchema = z.preprocess(
     insights: z.array(z.string()).default([]),
   }),
 );
+
+/**
+ * Output of the site audit pass (auditSite): a CRO/UX teardown structured for
+ * the visual report. Scores clamp engine-side; permissive defaults keep a
+ * partial answer rendering honestly instead of crashing.
+ */
+const auditFindingSchema = z.object({
+  title: z.string().default(''),
+  detail: z.string().default(''),
+});
+
+export const siteAuditOutSchema = z.object({
+  scores: z
+    .array(
+      z.object({
+        area: z.enum(['value_proposition', 'messaging', 'cta', 'trust', 'design', 'seo']),
+        score: z.number().default(5),
+        verdict: z.string().default(''),
+      }),
+    )
+    .default([]),
+  working: z.array(auditFindingSchema).default([]),
+  missing: z
+    .array(auditFindingSchema.extend({ impact: z.string().nullable().default(null) }))
+    .default([]),
+  designSummary: z.string().default(''),
+  designNotes: z.array(z.string()).default([]),
+  testFirst: z.array(auditFindingSchema).default([]),
+});
