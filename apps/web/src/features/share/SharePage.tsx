@@ -17,6 +17,8 @@ import {
 } from '@mi/contracts';
 import { decodeSharePayload, sharedToCardWithCompany, type SharePayload } from '@/lib/share/codec';
 import { GameCard } from '@/features/card/GameCard';
+import { BriefingUnboxing } from '@/features/briefing/BriefingUnboxing';
+import { BriefingReport, type BriefingView } from '@/features/briefing/BriefingReport';
 import { Logo } from '@/features/card/Logo';
 import { ConfidenceBadge } from '@/features/card/ConfidenceBadge';
 import { Modal } from '@/components/ui/Modal';
@@ -176,6 +178,95 @@ function SharedReader({
   );
 }
 
+/**
+ * A shared Daily Briefing: the recipient gets the full unboxing moment, then
+ * the editorial report (deterministic covers — the AI layer never ships in a
+ * link), then the evidence cards the briefing stands on.
+ */
+function SharedBriefingView({
+  payload,
+  cards,
+}: {
+  payload: SharePayload & { briefing: NonNullable<SharePayload['briefing']> };
+  cards: CardWithCompany[];
+}) {
+  const b = payload.briefing;
+  const [opened, setOpened] = useState(false);
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
+  const view: BriefingView = {
+    marketName: payload.market ?? 'Market briefing',
+    generatedAt: b.at,
+    windowHours: b.w,
+    headline: b.h,
+    insights: b.i,
+    updates: b.u.map((upd) => ({
+      companyName: upd.n,
+      companyId: null,
+      signal: upd.s === 'h' ? 'high' : 'notable',
+      oneLiner: upd.o,
+      detail: upd.d,
+      publishedDate: upd.p,
+      citations: upd.c.map((cit) => ({ title: cit.t, url: cit.u })),
+    })),
+  };
+  const highs = view.updates.filter((u) => u.signal === 'high');
+  return (
+    <div className="min-h-screen bg-bg">
+      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+        {!opened ? (
+          <BriefingUnboxing
+            content={{
+              marketName: view.marketName,
+              generatedAt: view.generatedAt,
+              windowHours: view.windowHours,
+              headline: view.headline,
+              highSignal: (highs.length > 0 ? highs : view.updates)
+                .slice(0, 4)
+                .map((u) => `${u.companyName}: ${u.oneLiner}`),
+              updateCount: view.updates.length,
+            }}
+            ctaLabel="Open the briefing"
+            onOpen={() => setOpened(true)}
+          />
+        ) : (
+          <>
+            <BriefingReport view={view} shared />
+            {cards.length > 0 && (
+              <section className="mx-auto mt-10 max-w-3xl">
+                <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted">
+                  The deck behind this briefing
+                </h2>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {cards.map((c, i) => (
+                    <GameCard key={c.card.id} data={c} hideActions onOpen={() => setOpenIdx(i)} />
+                  ))}
+                </div>
+                {openIdx != null && cards[openIdx] && (
+                  <SharedReader data={cards[openIdx]!} onClose={() => setOpenIdx(null)} />
+                )}
+              </section>
+            )}
+            <footer className="mt-10 flex flex-col items-center gap-3 border-t border-border pt-5 text-center text-[11px] leading-relaxed text-faint">
+              <p>
+                Shared from STRATEMARK — a living market-intelligence deck. Every update carries the
+                sources it was grounded in; live verification and the agentic research desk run in
+                the full app.
+              </p>
+              <Link
+                to="/"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-[12px] font-medium text-content transition-colors hover:bg-surface-2"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-primary-ink" />
+                Research your own market
+              </Link>
+            </footer>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function SharePage() {
   const { blob } = useParams();
   const [payload, setPayload] = useState<SharePayload | null | 'loading'>('loading');
@@ -224,6 +315,15 @@ export default function SharePage() {
           </Link>
         </div>
       </div>
+    );
+  }
+
+  if (payload.kind === 'briefing' && payload.briefing) {
+    return (
+      <SharedBriefingView
+        payload={payload as SharePayload & { briefing: NonNullable<SharePayload['briefing']> }}
+        cards={cards}
+      />
     );
   }
 

@@ -511,6 +511,7 @@ describe('GeminiRepository (fake client + in-memory store)', () => {
         dashboards: {},
         companyMarket: {},
         reports: [],
+        briefings: [],
         savedCards: [],
         opportunity: {},
         researchJobs: [

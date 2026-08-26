@@ -51,12 +51,42 @@ export interface SharedCard {
   metrics: SharedMetric[];
 }
 
+/** A Daily Briefing update, trimmed for the link (short keys keep URLs small). */
+export interface SharedBriefingUpdate {
+  /** Company name. */
+  n: string;
+  /** Signal: 'h' high, 'n' notable. */
+  s: 'h' | 'n';
+  /** One-liner — what happened. */
+  o: string;
+  /** Detail — why it matters. */
+  d: string;
+  /** Published date (ISO) when the sources said. */
+  p: string | null;
+  /** Citations: publisher + url. */
+  c: Array<{ t: string; u: string }>;
+}
+
+export interface SharedBriefing {
+  /** The day's headline. */
+  h: string;
+  /** Generated at (ISO). */
+  at: string;
+  /** Lookback window, hours. */
+  w: number;
+  u: SharedBriefingUpdate[];
+  /** Desk insights. */
+  i: string[];
+}
+
 export interface SharePayload {
   v: 1;
-  kind: 'card' | 'deck';
+  kind: 'card' | 'deck' | 'briefing';
   market: string | null;
   sharedAt: string;
   cards: SharedCard[];
+  /** Present when kind='briefing' — the unboxing + report payload. */
+  briefing?: SharedBriefing;
 }
 
 // ---------------------------------------------------------------------------
@@ -108,6 +138,52 @@ export function buildDeckShare(
     market: marketName,
     sharedAt: new Date().toISOString(),
     cards: cards.map(toSharedCard),
+  };
+}
+
+/**
+ * A shared Daily Briefing: the unboxing reveal + full report ride the link,
+ * along with the cards for the companies the briefing mentions so the
+ * recipient can flip through the evidence beneath the story.
+ */
+export function buildBriefingShare(
+  briefing: {
+    marketName: string;
+    generatedAt: string;
+    windowHours: number;
+    headline: string;
+    insights: string[];
+    updates: Array<{
+      companyName: string;
+      signal: 'high' | 'notable';
+      oneLiner: string;
+      detail: string;
+      publishedDate: string | null;
+      citations: Array<{ title: string; url: string }>;
+    }>;
+  },
+  cards: CardWithCompany[],
+): SharePayload {
+  return {
+    v: 1,
+    kind: 'briefing',
+    market: briefing.marketName,
+    sharedAt: new Date().toISOString(),
+    cards: cards.map(toSharedCard),
+    briefing: {
+      h: briefing.headline,
+      at: briefing.generatedAt,
+      w: briefing.windowHours,
+      u: briefing.updates.map((u) => ({
+        n: u.companyName,
+        s: u.signal === 'high' ? 'h' : 'n',
+        o: u.oneLiner,
+        d: u.detail,
+        p: u.publishedDate,
+        c: u.citations.slice(0, 2).map((c) => ({ t: c.title, u: c.url })),
+      })),
+      i: briefing.insights,
+    },
   };
 }
 
@@ -228,7 +304,9 @@ export async function decodeSharePayload(blob: string): Promise<SharePayload | n
       return null;
     }
     const parsed = JSON.parse(new TextDecoder().decode(json)) as SharePayload;
-    if (parsed?.v !== 1 || !Array.isArray(parsed.cards) || parsed.cards.length === 0) return null;
+    if (parsed?.v !== 1 || !Array.isArray(parsed.cards)) return null;
+    // A briefing can stand alone; card/deck shares need at least one card.
+    if (parsed.cards.length === 0 && !parsed.briefing) return null;
     return parsed;
   } catch {
     return null;

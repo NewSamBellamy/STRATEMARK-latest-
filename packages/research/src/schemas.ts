@@ -217,3 +217,35 @@ export const marketCardsOutSchema = z.preprocess(
     insights: z.array(marketClaimSchema).default([]),
   }),
 );
+
+/**
+ * Output of the Daily Briefing pass (generateDeckBriefing): the day's real
+ * developments across a deck's tracked companies. Bare-array tolerant —
+ * single-list structured outputs get the preprocess wrapper by default (the
+ * recurring "Expected object, received array" crash class).
+ */
+export const briefingOutSchema = z.preprocess(
+  (v) => (Array.isArray(v) ? { updates: v } : v),
+  z.object({
+    /** The day's editorial headline for this market. */
+    headline: z.string().default(''),
+    updates: z
+      .array(
+        z.object({
+          companyName: z.string().default(''),
+          signal: z.enum(['high', 'notable']).default('notable'),
+          /** One tight sentence — what happened. */
+          oneLiner: z.string().default(''),
+          /** Why it matters — the report paragraph. */
+          detail: z.string().default(''),
+          /** ISO date the development was published, when the notes say. */
+          publishedDate: z.string().nullable().default(null),
+          /** Indexes into the grounded citations array. */
+          sourceIndexes: z.array(z.number().int()).default([]),
+        }),
+      )
+      .default([]),
+    /** Desk insights — what the day means for the market's balance of power. */
+    insights: z.array(z.string()).default([]),
+  }),
+);

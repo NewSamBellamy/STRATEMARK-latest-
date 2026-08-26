@@ -202,6 +202,47 @@ export function useReport(id: string | undefined) {
   });
 }
 
+/** Stored Daily Briefings for a market, newest first (feature-detected). */
+export function useDeckBriefings(marketId: string | undefined) {
+  const repo = useRepository();
+  return useQuery({
+    queryKey: ['briefings', marketId ?? ''],
+    queryFn: () =>
+      repo.listDeckBriefings
+        ? repo.listDeckBriefings(marketId as string)
+        : Promise.resolve([]),
+    enabled: !!marketId,
+  });
+}
+
+/**
+ * The overnight desk: one grounded pass over the whole deck's last-N-hours
+ * news, composed into a structured Daily Briefing. Gated engine-side on
+ * deckBakedState; feature-detected (live-research transports only).
+ */
+export function useGenerateBriefing() {
+  const repo = useRepository();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ marketId, windowHours }: { marketId: string; windowHours?: number }) => {
+      if (!repo.generateDeckBriefing) {
+        return Promise.reject(
+          new Error('Daily Briefings need the live research engine — connect a key in Settings.'),
+        );
+      }
+      return repo.generateDeckBriefing(marketId, { windowHours });
+    },
+    onSuccess: (b) => {
+      traceAgent(
+        'Desk',
+        `Daily Briefing composed for ${b.marketName}`,
+        `${b.updates.length} sourced update${b.updates.length === 1 ? '' : 's'} in the last ${b.windowHours}h`,
+      );
+      qc.invalidateQueries({ queryKey: ['briefings', b.marketId] });
+    },
+  });
+}
+
 export function useGenerateReport() {
   const repo = useRepository();
   const qc = useQueryClient();
