@@ -9,6 +9,7 @@ import {
   Loader2,
   MessagesSquare,
   MoreHorizontal,
+  Newspaper,
   RefreshCw,
   Search,
   Settings,
@@ -217,6 +218,14 @@ export default function DeckPage() {
               <SquareMousePointer className="h-3.5 w-3.5" />
               {compare ? 'Cancel' : 'Compare'}
             </button>
+            <Link
+              to={`/markets/${marketId}/briefing`}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-[12px] font-medium text-content transition-colors hover:bg-surface-2"
+              title="The Daily Briefing — the desk hunts the last 24h across every tracked company and unboxes it as an editorial report"
+            >
+              <Newspaper className="h-3.5 w-3.5" />
+              Briefing
+            </Link>
             <button
               type="button"
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-[12px] font-medium text-content transition-colors hover:bg-surface-2"

@@ -21,7 +21,13 @@
  * Everything here is pure. No clock is read implicitly: callers pass `nowMs`, so
  * scheduling is deterministic and testable.
  */
-import type { Confidence, MetricType } from './enums';
+import {
+  isEntityCardType,
+  type CardType,
+  type Confidence,
+  type MaturityTier,
+  type MetricType,
+} from './enums';
 import type { CompanyMetric } from './types';
 
 // ---------------------------------------------------------------------------
@@ -201,4 +207,33 @@ export function markVerified(metric: CompanyMetric, atIso: string): CompanyMetri
     lastVerifiedAt: atIso,
     staleAfterSeconds: staleAfterSecondsFor(metric),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Deck readiness — "is this deck fully baked?"
+// ---------------------------------------------------------------------------
+
+export interface DeckBakedState {
+  /** True when every entity card has finished forming (tier assigned). */
+  baked: boolean;
+  /** Entity cards in the deck (companies, infrastructure, distribution). */
+  total: number;
+  /** How many of them have a tier — i.e. finished enrichment + scoring. */
+  formed: number;
+}
+
+/**
+ * Whether a deck is done forming. Derived artifacts that summarize the WHOLE
+ * deck (daily briefings, exported reports) gate on this: publishing a digest
+ * of a half-researched deck would launder skeletons into prose. Pure and
+ * structural — pass any card list; only entity cards count, and a card counts
+ * as formed once scoring assigned it a tier (the same signal the card face
+ * uses to stop rendering skeletons).
+ */
+export function deckBakedState(
+  cards: ReadonlyArray<{ tier: MaturityTier | null; cardType: CardType }>,
+): DeckBakedState {
+  const entities = cards.filter((c) => isEntityCardType(c.cardType));
+  const formed = entities.filter((c) => c.tier != null).length;
+  return { baked: entities.length > 0 && formed === entities.length, total: entities.length, formed };
 }

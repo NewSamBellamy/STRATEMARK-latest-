@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import type { CardWithCompany } from '@mi/contracts';
 import {
   buildCardShare,
+  buildBriefingShare,
   buildDeckShare,
   decodeSharePayload,
   encodeSharePayload,
@@ -112,6 +113,50 @@ describe('share codec round-trip', () => {
     // practical URL limits. This guards against a regression that stops
     // compressing (raw JSON here would be ~8KB+).
     expect(blob.length).toBeLessThan(4_000);
+  });
+
+  it('a Daily Briefing round-trips: unboxing payload + cards intact', async () => {
+    const briefing = {
+      marketName: 'Frontier AI',
+      generatedAt: '2026-08-26T14:00:00.000Z',
+      windowHours: 24,
+      headline: 'Capital and capability both moved today',
+      insights: ['Funding is consolidating around two poles.'],
+      updates: [
+        {
+          companyName: 'OpenAI',
+          signal: 'high' as const,
+          oneLiner: 'OpenAI raised $10B at a $500B valuation.',
+          detail: 'The round tightens the compute arms race.',
+          publishedDate: '2026-08-26',
+          citations: [{ title: 'Reuters', url: 'https://reuters.com/x' }],
+        },
+        {
+          companyName: 'Anthropic',
+          signal: 'notable' as const,
+          oneLiner: 'Anthropic shipped a new agentic surface.',
+          detail: 'Broadens the developer wedge.',
+          publishedDate: null,
+          citations: [],
+        },
+      ],
+    };
+    const blob = await encodeSharePayload(buildBriefingShare(briefing, [liveCard()]));
+    const decoded = await decodeSharePayload(blob);
+    expect(decoded?.kind).toBe('briefing');
+    expect(decoded?.briefing?.h).toBe('Capital and capability both moved today');
+    expect(decoded?.briefing?.u).toHaveLength(2);
+    expect(decoded?.briefing?.u[0]?.s).toBe('h');
+    expect(decoded?.briefing?.u[0]?.c[0]?.u).toBe('https://reuters.com/x');
+    expect(decoded?.briefing?.i).toHaveLength(1);
+    expect(decoded?.cards).toHaveLength(1); // the evidence rides along
+  });
+
+  it('old deck links (no briefing field) still decode', async () => {
+    const blob = await encodeSharePayload(buildDeckShare([liveCard()], 'Frontier AI'));
+    const decoded = await decodeSharePayload(blob);
+    expect(decoded?.kind).toBe('deck');
+    expect(decoded?.briefing).toBeUndefined();
   });
 
   it('truncated and tampered links decode to null, never garbage', async () => {

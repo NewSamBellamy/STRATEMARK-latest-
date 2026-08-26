@@ -11,16 +11,20 @@ import {
   METRIC_TYPE_LABELS,
   buildCmsInput,
   computeCms,
+  deckBakedState,
   hasVerificationGradeCitation,
+  isJunkSource,
   markVerified,
   reconcileMetrics,
   usableCitations,
   type Card,
   type CardFilter,
   type CardWithCompany,
+  type Citation,
   type Company,
   type CompanyMetric,
   type CreateMarketInput,
+  type DeckBriefing,
   type ExpandFocus,
   type MaturityTier,
   type OverrideMetricInput,
@@ -67,7 +71,7 @@ import { researchMarketSignals } from './signal-agents';
 import { mapWithConcurrency, throwIfAborted } from './util';
 import { expandDeckWithDeltaAgent } from './delta-agent';
 import { CHAT_SYSTEM, GROUNDED_SYSTEM, STRUCTURE_SYSTEM } from './prompts';
-import { factCheckOutSchema, huntMetricsOutSchema, verifyMetricOutSchema } from './schemas';
+import { briefingOutSchema, factCheckOutSchema, huntMetricsOutSchema, verifyMetricOutSchema } from './schemas';
 import type { LlmClient, ResearchCoverage, RunResearchOptions } from './types';
 
 interface CachedTab {
@@ -90,6 +94,8 @@ export interface RepoSnapshot {
   dashboards: Record<string, Partial<Record<DashboardTab, CachedTab>>>;
   companyMarket: Record<string, string>;
   reports: Report[];
+  /** Daily Briefings — the overnight desk's structured digests, newest first. */
+  briefings: DeckBriefing[];
   savedCards: SavedCard[];
   /** marketId → cached whitespace analysis. */
   opportunity: Record<
@@ -191,6 +197,7 @@ const empty = (): RepoSnapshot => ({
   dashboards: {},
   companyMarket: {},
   reports: [],
+  briefings: [],
   savedCards: [],
   opportunity: {},
   researchJobs: [],
@@ -231,6 +238,7 @@ function normalize(raw: RepoSnapshot | null): RepoSnapshot {
     ...empty(),
     ...raw,
     reports: raw.reports ?? [],
+    briefings: raw.briefings ?? [],
     savedCards: raw.savedCards ?? [],
     opportunity: raw.opportunity ?? {},
     researchJobs,
@@ -1698,6 +1706,129 @@ export class GeminiRepository implements MarketIntelRepository {
   }
   getReport(id: string): Promise<Report | null> {
     return Promise.resolve(this.snap.reports.find((r) => r.id === id) ?? null);
+  }
+
+  // Daily Briefing ------------------------------------------------------------
+
+  /**
+   * The overnight desk. ONE grounded pass hunts the last N hours of real
+   * developments across the deck's tracked companies; a structuring pass turns
+   * the notes into updates with source indexes. Two gates keep it honest:
+   * deckBakedState (never digest a half-formed deck) and per-update citations
+   * (an "update" nothing credible reported did not happen — dropped, the same
+   * no-fabrication rule metrics live under).
+   */
+  async generateDeckBriefing(
+    marketId: string,
+    opts?: { windowHours?: number },
+  ): Promise<DeckBriefing> {
+    const market = this.snap.markets.find((m) => m.id === marketId);
+    const deck = this.snap.decks.find((d) => d.marketId === marketId);
+    if (!market || !deck) throw new Error('Deck not found for briefing');
+
+    const deckCards = this.snap.cards.filter((c) => c.deckId === deck.id);
+    const baked = deckBakedState(deckCards);
+    if (!baked.baked) {
+      throw new Error(
+        baked.total === 0
+          ? 'This deck has no company cards yet — run research first.'
+          : `Deck still forming (${baked.formed}/${baked.total} cards baked) — the briefing waits until every card is done.`,
+      );
+    }
+
+    const windowHours = Math.max(1, Math.min(24 * 14, opts?.windowHours ?? 24));
+    const companies = deckCards
+      .filter((c) => c.companyId != null)
+      .map((c) => ({
+        card: c,
+        company: this.snap.companies.find((co) => co.id === c.companyId) ?? null,
+      }))
+      .filter((x): x is { card: Card; company: Company } => x.company != null);
+    // Highest tiers first — the most consequential names get the search budget.
+    const seen = new Set<string>();
+    const tracked = companies
+      .sort((a, b) => (b.card.tier ?? 0) - (a.card.tier ?? 0))
+      .filter((x) => {
+        const k = companyKey(x.company.name);
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      })
+      .slice(0, 14);
+
+    const nowIso = new Date().toISOString();
+    const geography = market.scopeDefinition?.geography;
+    const g = await this.client.ground(
+      [
+        `Today is ${nowIso}. You are the overnight intelligence desk for the market "${market.name}"${geography ? ` (${geography})` : ''}.`,
+        `TRACKED COMPANIES: ${tracked.map((x) => x.company.name).join(', ')}.`,
+        `Google-search for developments PUBLISHED WITHIN THE LAST ${windowHours} HOURS involving these companies: funding/valuation moves, launches and releases, executive changes, partnerships, regulatory or legal actions, major customer wins or losses, notable disclosed figures.`,
+        `For EACH real development, write: the company, WHAT happened (one tight sentence with the concrete figure or name), WHY it matters for this market (2-3 sentences), the publish date, and the source.`,
+        `Recency is a hard rule: only include stories actually published inside the window — an old story resurfacing is not an update. If a tracked company had no news, write nothing about it; silence is honest. Never invent a development to fill space.`,
+        `Finish with ONE editorial headline for the day, and 2-4 desk insights: what today's updates mean for the market's balance of power.`,
+      ].join('\n'),
+      { system: GROUNDED_SYSTEM },
+    );
+
+    const numberedSources = g.citations.map((c, i) => `[${i}] ${c.title} — ${c.url}`).join('\n');
+    const out = await this.client.structure(
+      [
+        `Extract the desk notes into JSON: { "headline": string, "updates": [{ "companyName": string, "signal": "high"|"notable", "oneLiner": string, "detail": string, "publishedDate": ISO date string or null, "sourceIndexes": number[] }], "insights": string[] }.`,
+        `signal "high" = a development that changes the picture (funding, M&A, a major launch, leadership change, regulatory action); "notable" = worth knowing. sourceIndexes point into the numbered SOURCES list — every update MUST carry at least one. Copy figures EXACTLY as the notes state them; never round or invent.`,
+        ``,
+        `NOTES:`,
+        g.text,
+        ``,
+        `SOURCES:`,
+        numberedSources,
+      ].join('\n'),
+      briefingOutSchema,
+      { system: STRUCTURE_SYSTEM },
+    );
+
+    const byKey = new Map(companies.map((x) => [companyKey(x.company.name), x.company.id] as const));
+    const updates: DeckBriefing['updates'] = [];
+    for (const u of out.updates) {
+      if (!u.oneLiner.trim() || !u.companyName.trim()) continue;
+      const citations = usableCitations(
+        u.sourceIndexes.map((i) => g.citations[i]).filter((c): c is Citation => c != null),
+      ).filter((c) => !isJunkSource(c.url, c.title));
+      if (citations.length === 0) continue; // no credible source → not an update
+      updates.push({
+        companyName: u.companyName.trim(),
+        companyId: byKey.get(companyKey(u.companyName)) ?? null,
+        signal: u.signal,
+        oneLiner: u.oneLiner.trim(),
+        detail: u.detail.trim() || u.oneLiner.trim(),
+        publishedDate: u.publishedDate,
+        citations: citations.slice(0, 3),
+      });
+    }
+    // High-signal first — the unboxing reveal order.
+    updates.sort((a, b) => (a.signal === b.signal ? 0 : a.signal === 'high' ? -1 : 1));
+
+    const briefing: DeckBriefing = {
+      id: `brf_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+      marketId,
+      deckId: deck.id,
+      marketName: market.name,
+      generatedAt: nowIso,
+      windowHours,
+      headline:
+        out.headline.trim() ||
+        (updates.length > 0
+          ? `${updates.length} development${updates.length === 1 ? '' : 's'} across ${market.name}`
+          : `A quiet ${windowHours <= 24 ? 'day' : 'stretch'} in ${market.name}`),
+      updates,
+      insights: out.insights.map((x) => x.trim()).filter(Boolean).slice(0, 5),
+    };
+    this.snap.briefings = [briefing, ...this.snap.briefings].slice(0, 20);
+    this.persist();
+    return briefing;
+  }
+
+  listDeckBriefings(marketId: string): Promise<DeckBriefing[]> {
+    return Promise.resolve(this.snap.briefings.filter((b) => b.marketId === marketId));
   }
 
   // Research conversations ---------------------------------------------------

@@ -270,6 +270,48 @@ export interface AskResearchInput {
   question: string;
 }
 
+// ---------------------------------------------------------------------------
+// Daily Briefing — the deck's overnight desk report.
+//
+// One grounded pass hunts the LAST N HOURS of real developments across every
+// tracked company, and the result is a structured briefing: high-signal
+// one-liners (the unboxing reveal), full detail paragraphs (the report body),
+// and desk insights (what the day means). Gated on deckBakedState — a digest
+// of a half-formed deck would launder skeletons into prose. Every update must
+// carry at least one verification-grade citation or it is dropped, the same
+// no-fabrication contract metrics live under.
+// ---------------------------------------------------------------------------
+
+export interface BriefingUpdate {
+  companyName: string;
+  /** Resolved against the deck's tracked companies; null for unmatched names. */
+  companyId: string | null;
+  /** 'high' updates headline the unboxing; 'notable' fill out the report. */
+  signal: 'high' | 'notable';
+  /** One tight sentence — what happened. */
+  oneLiner: string;
+  /** Why it matters — the report paragraph. */
+  detail: string;
+  /** ISO date the development was published, when the sources say. */
+  publishedDate: string | null;
+  citations: Citation[];
+}
+
+export interface DeckBriefing {
+  id: string;
+  marketId: string;
+  deckId: string;
+  marketName: string;
+  generatedAt: string;
+  /** Lookback window the updates were hunted in (hours). */
+  windowHours: number;
+  /** The day's editorial headline for this market. */
+  headline: string;
+  updates: BriefingUpdate[];
+  /** Desk insights — what the day's updates mean for the balance of power. */
+  insights: string[];
+}
+
 export interface Report {
   id: string;
   kind: 'deck' | 'company';
@@ -429,6 +471,19 @@ export interface MarketIntelRepository {
   generateReport(request: ReportRequest, handlers?: ResearchHandlers): Promise<Report>;
   listReports(): Promise<Report[]>;
   getReport(id: string): Promise<Report | null>;
+
+  /**
+   * The overnight desk: hunt the last N hours of real developments across the
+   * deck's tracked companies and compose a structured Daily Briefing. Throws
+   * when the deck is still forming (deckBakedState gate). OPTIONAL —
+   * live-research transports only.
+   */
+  generateDeckBriefing?(
+    marketId: string,
+    opts?: { windowHours?: number },
+  ): Promise<DeckBriefing>;
+  /** Stored briefings for a market, newest first. OPTIONAL. */
+  listDeckBriefings?(marketId: string): Promise<DeckBriefing[]>;
 
   // Research conversations. OPTIONAL so transports can adopt incrementally
   // (the Electron IPC bridge wires these when the desktop back end lands);
