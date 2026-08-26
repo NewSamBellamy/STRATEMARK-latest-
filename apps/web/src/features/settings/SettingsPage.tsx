@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
   BadgeCheck,
@@ -9,6 +9,8 @@ import {
   Loader2,
   DatabaseBackup,
   Download,
+  Gauge,
+  ImageOff,
   Monitor,
   ShieldCheck,
   Upload,
@@ -16,6 +18,15 @@ import {
 } from 'lucide-react';
 import { createGeminiClient } from '@mi/research';
 import { exportSnapshot, importSnapshot, marketCountOf } from '@/lib/repository/vault';
+import {
+  DAILY_REQUEST_CAP,
+  getCostControls,
+  getSpend,
+  getUsage,
+  isLowPower,
+  setCostControls,
+  subscribeUsage,
+} from '@/lib/usage';
 import { looksLikeGeminiKey, sanitizeApiKey, useApiKey } from '@/lib/settings/apiKey';
 import { useEngineChoice } from '@/lib/settings/engine';
 import { useDemo } from '@/lib/demo/DemoContext';
@@ -202,6 +213,8 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      <UsageBillingPanel />
+
       <div className="panel mt-6 space-y-4 p-6">
         <div className="flex items-center gap-2">
           <Cpu className="h-5 w-5 text-primary-ink" />
@@ -309,6 +322,8 @@ export default function SettingsPage() {
 
       {/* Where your research lives — and the desktop path for keeping it local. */}
       <DataSafetyPanel />
+
+      <PricingPanel />
 
       <div className="panel mt-6 space-y-4 p-6">
         <div className="flex items-center gap-2">
@@ -458,6 +473,224 @@ function DataSafetyPanel() {
         />
       </div>
       {msg && <p className="text-[12px] text-negative">{msg}</p>}
+    </div>
+  );
+}
+
+
+/**
+ * Usage & billing — transparency IS the trust feature. Everything is counted
+ * locally (nothing leaves the browser): today's request headroom, this
+ * month's estimated burn by call kind, a user-set monthly cap that flips the
+ * app into LOW POWER MODE (autonomous spend pauses; manual actions stay),
+ * and the image-generation opt-out with its designed-cover fallback.
+ */
+function UsageBillingPanel() {
+  const [, force] = useState(0);
+  useEffect(() => subscribeUsage(() => force((n) => n + 1)), []);
+  const usage = getUsage();
+  const spend = getSpend();
+  const controls = getCostControls();
+  const lowPower = isLowPower();
+  const [capDraft, setCapDraft] = useState(
+    controls.monthlyCapUsd != null ? String(controls.monthlyCapUsd) : '',
+  );
+
+  const applyCap = () => {
+    const n = Number(capDraft);
+    setCostControls({ monthlyCapUsd: capDraft.trim() === '' || !Number.isFinite(n) || n <= 0 ? null : n });
+  };
+
+  const usd = (n: number) => `$${n.toFixed(2)}`;
+
+  return (
+    <div className="panel mt-6 space-y-4 p-6">
+      <div className="flex items-center gap-2">
+        <Gauge className="h-5 w-5 text-primary-ink" />
+        <h2 className="font-display text-lg text-content">Usage & billing</h2>
+      </div>
+
+      {lowPower && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          Low power mode — your spending cap is reached. Autonomous research (images, hunts, live
+          re-verification, scheduled briefings) is paused; everything you trigger by hand still
+          works. Raise or clear the cap to resume.
+        </div>
+      )}
+
+      {/* This month's estimated burn — the number that builds trust. */}
+      <div className="rounded-lg border border-border bg-surface-2 p-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <p className="text-sm font-semibold text-content">This month on your key</p>
+          <p className="font-display text-2xl font-bold tabular-nums text-content">
+            {usd(spend.estUsd)}
+            <span className="ml-1 text-[11px] font-medium text-faint">est.</span>
+          </p>
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-3 text-center">
+          <div>
+            <p className="font-display text-sm font-bold tabular-nums text-content">{spend.grounded}</p>
+            <p className="text-[10px] uppercase tracking-wide text-muted">searches</p>
+            <p className="text-[10px] tabular-nums text-faint">{usd(spend.estByKind.ground)}</p>
+          </div>
+          <div>
+            <p className="font-display text-sm font-bold tabular-nums text-content">{spend.structure}</p>
+            <p className="text-[10px] uppercase tracking-wide text-muted">extractions</p>
+            <p className="text-[10px] tabular-nums text-faint">{usd(spend.estByKind.structure)}</p>
+          </div>
+          <div>
+            <p className="font-display text-sm font-bold tabular-nums text-content">{spend.image}</p>
+            <p className="text-[10px] uppercase tracking-wide text-muted">images</p>
+            <p className="text-[10px] tabular-nums text-faint">{usd(spend.estByKind.image)}</p>
+          </div>
+        </div>
+        <p className="mt-3 text-[11px] leading-relaxed text-faint">
+          Estimates from published list prices, counted locally — the exact bill lives in your
+          Google AI Studio console. Today: {usage.total} of {DAILY_REQUEST_CAP} free-tier requests
+          (~{usage.decksLeft} more decks).
+        </p>
+      </div>
+
+      {/* The cap — the user's hard ceiling. */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface-2 p-4">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-content">Monthly spending cap</p>
+          <p className="mt-0.5 text-xs text-muted">
+            Hit the cap and the app scales back to low power mode — autonomous research pauses
+            until you raise it.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted">$</span>
+          <input
+            className="input w-24 py-1.5 text-sm tabular-nums"
+            inputMode="decimal"
+            placeholder="none"
+            value={capDraft}
+            onChange={(e) => setCapDraft(e.target.value)}
+            onBlur={applyCap}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') applyCap();
+            }}
+            aria-label="Monthly spending cap in US dollars"
+          />
+        </div>
+      </div>
+
+      {/* Image generation opt-out. */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface-2 p-4">
+        <div className="min-w-0">
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-content">
+            <ImageOff className="h-4 w-4 text-muted" />
+            Generated imagery
+          </p>
+          <p className="mt-0.5 text-xs text-muted">
+            Card art, article covers, HQ scenes (~$0.04 each, generated once and kept). Turned
+            off, every surface falls back to the designed editorial covers — still clean, zero
+            image spend.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={controls.imagesEnabled}
+          onClick={() => setCostControls({ imagesEnabled: !controls.imagesEnabled })}
+          className={
+            controls.imagesEnabled
+              ? 'relative h-6 w-11 shrink-0 rounded-full bg-primary transition-colors'
+              : 'relative h-6 w-11 shrink-0 rounded-full bg-surface transition-colors border border-border'
+          }
+        >
+          <span
+            className={
+              controls.imagesEnabled
+                ? 'absolute left-[22px] top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all'
+                : 'absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-muted/40 shadow transition-all'
+            }
+          />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+/**
+ * Stratemark Pro — the three tiers, kept deliberately simple (founder: "don't
+ * overthink it"). Checkout runs on Lemon Squeezy; the buttons are live shells
+ * awaiting the store keys. BYOK and the open-source build stay first-class
+ * alternatives — nobody is forced onto a subscription.
+ */
+function PricingPanel() {
+  const TIERS = [
+    {
+      name: 'Starter',
+      price: 19,
+      blurb: 'Up to 10 decks a month, daily briefings, generated card art included.',
+      highlight: false,
+    },
+    {
+      name: 'Growth',
+      price: 49,
+      blurb: 'More room to run: 40 decks a month, everything in Starter, priority research lanes.',
+      highlight: true,
+    },
+    {
+      name: 'Max',
+      price: 99,
+      blurb: 'For teams living in the product: 150 decks a month and the full feature surface.',
+      highlight: false,
+    },
+  ];
+  return (
+    <div className="panel mt-6 space-y-4 p-6">
+      <div className="flex items-center gap-2">
+        <BadgeCheck className="h-5 w-5 text-primary-ink" />
+        <h2 className="font-display text-lg text-content">Stratemark Pro</h2>
+      </div>
+      <p className="text-sm text-muted">
+        Fully hosted on Google Cloud — no API key to manage, usage included up to your tier's
+        monthly cap. Every tier includes grounded research, living verification, daily briefings,
+        site audits, generated imagery, and cloud sync.
+      </p>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {TIERS.map((t) => (
+          <div
+            key={t.name}
+            className={
+              t.highlight
+                ? 'relative rounded-xl border-2 border-primary bg-primary/5 p-4'
+                : 'relative rounded-xl border border-border bg-surface-2/60 p-4'
+            }
+          >
+            {t.highlight && (
+              <span className="absolute -top-2.5 left-4 rounded-full bg-primary px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-white">
+                Popular
+              </span>
+            )}
+            <p className="text-sm font-semibold text-content">{t.name}</p>
+            <p className="mt-1 font-display text-2xl font-bold tabular-nums text-content">
+              ${t.price}
+              <span className="text-[11px] font-medium text-faint">/mo</span>
+            </p>
+            <p className="mt-2 text-[12px] leading-relaxed text-muted">{t.blurb}</p>
+            <button
+              type="button"
+              className="btn-primary mt-3 w-full justify-center py-1.5 text-[12px] opacity-60"
+              disabled
+              title="Checkout (Lemon Squeezy) is being connected — available at launch."
+            >
+              Subscribe
+            </button>
+          </div>
+        ))}
+      </div>
+      <p className="text-[11px] leading-relaxed text-faint">
+        Checkout runs on Lemon Squeezy and is being connected now. Prefer to stay independent?
+        Bring your own Gemini key above (you pay Google directly, this app takes nothing) — or
+        run the open-source build entirely on your own machine.
+      </p>
     </div>
   );
 }

@@ -59,6 +59,12 @@ export default function MarketSettingsPage() {
                     </option>
                   ))}
                 </select>
+                <p className="mt-2 max-w-md text-[11px] leading-relaxed text-faint">
+                  This cadence drives the Deck Sentinel: once you've unboxed this deck's first
+                  briefing, the Sentinel runs the next one automatically whenever the app is open
+                  past its due time. True background delivery (Telegram, email) ships with Pro
+                  cloud.
+                </p>
                 <p className="mt-2 text-xs text-muted">
                   Auto-refresh runs when the app is open: shortly after launch if the interval has
                   elapsed, then on a periodic check — one deck at a time to respect free-tier
