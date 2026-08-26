@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { ClipboardCheck, ExternalLink, Globe, Loader2, MonitorPlay } from 'lucide-react';
-import { useCompany, useDashboardTab } from '@/hooks/data';
+import { useNavigate } from 'react-router-dom';
+import { useAuditSite, useCompany, useDashboardTab } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
-import { useDeepDive } from '@/features/deepdive/DeepDive';
 import {
   SHOT_MAX_ATTEMPTS as MAX_ATTEMPTS,
   SHOT_PLACEHOLDER_MAX_WIDTH as PLACEHOLDER_MAX_WIDTH,
@@ -85,7 +85,8 @@ function SitePreview({ url, fallbackShot }: { url: string; fallbackShot: string 
 export function LiveLandingTab({ companyId }: { companyId: string }) {
   const query = useDashboardTab(companyId, 'live_landing');
   const name = useCompany(companyId).data?.name ?? 'this company';
-  const { chat } = useDeepDive();
+  const audit = useAuditSite();
+  const navigate = useNavigate();
   // Live embeds are opt-in: most real company sites send X-Frame-Options /
   // frame-ancestors and render as a silent blank frame — the "landing page
   // doesn't work" bug. The screenshot is the dependable default everywhere
@@ -107,19 +108,22 @@ export function LiveLandingTab({ companyId }: { companyId: string }) {
               <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-muted transition-colors hover:bg-surface-2 hover:text-content"
-                  title="Grounded audit of this landing page: positioning, message, conversion"
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-muted transition-colors hover:bg-surface-2 hover:text-content disabled:opacity-60"
+                  title="Full CRO/UX teardown of this page, saved as a visual report with screenshots — exportable as PDF. One grounded pass on your key."
+                  disabled={audit.isPending}
                   onClick={() =>
-                    chat(
-                      { kind: 'datapoint', deckId: null, companyId, subject: `${name} landing page` },
-                      {
-                        seed: `Audit ${name}'s landing page (${url}) as a conversion-minded marketer: what is the positioning and promise, what's working, what's weak, and what would you test first? Ground observations in what search results and coverage actually say about the site and its messaging.`,
-                      },
+                    audit.mutate(
+                      { url, siteName: name, companyId },
+                      { onSuccess: (r) => navigate(`/reports/${r.id}`) },
                     )
                   }
                 >
-                  <ClipboardCheck className="h-3.5 w-3.5" />
-                  Audit
+                  {audit.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <ClipboardCheck className="h-3.5 w-3.5" />
+                  )}
+                  {audit.isPending ? 'Auditing…' : 'Audit this page'}
                 </button>
                 {embeddable && (
                   <button

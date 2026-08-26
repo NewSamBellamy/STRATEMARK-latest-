@@ -578,6 +578,12 @@ describe('GeminiRepository (fake client + in-memory store)', () => {
       store,
     });
     const { deck } = await repo.createResearchedDeck({ prompt: 'test', region: 'CA' });
+    // Deck reports gate on a settled deck now: wait out the background
+    // enrichment job before composing (the gate under test in site-audit.test).
+    await vi.waitFor(async () => {
+      const jobs = (await repo.listResearchJobs?.()) ?? [];
+      expect(jobs.every((j) => j.status !== 'running' && j.status !== 'queued')).toBe(true);
+    });
     const report = await repo.generateReport({ kind: 'deck', subjectId: deck.id });
     expect(report.title).toContain('Market Report');
     expect(report.citations.length).toBeGreaterThan(0);

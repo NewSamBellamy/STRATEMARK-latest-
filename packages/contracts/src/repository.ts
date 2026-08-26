@@ -312,9 +312,60 @@ export interface DeckBriefing {
   insights: string[];
 }
 
+// ---------------------------------------------------------------------------
+// Site Audit — the landing-page teardown, delivered as a real report.
+//
+// One grounded pass reads how a site presents itself (copy, offers, coverage,
+// reviews) through a CRO/UX auditor's framework, and the result is structured
+// so the viewer can render a legit visual report: scorecard, what's working,
+// what's missing (with impact), the design language, and what to test first.
+// Works on ANY url — your own site or a competitor's.
+// ---------------------------------------------------------------------------
+
+export type SiteAuditArea =
+  | 'value_proposition'
+  | 'messaging'
+  | 'cta'
+  | 'trust'
+  | 'design'
+  | 'seo';
+
+export interface SiteAuditScore {
+  area: SiteAuditArea;
+  /** 1–10, clamped by the engine. */
+  score: number;
+  verdict: string;
+}
+
+export interface SiteAuditFinding {
+  title: string;
+  detail: string;
+  /** For gaps: what the miss is costing (conversions, trust, traffic). */
+  impact?: string | null;
+}
+
+export interface SiteAuditContent {
+  url: string;
+  siteName: string;
+  /** 0–100 composite (mean of area scores ×10). */
+  overall: number;
+  scores: SiteAuditScore[];
+  working: SiteAuditFinding[];
+  missing: SiteAuditFinding[];
+  designStyle: { summary: string; notes: string[] };
+  testFirst: SiteAuditFinding[];
+}
+
+export interface SiteAuditInput {
+  url: string;
+  siteName?: string | null;
+  /** When auditing a tracked company's site, anchor the report to it. */
+  companyId?: string | null;
+}
+
 export interface Report {
   id: string;
-  kind: 'deck' | 'company';
+  kind: 'deck' | 'company' | 'site_audit';
   subjectId: string;
   title: string;
   markdown: string;
@@ -322,6 +373,8 @@ export interface Report {
   /** The compact, source-linked evidence digest the report was allowed to use. */
   evidenceDigest?: string;
   evidenceCitations?: Citation[];
+  /** Structured content when kind='site_audit' — drives the visual report. */
+  audit?: SiteAuditContent;
   createdAt: string;
 }
 
@@ -484,6 +537,13 @@ export interface MarketIntelRepository {
   ): Promise<DeckBriefing>;
   /** Stored briefings for a market, newest first. OPTIONAL. */
   listDeckBriefings?(marketId: string): Promise<DeckBriefing[]>;
+
+  /**
+   * CRO/UX teardown of any landing page (yours or a competitor's), saved into
+   * the Reports library as a structured visual report. OPTIONAL —
+   * live-research transports only.
+   */
+  auditSite?(input: SiteAuditInput): Promise<Report>;
 
   // Research conversations. OPTIONAL so transports can adopt incrementally
   // (the Electron IPC bridge wires these when the desktop back end lands);

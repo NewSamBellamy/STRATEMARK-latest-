@@ -84,7 +84,24 @@ function snapshot(opts?: { formingCard?: boolean }): RepoSnapshot {
     reports: [],
     briefings: [],
     savedCards: [],
-    researchJobs: [],
+    researchJobs: opts?.formingCard
+      ? [
+          {
+            id: 'job_1',
+            status: 'queued',
+            stage: 'metrics',
+            brief: { prompt: 'x', region: null },
+            deck: { id: 'deck_1', marketId: 'mkt_1', createdAt: now, lastRefreshedAt: now },
+            catalogNames: [],
+            completedEntityNames: [],
+            partialCards: [],
+            warnings: [],
+            error: null,
+            createdAt: now,
+            updatedAt: now,
+          },
+        ]
+      : [],
     threads: [],
   } as unknown as RepoSnapshot;
 }

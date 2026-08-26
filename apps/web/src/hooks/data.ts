@@ -243,6 +243,29 @@ export function useGenerateBriefing() {
   });
 }
 
+/**
+ * The landing-page teardown: audit ANY site (yours or a competitor's) into a
+ * structured visual report. Feature-detected — live-research transports only.
+ */
+export function useAuditSite() {
+  const repo = useRepository();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { url: string; siteName?: string | null; companyId?: string | null }) => {
+      if (!repo.auditSite) {
+        return Promise.reject(
+          new Error('Site audits need the live research engine — connect a key in Settings.'),
+        );
+      }
+      return repo.auditSite(input);
+    },
+    onSuccess: (report) => {
+      traceAgent('Auditor', `Site audit composed — ${report.title}`, null);
+      qc.invalidateQueries({ queryKey: ['reports'] });
+    },
+  });
+}
+
 export function useGenerateReport() {
   const repo = useRepository();
   const qc = useQueryClient();

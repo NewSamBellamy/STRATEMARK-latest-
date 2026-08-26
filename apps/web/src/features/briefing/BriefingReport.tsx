@@ -8,12 +8,12 @@
  * "Download PDF" is the browser's print pipeline scoped to this element —
  * high-fidelity, zero dependencies.
  */
-import { useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Activity, CalendarDays, ExternalLink, Printer, Radio } from 'lucide-react';
 import { publisherOf } from '@mi/contracts';
 import { AiCover } from '@/components/media/AiCover';
 import { EditorialCover } from '@/components/media/EditorialCover';
+import { printScoped } from '@/lib/print';
 import { cn } from '@/lib/cn';
 
 export interface BriefingViewUpdate {
@@ -104,15 +104,6 @@ export function BriefingReport({
     year: 'numeric',
   });
 
-  const print = useCallback(() => {
-    document.body.classList.add('brf-printing');
-    const cleanup = () => {
-      document.body.classList.remove('brf-printing');
-      window.removeEventListener('afterprint', cleanup);
-    };
-    window.addEventListener('afterprint', cleanup);
-    window.print();
-  }, []);
 
   const CompanyTag = ({ u }: { u: BriefingViewUpdate }) =>
     !shared && u.companyId ? (
@@ -140,7 +131,7 @@ export function BriefingReport({
             {actions}
             <button
               type="button"
-              onClick={print}
+              onClick={printScoped}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-[12px] font-medium text-content transition-colors hover:bg-surface-2"
               title="Print or save this briefing as a PDF"
             >
