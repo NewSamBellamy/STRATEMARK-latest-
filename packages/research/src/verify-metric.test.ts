@@ -299,3 +299,73 @@ describe('factCheck metric corrections', () => {
     expect(result.correctedValue).toBeNull();
   });
 });
+
+describe('verifyMetric fast-path correction (fact-check evidence applied directly)', () => {
+  it('applies a cited correction with ZERO research calls — the latency fix', async () => {
+    const { store } = memoryStore(seededSnapshot());
+    const client = stubClient({ structured: {} });
+    const repo = new GeminiRepository({ apiKey: 'k', store, client });
+
+    const result = await repo.verifyMetric({
+      companyId: 'cmp_openai',
+      metricType: 'arr',
+      correction: {
+        value: 40_000_000_000,
+        citations: CITED,
+        rationale: 'Reuters reports $40B ARR as of Aug 2026.',
+        asOf: '2026-08-01',
+      },
+    });
+
+    // The whole point: no second grounded hunt.
+    expect((client.ground as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
+    expect((client.structure as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
+    expect(result.changed).toBe(true);
+    expect(result.verdict).toBe('contradicted');
+    expect(result.metric.value).toBe(40_000_000_000);
+    expect(result.metric.confidence).toBe('verified');
+    expect(result.metric.citations.length).toBeGreaterThan(0);
+  });
+
+  it('a junk-cited correction falls through to the FULL re-research (never applied blind)', async () => {
+    const { store } = memoryStore(seededSnapshot());
+    const client = stubClient({
+      citations: CITED,
+      structured: { verdict: 'unverified', currentValue: null, rationale: '', methodNote: null },
+    });
+    const repo = new GeminiRepository({ apiKey: 'k', store, client });
+
+    await repo.verifyMetric({
+      companyId: 'cmp_openai',
+      metricType: 'arr',
+      correction: {
+        value: 123,
+        citations: [{ title: 'fatjoe.com', url: 'https://fatjoe.com/seo/openai' }],
+      },
+    });
+
+    // Junk evidence bought nothing: the full grounded pass ran instead.
+    expect((client.ground as ReturnType<typeof vi.fn>)).toHaveBeenCalledTimes(1);
+    const metrics = await repo.getCompanyMetrics('cmp_openai');
+    expect(metrics.find((m) => m.metricType === 'arr')!.value).toBe(990_000_000);
+  });
+
+  it('never overwrites a user-verified figure, even with clean citations', async () => {
+    const { store } = memoryStore(seededSnapshot());
+    const client = stubClient({
+      structured: { verdict: 'supported', currentValue: null, rationale: '', methodNote: null },
+    });
+    const repo = new GeminiRepository({ apiKey: 'k', store, client });
+
+    await repo.verifyMetric({
+      companyId: 'cmp_openai',
+      metricType: 'users',
+      correction: { value: 5, citations: CITED },
+    });
+
+    const metrics = await repo.getCompanyMetrics('cmp_openai');
+    const users = metrics.find((m) => m.metricType === 'users')!;
+    expect(users.value).toBe(1_000_000_000);
+    expect(users.confidence).toBe('user_verified');
+  });
+});

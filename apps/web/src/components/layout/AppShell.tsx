@@ -9,10 +9,14 @@ import { UpgradeModal } from '@/components/UpgradeModal';
 import { useDeckRefreshSubscription } from '@/hooks/data';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { useDeepDive } from '@/features/deepdive/DeepDive';
+import { useHuntRunner } from '@/lib/agentic/useHuntRunner';
+import { AgentPresence } from '@/components/agentic/AgentPresence';
 
 export function AppShell() {
   useDeckRefreshSubscription();
   useAutoRefresh();
+  // Queued hunts keep draining across navigation — the runner lives here.
+  useHuntRunner();
   const { isOpen: aiPanelOpen, closePanel } = useDeepDive();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -66,6 +70,9 @@ export function AppShell() {
           </ErrorBoundary>
         </main>
       </div>
+
+      {/* The floating agentic presence — movable, labeled, honest. */}
+      <AgentPresence />
     </div>
   );
 }

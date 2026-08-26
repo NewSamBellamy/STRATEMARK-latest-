@@ -1297,6 +1297,69 @@ export class GeminiRepository implements MarketIntelRepository {
     if (!metric) throw new Error(`Metric not found: ${input.companyId}/${input.metricType}`);
 
     const label = METRIC_TYPE_LABELS[input.metricType];
+
+    // FAST PATH: the fact-check that summoned us already ran the grounded
+    // hunt and produced a cited correction. Re-researching the same figure
+    // was pure latency (the founder's "shouldn't take that long"). Apply the
+    // evidence we already have — same credibility gate, same re-tier, same
+    // events — and skip both LLM calls.
+    if (input.correction && input.correction.value != null) {
+      const hintCited = usableCitations(input.correction.citations);
+      if (hasVerificationGradeCitation(hintCited) && metric.confidence !== 'user_verified') {
+        const nowIso = new Date().toISOString();
+        const prior = metric.value;
+        const differs =
+          prior == null ||
+          prior === 0 ||
+          Math.abs(input.correction.value - prior) / Math.max(Math.abs(prior), 1) > 0.02;
+        let changed = false;
+        if (differs) {
+          metric.value = input.correction.value;
+          metric.confidence = 'verified';
+          metric.citations = hintCited;
+          metric.source = hintCited[0]?.url ?? metric.source;
+          metric.methodNote =
+            input.correction.rationale ??
+            `Corrected from a grounded fact-check${input.correction.asOf ? ` (as of ${input.correction.asOf})` : ''}.`;
+          metric.capturedAt = nowIso;
+          changed = true;
+          this.snap.dashboards[input.companyId] = {};
+        }
+        Object.assign(metric, markVerified(metric, nowIso));
+        const retieredCardIds = changed
+          ? this.retierCompany(input.companyId, `Re-tiered after a fact-check correction of ${label}.`)
+          : [];
+        this.persist();
+        if (changed) {
+          const card = this.snap.cards.find(
+            (c) => c.companyId === input.companyId && c.cardType === 'company',
+          );
+          const deck = card ? this.snap.decks.find((d) => d.id === card.deckId) : undefined;
+          if (deck) {
+            this.emit({
+              marketId: deck.marketId,
+              deckId: deck.id,
+              refreshedAt: nowIso,
+              addedCardIds: [],
+              updatedCardIds: retieredCardIds.length > 0 ? retieredCardIds : card ? [card.id] : [],
+              prunedCardIds: [],
+            });
+          }
+        }
+        return {
+          metric,
+          verdict: changed ? 'contradicted' : 'supported',
+          changed,
+          retieredCardIds,
+          rationale:
+            input.correction.rationale ??
+            'Applied the correction from the grounded fact-check that just ran.',
+          citations: input.correction.citations,
+        };
+      }
+      // A junk-only or human-locked correction falls through to the full
+      // re-research below — never silently applied, never silently dropped.
+    }
     const stored =
       metric.value != null
         ? `${metric.value} (confidence: ${metric.confidence})`

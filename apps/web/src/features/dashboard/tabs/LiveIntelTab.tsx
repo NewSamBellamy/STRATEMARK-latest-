@@ -6,9 +6,10 @@ import {
   Hash,
   MessageSquare,
   Newspaper,
+  RefreshCw,
 } from 'lucide-react';
 import { publisherOf, type LiveIntelItem } from '@mi/contracts';
-import { useCompany, useDashboardTab } from '@/hooks/data';
+import { useCompany, useDashboardTab, useRerunDashboardTab } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { Modal } from '@/components/ui/Modal';
 import { PageShot } from '@/components/media/PageShot';
@@ -24,6 +25,25 @@ const SENTIMENT_STYLE = {
   neutral: 'text-neutral',
   negative: 'text-negative',
 } as const;
+
+/**
+ * Newsfeed order: the most recent VERIFIED-dated story leads. Dated items sort
+ * by reported publish date (newest first); undated items follow by discovery
+ * time; stale-flagged items sink to the bottom regardless.
+ */
+function newsOrder(items: LiveIntelItem[]): LiveIntelItem[] {
+  const ts = (it: LiveIntelItem): number => {
+    const t = it.publishedDate ? Date.parse(it.publishedDate) : NaN;
+    return Number.isNaN(t) ? Number.NEGATIVE_INFINITY : t;
+  };
+  return [...items].sort((a, b) => {
+    if (a.stale !== b.stale) return a.stale ? 1 : -1;
+    const da = ts(a);
+    const db = ts(b);
+    if (da !== db) return db - da;
+    return Date.parse(b.publishedAt) - Date.parse(a.publishedAt);
+  });
+}
 
 /** "2026-08-19" → "Aug 19, 2026"; unparseable strings render as written. */
 function fmtPublishDate(raw: string): string {
@@ -201,22 +221,36 @@ function IntelRow({
 export function LiveIntelTab({ companyId }: { companyId: string }) {
   const query = useDashboardTab(companyId, 'live_intel');
   const companyName = useCompany(companyId).data?.name ?? 'this company';
+  const rerun = useRerunDashboardTab(companyId, 'live_intel');
   const [openId, setOpenId] = useState<string | null>(null);
   return (
     <QueryBoundary query={query} isEmpty={(r) => r.content.items.length === 0}>
       {(result) => {
-        const open = openId != null ? (result.content.items.find((i) => i.id === openId) ?? null) : null;
+        const ordered = newsOrder(result.content.items);
+        const open = openId != null ? (ordered.find((i) => i.id === openId) ?? null) : null;
         return (
           <div>
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm text-muted">
-                News, X, and Reddit sentiment — click a story for the full picture. Stale or
-                contradicted items are flagged and pruned (spec §8).
+                Latest first — the most recent verified story leads. Click a story for the full
+                picture; stale items are flagged and pruned (spec §8).
               </p>
-              <LiveBadge lastRefreshedAt={result.content.lastRefreshedAt} />
+              <span className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="btn-ghost text-xs"
+                  disabled={rerun.isPending}
+                  title="Run a fresh grounded news search now — new stories, reported publish dates, article detail."
+                  onClick={() => rerun.mutate()}
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${rerun.isPending ? 'animate-spin' : ''}`} />
+                  {rerun.isPending ? 'Searching latest news…' : 'Refresh news'}
+                </button>
+                <LiveBadge lastRefreshedAt={result.content.lastRefreshedAt} />
+              </span>
             </div>
             <ul className="space-y-3">
-              {result.content.items.map((item) => (
+              {ordered.map((item) => (
                 <IntelRow key={item.id} item={item} onOpen={() => setOpenId(item.id)} />
               ))}
             </ul>

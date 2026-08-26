@@ -5,6 +5,7 @@ import { ArrowLeft, ChevronDown, FileText, Search } from 'lucide-react';
 import { DASHBOARD_TABS, DASHBOARD_TAB_LABELS, type DashboardTab } from '@mi/contracts';
 import { useCompany, useReports, useRerunDashboardTab } from '@/hooks/data';
 import { useRepository } from '@/lib/repository/RepositoryProvider';
+import { useAgentTrace } from '@/lib/agentic/agentTrace';
 import { qk } from '@/lib/query/keys';
 import { ReportButton, ThreadHistoryButton } from '@/features/research/ResearchControls';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
@@ -255,6 +256,20 @@ export default function DashboardPage() {
   // so a user's click jumps the queue instead of waiting behind prefetch work.
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
+
+  // Anchor the floating presence's "Chat" to THIS company's research context.
+  const setChatContext = useAgentTrace((s) => s.setChatContext);
+  const companyName = company.data?.name;
+  // Ref for the warm loop below: the loop must not restart when the name loads.
+  const companyNameRef = useRef(companyName);
+  companyNameRef.current = companyName;
+  useEffect(() => {
+    if (companyId && companyName) {
+      setChatContext({ kind: 'company', companyId, subject: companyName });
+    }
+    return () => setChatContext(null);
+  }, [companyId, companyName, setChatContext]);
+
   useEffect(() => {
     if (!companyId) return;
     setPrefetchFailed([]);
@@ -262,6 +277,12 @@ export default function DashboardPage() {
     const warm = async (t: DashboardTab) => {
       if (qc.getQueryData(qk.dashboard(companyId, t)) != null) return;
       try {
+        useAgentTrace
+          .getState()
+          .trace(
+            `${companyNameRef.current ?? 'Company'} desk`,
+            `Researching ${DASHBOARD_TAB_LABELS[t]} in the background`,
+          );
         await qc.prefetchQuery({
           queryKey: qk.dashboard(companyId, t),
           queryFn: () => repo.getDashboardTab(companyId, t),

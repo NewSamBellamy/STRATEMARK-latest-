@@ -86,8 +86,23 @@ export function FactCheck({
   useEffect(() => {
     if (!canApply || autoFired.current || verify.isPending || !companyId || !metricType) return;
     autoFired.current = true;
+    // FAST correction: hand the repository the evidence this fact-check just
+    // gathered (corrected value + citations) so it writes back immediately
+    // instead of re-running the whole grounded hunt a second time.
     verify.mutate(
-      { companyId, metricType },
+      {
+        companyId,
+        metricType,
+        correction:
+          result?.correctedValue != null
+            ? {
+                value: result.correctedValue,
+                citations: result.citations,
+                rationale: result.rationale ?? null,
+                asOf: result.correctedAsOf ?? null,
+              }
+            : null,
+      },
       { onSuccess: (res) => setApplied(res.changed ? 'corrected' : 'confirmed') },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -102,9 +117,22 @@ export function FactCheck({
     if (!companyId || !metricType || verify.isPending) return;
     // The reconciliation ran either way: a correction wrote back, a downgrade
     // wrote back, or fresh evidence re-confirmed the badge. All three resolve
-    // the on-screen disagreement.
+    // the on-screen disagreement. A contradicted verdict carries its own
+    // evidence — passed through so the retry is instant, not a re-hunt.
     verify.mutate(
-      { companyId, metricType },
+      {
+        companyId,
+        metricType,
+        correction:
+          result?.verdict === 'contradicted' && result.correctedValue != null
+            ? {
+                value: result.correctedValue,
+                citations: result.citations,
+                rationale: result.rationale ?? null,
+                asOf: result.correctedAsOf ?? null,
+              }
+            : null,
+      },
       { onSuccess: (res) => setApplied(res.changed ? 'corrected' : 'confirmed') },
     );
   };
