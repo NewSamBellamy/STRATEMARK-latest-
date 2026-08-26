@@ -268,6 +268,12 @@ export interface AskResearchInput {
   /** …or start a new one anchored to this scope. */
   scope?: ResearchScope;
   question: string;
+  /**
+   * Pinned references: saved reports and prior conversations folded into the
+   * grounding as the MAIN FOCUS of the answer. This is how a landing-page
+   * audit or a metrics report becomes the context of a new conversation.
+   */
+  attachments?: { reportIds?: string[]; threadIds?: string[] };
 }
 
 // ---------------------------------------------------------------------------

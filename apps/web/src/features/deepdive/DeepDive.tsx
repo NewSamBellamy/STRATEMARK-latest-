@@ -10,7 +10,7 @@
  * research plus a fresh Google Search — never from model memory.
  */
 import { createContext, useContext, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -24,10 +24,12 @@ import {
   PanelRight,
   PictureInPicture2,
   X,
+  Paperclip,
+  MessagesSquare,
 } from 'lucide-react';
 import { publisherOf, type Citation, type DeepDiveInput, type ResearchScope, type ResearchThread } from '@mi/contracts';
 import { useRepository } from '@/lib/repository/RepositoryProvider';
-import { useCards, useCompany } from '@/hooks/data';
+import { useCards, useCompany, useReports } from '@/hooks/data';
 import { cn } from '@/lib/cn';
 import { MicButton } from '@/components/ui/MicButton';
 import { Logo } from '@/features/card/Logo';
@@ -221,6 +223,17 @@ export function DeepDiveProviderWithPanel({ children }: { children: ReactNode })
   const [error, setError] = useState<string | null>(null);
   const [placeholder, setPlaceholder] = useState<string | undefined>(undefined);
   const [draft, setDraft] = useState('');
+  // Pinned context: reports/conversations attached to THIS chat. They ride
+  // along with every question as the grounding's main focus.
+  const [attachOpen, setAttachOpen] = useState(false);
+  const [attachedReportIds, setAttachedReportIds] = useState<string[]>([]);
+  const [attachedThreadIds, setAttachedThreadIds] = useState<string[]>([]);
+  const reportsQuery = useReports();
+  const threadsQuery = useQuery({
+    queryKey: ['researchThreads', 'attachable'],
+    queryFn: () => repo.listResearchThreads!(),
+    enabled: attachOpen && typeof repo.listResearchThreads === 'function',
+  });
   const [savingReport, setSavingReport] = useState(false);
   const [reportFocus, setReportFocus] = useState('');
   const [showReportForm, setShowReportForm] = useState(false);
@@ -264,12 +277,38 @@ export function DeepDiveProviderWithPanel({ children }: { children: ReactNode })
     }
   }, [thread?.messages.length, busy]);
 
+  // Conversation starters: quick ways in, so the chat feels like a
+  // conversation you steer rather than a research job that fires instantly.
+  const starters: string[] =
+    scope?.kind === 'company' || scope?.kind === 'datapoint'
+      ? [
+          `What changed for ${scope?.subject ?? 'this company'} in the last 90 days?`,
+          'How do they make money — and how durable is it?',
+          'Who are their most direct competitors, and where do they lose?',
+          'What are the biggest risks ahead?',
+        ]
+      : scope?.kind === 'cards'
+        ? [
+            'Compare these head-to-head: strengths, weaknesses, momentum.',
+            'Which of these would you back, and why?',
+            'What do these players all miss that a new entrant could take?',
+          ]
+        : [
+            'Who is winning this market right now, and why?',
+            "Where's the whitespace a new entrant could take?",
+            'What moved in this market in the last month?',
+            'Which players look overrated by the hype?',
+          ];
+
   const reset = () => {
     setThread(null);
     setError(null);
     setShowReportForm(false);
     setReportFocus('');
     setDraft('');
+    setAttachOpen(false);
+    setAttachedReportIds([]);
+    setAttachedThreadIds([]);
   };
 
   const ask = async (question: string, forScope: ResearchScope | null, threadId?: string) => {
@@ -277,8 +316,14 @@ export function DeepDiveProviderWithPanel({ children }: { children: ReactNode })
     setBusy(true);
     setError(null);
     try {
+      const attachments =
+        attachedReportIds.length > 0 || attachedThreadIds.length > 0
+          ? { reportIds: attachedReportIds, threadIds: attachedThreadIds }
+          : undefined;
       const t = await repo.askResearch(
-        threadId ? { threadId, question } : { scope: forScope ?? undefined, question },
+        threadId
+          ? { threadId, question, attachments }
+          : { scope: forScope ?? undefined, question, attachments },
       );
       setThread(t);
       void qc.invalidateQueries({ queryKey: ['researchThreads'] });
@@ -523,9 +568,28 @@ export function DeepDiveProviderWithPanel({ children }: { children: ReactNode })
         {/* Conversation */}
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
           {(thread?.messages ?? []).length === 0 && !busy && !error && (
-            <div className="flex flex-col items-center justify-center gap-1 py-16 text-center text-muted">
+            <div className="flex flex-col items-center justify-center gap-4 py-10 text-center text-muted">
               <p className="text-[13px]">
-                Ask anything about <span className="font-medium text-content">{scopeLabel.toLowerCase()}</span>.
+                What would you like to dig into about{' '}
+                <span className="font-medium text-content">{scopeLabel.toLowerCase()}</span>?
+              </p>
+              {conversational && (
+                <div className="flex max-w-sm flex-wrap justify-center gap-2">
+                  {starters.map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      className="rounded-full border border-border bg-surface px-3 py-1.5 text-left text-[12px] text-muted transition-colors hover:border-primary/50 hover:text-primary-ink"
+                      onClick={() => void ask(q, scope)}
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <p className="max-w-xs text-[11px] leading-relaxed text-faint">
+                Or type your own below — every answer is grounded in this deck's research plus a
+                fresh search.
               </p>
             </div>
           )}
@@ -557,10 +621,98 @@ export function DeepDiveProviderWithPanel({ children }: { children: ReactNode })
           )}
         </div>
 
+        {/* Pinned context — reports/conversations riding along with every question. */}
+        {conversational && (attachedReportIds.length > 0 || attachedThreadIds.length > 0) && (
+          <div className="flex flex-wrap gap-1.5 border-t border-border bg-surface-2/60 px-4 py-2">
+            {attachedReportIds.map((id) => {
+              const r = (reportsQuery.data ?? []).find((x) => x.id === id);
+              return (
+                <span key={id} className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary-ink">
+                  <FileText className="h-3 w-3" />
+                  <span className="max-w-[160px] truncate">{r?.title ?? 'Report'}</span>
+                  <button type="button" aria-label="Detach report" onClick={() => setAttachedReportIds((l) => l.filter((x) => x !== id))}>
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              );
+            })}
+            {attachedThreadIds.map((id) => {
+              const t = (threadsQuery.data ?? []).find((x) => x.id === id);
+              return (
+                <span key={id} className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary-ink">
+                  <MessagesSquare className="h-3 w-3" />
+                  <span className="max-w-[160px] truncate">{t?.title ?? 'Conversation'}</span>
+                  <button type="button" aria-label="Detach conversation" onClick={() => setAttachedThreadIds((l) => l.filter((x) => x !== id))}>
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Attachment picker */}
+        {conversational && attachOpen && (
+          <div className="max-h-56 overflow-y-auto border-t border-border bg-surface-2/80 px-4 py-3">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted">
+              Attach as grounded context
+            </p>
+            {(reportsQuery.data ?? []).length === 0 && (threadsQuery.data ?? []).length === 0 && (
+              <p className="text-[12px] text-faint">No reports or conversations yet — generate a report or finish a chat first.</p>
+            )}
+            <ul className="space-y-1">
+              {(reportsQuery.data ?? []).slice(0, 8).map((r) => {
+                const on = attachedReportIds.includes(r.id);
+                return (
+                  <li key={r.id}>
+                    <button
+                      type="button"
+                      className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] transition-colors ${on ? 'bg-primary/10 text-primary-ink' : 'text-content hover:bg-surface'}`}
+                      onClick={() => setAttachedReportIds((l) => (on ? l.filter((x) => x !== r.id) : [...l, r.id].slice(-3)))}
+                    >
+                      <FileText className="h-3.5 w-3.5 shrink-0 text-muted" />
+                      <span className="truncate">{r.title}</span>
+                      {on && <span className="ml-auto text-[10px] font-semibold uppercase">attached</span>}
+                    </button>
+                  </li>
+                );
+              })}
+              {(threadsQuery.data ?? [])
+                .filter((t) => t.id !== thread?.id)
+                .slice(0, 8)
+                .map((t) => {
+                  const on = attachedThreadIds.includes(t.id);
+                  return (
+                    <li key={t.id}>
+                      <button
+                        type="button"
+                        className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] transition-colors ${on ? 'bg-primary/10 text-primary-ink' : 'text-content hover:bg-surface'}`}
+                        onClick={() => setAttachedThreadIds((l) => (on ? l.filter((x) => x !== t.id) : [...l, t.id].slice(-3)))}
+                      >
+                        <MessagesSquare className="h-3.5 w-3.5 shrink-0 text-muted" />
+                        <span className="truncate">{t.title}</span>
+                        {on && <span className="ml-auto text-[10px] font-semibold uppercase">attached</span>}
+                      </button>
+                    </li>
+                  );
+                })}
+            </ul>
+          </div>
+        )}
+
         {/* Composer */}
         {conversational && (
           <form onSubmit={submit} className="border-t border-border px-4 py-3">
             <div className="flex items-end gap-1.5 rounded-2xl border border-border bg-surface-2 px-2 py-1.5">
+              <button
+                type="button"
+                onClick={() => setAttachOpen((v) => !v)}
+                aria-pressed={attachOpen}
+                className={`mb-0.5 rounded-lg p-1.5 transition-colors ${attachOpen || attachedReportIds.length > 0 || attachedThreadIds.length > 0 ? 'text-primary-ink' : 'text-muted hover:text-content'}`}
+                title="Attach a report or conversation — its findings become the grounded focus of this chat"
+              >
+                <Paperclip className="h-4 w-4" />
+              </button>
               <textarea
                 className="max-h-28 min-h-[32px] flex-1 resize-none bg-transparent px-1 py-1 text-[13px] text-content placeholder:text-faint focus:outline-none"
                 rows={1}

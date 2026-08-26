@@ -61,6 +61,41 @@ const TYPE_ICON: Record<CardType, LucideIcon> = {
   barrier: Landmark,
 };
 
+/** Board-game faces for market-level card classes (design-system palettes). */
+const MARKET_FACE: Partial<
+  Record<CardType, { frame: string; band: string; body: string; bullet: string }>
+> = {
+  insight: {
+    frame: 'border-amber-300/80 dark:border-amber-700/60',
+    band: 'border-amber-200/80 bg-gradient-to-r from-amber-50 to-amber-100/50 text-amber-800 dark:border-amber-900 dark:from-amber-950/50 dark:to-amber-900/30 dark:text-amber-300',
+    body: 'border-amber-200/60 bg-amber-50/50 dark:border-amber-900/50 dark:bg-amber-950/20',
+    bullet: 'text-amber-600 dark:text-amber-400',
+  },
+  barrier: {
+    frame: 'border-slate-400/70 dark:border-slate-600/70',
+    band: 'border-slate-300/80 bg-gradient-to-r from-slate-100 to-slate-200/60 text-slate-700 dark:border-slate-700 dark:from-slate-900 dark:to-slate-800/60 dark:text-slate-300',
+    body: 'border-slate-300/60 bg-slate-100/60 dark:border-slate-700/60 dark:bg-slate-900/40',
+    bullet: 'text-slate-500 dark:text-slate-400',
+  },
+};
+
+/**
+ * Entity-class tints: infrastructure and distribution keep the exact company
+ * layout but wear a subtly different shadow + stamp, so scanning a mixed grid
+ * separates the classes without reading a single label (founder's ask:
+ * differentiate visually WITHOUT changing the design).
+ */
+const ENTITY_TINT: Partial<Record<CardType, { card: string; stamp: string }>> = {
+  infrastructure: {
+    card: 'border-indigo-200/70 shadow-[0_10px_28px_-14px_rgba(99,102,241,0.45)] dark:border-indigo-900/60',
+    stamp: 'border-indigo-200/70 bg-indigo-50/70 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-300',
+  },
+  distribution: {
+    card: 'border-amber-200/70 shadow-[0_10px_28px_-14px_rgba(217,119,6,0.40)] dark:border-amber-900/60',
+    stamp: 'border-amber-200/70 bg-amber-50/70 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300',
+  },
+};
+
 /**
  * REAL composite score — computed from the same deterministic CMS engine that
  * assigns tiers (shared @mi/contracts code, identical in every transport).
@@ -219,28 +254,52 @@ export function GameCard({
   const [, setLogoColor] = useState<string | null>(null);
   const TypeIcon = TYPE_ICON[card.cardType];
 
-  // ── Market-level card ──
+  // ── Market-level card — the board-game treatment ──
+  // Insight and Barrier cards are CLAIMS about the market, not businesses, so
+  // they get a distinct face: banner band, double frame, key points printed on
+  // the card body. Same design system, unmistakably a different card class.
   if (!company) {
     const cited = card.citations?.[0];
+    const face = MARKET_FACE[card.cardType] ?? MARKET_FACE.insight!;
     return (
       <Card
-        className={cn('group cursor-pointer rounded-[14px] transition-all hover:-translate-y-px hover:shadow-card-hover', className)}
+        className={cn(
+          'group relative cursor-pointer overflow-hidden rounded-[16px] border-2 transition-all hover:-translate-y-px hover:shadow-card-hover',
+          face.frame,
+          className,
+        )}
         onClick={onOpen} role="button" tabIndex={0}
         aria-label={`${CARD_TYPE_LABELS[card.cardType]}: ${card.title ?? ''}`}
       >
-        <CardHeader className="pb-2">
-          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted">
-            <TypeIcon className="h-3.5 w-3.5" strokeWidth={1.8} />
+        {/* Banner band — the card names its class up top, game-card style. */}
+        <div className={cn('flex items-center justify-between border-b px-4 py-2', face.band)}>
+          <span className="text-[10px] font-bold uppercase tracking-[0.24em]">
             {CARD_TYPE_LABELS[card.cardType]}
           </span>
-        </CardHeader>
-        <CardContent className="space-y-2 pb-4">
-          <p className="font-display text-[15px] font-semibold leading-snug text-content">{card.title}</p>
+          <TypeIcon className="h-4 w-4" strokeWidth={2} />
+        </div>
+        <CardContent className="space-y-2.5 px-4 pb-3 pt-3.5">
+          <p className="font-display text-[16px] font-bold leading-snug text-content">{card.title}</p>
           <p className="line-clamp-3 text-[13px] leading-relaxed text-muted">{card.summary}</p>
+          {card.keyPoints.length > 0 && (
+            <ul className={cn('space-y-1.5 rounded-lg border px-3 py-2.5', face.body)}>
+              {card.keyPoints.slice(0, 2).map((k, i) => (
+                <li key={i} className="flex gap-2 text-[12px] leading-snug text-content/85">
+                  <span className={cn('mt-px font-bold', face.bullet)}>◆</span>
+                  <span className="line-clamp-2">{k}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
-        <CardFooter className="pt-0">
+        <CardFooter className="px-4 pb-3 pt-0">
           <span className="text-[11px] text-faint">{cited ? publisherOf(cited.url, cited.title) : ''}</span>
+          <span className={cn('ml-auto text-[10px] font-semibold uppercase tracking-widest opacity-0 transition-opacity group-hover:opacity-100', face.bullet)}>
+            Open card
+          </span>
         </CardFooter>
+        {/* Inner ring — the double frame that reads "collectible". */}
+        <span aria-hidden className="pointer-events-none absolute inset-1 rounded-[12px] ring-1 ring-inset ring-content/5" />
       </Card>
     );
   }
@@ -279,9 +338,14 @@ export function GameCard({
   const empKnown = employees?.value != null && employees.confidence !== 'unknown';
   const usersKnown = users?.value != null && users.confidence !== 'unknown';
 
+  const tint = ENTITY_TINT[card.cardType];
   return (
     <Card
-      className={cn('group cursor-pointer rounded-[14px] transition-all hover:-translate-y-px hover:shadow-card-hover', className)}
+      className={cn(
+        'group cursor-pointer rounded-[14px] transition-all hover:-translate-y-px hover:shadow-card-hover',
+        tint?.card,
+        className,
+      )}
       onClick={onOpen} role="button" tabIndex={0}
       aria-label={`${company.name} — ${CARD_TYPE_LABELS[card.cardType]} card`}
     >
@@ -295,7 +359,14 @@ export function GameCard({
             <h3 className="truncate font-display text-[18px] font-semibold leading-tight text-content">
               {company.name}
             </h3>
-            <span className="mt-0.5 inline-block rounded bg-surface-2 px-1.5 py-px text-[10px] font-medium text-muted">{deriveIndustry(company.oneLiner)}</span>
+            <span className="mt-0.5 inline-flex flex-wrap items-center gap-1">
+              <span className="rounded bg-surface-2 px-1.5 py-px text-[10px] font-medium text-muted">{deriveIndustry(company.oneLiner)}</span>
+              {tint && (
+                <span className={cn('rounded border px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide', tint.stamp)}>
+                  {CARD_TYPE_LABELS[card.cardType]}
+                </span>
+              )}
+            </span>
           </div>
           {score != null ? (
             <div className="flex shrink-0 flex-col items-center" title={scoreTitle}>

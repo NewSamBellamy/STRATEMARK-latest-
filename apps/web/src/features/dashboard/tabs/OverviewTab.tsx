@@ -7,6 +7,7 @@ import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { formatMetricValue } from '@/lib/format';
 import { METRIC_COLORS } from '@/lib/theme';
 import { DigDeeperMenu } from '@/features/deepdive/DeepDive';
+import { AiCover } from '@/components/media/AiCover';
 
 /**
  * Overview — the "front page" of a company. A readable grounded summary plus an
@@ -86,10 +87,26 @@ export function OverviewTab({ companyId }: { companyId: string }) {
             {company && (
               <div className="panel space-y-2 p-4 text-sm">
                 {company.hqLocation && (
-                  <p className="flex items-start gap-2 text-muted">
-                    <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
-                    {company.hqLocation}
-                  </p>
+                  <>
+                    <p className="flex items-start gap-2 text-muted">
+                      <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
+                      {company.hqLocation}
+                    </p>
+                    {/* A glimpse of the place — generated from the HQ location
+                        itself, so every company's panel carries its city's
+                        light (founder's ask: "give people a glimpse of where
+                        it's based out of"). */}
+                    <div className="h-[110px] overflow-hidden rounded-lg border border-border">
+                      <AiCover
+                        cacheKey={`hq:${companyId}`}
+                        title={`${name} — ${company.hqLocation}`}
+                        context={`Atmospheric cityscape illustration of ${company.hqLocation}: the skyline, landmark silhouettes, light and character of the place. Painterly, evocative, no text, no logos.`}
+                        url={company.websiteUrl ?? ''}
+                        source="news"
+                        compact
+                      />
+                    </div>
+                  </>
                 )}
                 {company.websiteUrl && (
                   <a
