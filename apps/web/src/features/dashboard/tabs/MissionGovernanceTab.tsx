@@ -4,6 +4,7 @@ import { useCompany, useDashboardTab } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { DigDeeperMenu } from '@/features/deepdive/DeepDive';
 import { InsightReader, type InsightTone } from '@/components/reader/InsightReader';
+import { AiCover } from '@/components/media/AiCover';
 import { WikiAvatar } from './LeaderGrid';
 
 const INVESTOR_KIND_LABEL: Record<string, string> = {
@@ -40,6 +41,17 @@ export function MissionGovernanceTab({ companyId }: { companyId: string }) {
               <p className="mt-2 text-sm text-muted">{c.ethos}</p>
               <h3 className="mt-4 font-display text-sm font-semibold text-content">Governance</h3>
               <p className="mt-2 text-sm text-muted">{c.governanceStructure}</p>
+              {/* The identity, illustrated: generated from THIS company's
+                  mission + governance so every company's panel is unique. */}
+              <div className="mt-4 h-[130px] overflow-hidden rounded-xl border border-border">
+                <AiCover
+                  cacheKey={`mission:${companyId}`}
+                  title={`${name} — organizational identity`}
+                  context={`Abstract editorial illustration of this organization's identity and governance structure. Mission: ${c.mission?.slice(0, 200) ?? ''} Governance: ${c.governanceStructure?.slice(0, 200) ?? ''} Depict the structure and ethos conceptually — clean geometric diagram-like abstraction, unique to this company.`}
+                  url=""
+                  source="news"
+                />
+              </div>
               <div className="mt-3 flex justify-end">
                 <DigDeeperMenu
                   topics={[
