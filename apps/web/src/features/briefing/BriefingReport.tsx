@@ -14,6 +14,7 @@ import { publisherOf } from '@mi/contracts';
 import { AiCover } from '@/components/media/AiCover';
 import { EditorialCover } from '@/components/media/EditorialCover';
 import { printScoped } from '@/lib/print';
+import { isDirectSource, sourceHref } from '@/lib/sourceHref';
 import { cn } from '@/lib/cn';
 
 export interface BriefingViewUpdate {
@@ -70,10 +71,11 @@ function SourceLinks({ citations }: { citations: Array<{ title: string; url: str
       {citations.map((c, i) => (
         <a
           key={i}
-          href={c.url}
+          href={sourceHref(c.url, c.title)}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1 text-[11px] text-primary-ink hover:underline"
+          title={isDirectSource(c.url) ? 'Read the source' : 'Find the original story'}
         >
           <ExternalLink className="h-3 w-3" />
           {publisherOf(c.url, c.title)}

@@ -172,7 +172,7 @@ export function structureEnrichPrompt(
     `  },`,
     `  "viceClaims": [ { "text", "sourceIndex": number|null } ], "cultureNote": string|null }`,
     ``,
-    `Rules: all money/headcount figures are WHOLE-COMPANY figures, never a division's (note division context in "method" instead). Use "verified" only if a SOURCE states the figure; "estimated" with a "method" note if derived; else "unknown" with value null. ALWAYS extract disclosed employee/team count, latest venture funding round (amount & type), scraped pricing tiers, and public user footprint into "facts" whenever available. Every viceClaim MUST have a sourceIndex. Provide only valuation OR market_cap, not both.`,
+    `Rules: all money/headcount figures are WHOLE-COMPANY figures, never a division's (note division context in "method" instead). FIGURES MUST BE EXACT AND CURRENT: copy the precise number a source states (7832, not 8000; 23.6, not 25) and when sources disagree prefer the MOST RECENTLY PUBLISHED figure — a stale or rounded number will fail verification later. Use "verified" only if a SOURCE states the figure; "estimated" with a "method" note if derived; else "unknown" with value null. ALWAYS extract disclosed employee/team count, latest venture funding round (amount & type), scraped pricing tiers, and public user footprint into "facts" whenever available. Every viceClaim MUST have a sourceIndex. Provide only valuation OR market_cap, not both.`,
     ``,
     `SOURCES:`,
     sources,

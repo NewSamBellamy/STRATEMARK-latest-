@@ -29,6 +29,7 @@ import {
 } from '@/lib/screenshot';
 import { AiCover } from '@/components/media/AiCover';
 import { printScoped } from '@/lib/print';
+import { isDirectSource, sourceHref } from '@/lib/sourceHref';
 import { cn } from '@/lib/cn';
 
 const AREA_LABEL: Record<SiteAuditArea, string> = {
@@ -259,6 +260,7 @@ export function SiteAuditView({ report, audit }: { report: Report; audit: SiteAu
             {/* The mood, illustrated FROM the audit's own read of the brand. */}
             <div className="h-[150px] border-t border-border sm:h-auto sm:border-l sm:border-t-0">
               <AiCover
+                aspect="1:1"
                 cacheKey={`audit-mood:${audit.url}`}
                 title={`${audit.siteName} — design language`}
                 context={`Abstract mood-board illustration of this visual design language, no interface elements: ${audit.designStyle.summary} ${audit.designStyle.notes.join(', ')}`}
@@ -303,10 +305,11 @@ export function SiteAuditView({ report, audit }: { report: Report; audit: SiteAu
             {report.citations.slice(0, 12).map((c, i) => (
               <a
                 key={i}
-                href={c.url}
+                href={sourceHref(c.url, c.title)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-[11px] text-primary-ink hover:underline"
+                title={isDirectSource(c.url) ? 'Read the source' : 'Find the original story'}
               >
                 <ExternalLink className="h-3 w-3" />
                 {publisherOf(c.url, c.title)}

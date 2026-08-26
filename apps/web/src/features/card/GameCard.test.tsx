@@ -38,7 +38,11 @@ describe('GameCard', () => {
     const cms = computeCms(buildCmsInput(cwc.metrics), { deckUserValues });
     const nudge = cwc.card.tier != null && cms.baseTier != null ? cwc.card.tier - cms.baseTier : 0;
     const adjusted = Math.min(8, Math.max(1, (cms.weightedTierRaw as number) + nudge));
-    const expected = Math.round((adjusted / 8) * 100);
+    // The 2K rule: 99 ceiling, unknown signals shave points.
+    const expected = Math.max(
+      1,
+      Math.min(99, Math.round((adjusted / 8) * 99 - Math.max(0, 5 - cms.availableSignalCount) * 2)),
+    );
     expect(screen.getByText(String(expected))).toBeInTheDocument();
     // HQ shown.
     expect(screen.getByText(/Los Angeles/)).toBeInTheDocument();

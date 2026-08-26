@@ -130,6 +130,9 @@ export default function DeckPage() {
     () => (cards.data ?? []).filter((c) => !HIDDEN_CARD_TYPES.has(c.card.cardType)),
     [cards.data],
   );
+  // A market whose deck record is gone (or a stale link) must NEVER render a
+  // blank screen (audit 7:44): show a recovery path instead.
+  const deckMissing = market.isSuccess && deck.isSuccess && (!market.data || !deck.data);
   const living = useLivingDeck(deckId, all);
   const { share: shareDeck, status: shareStatus } = useShareAction();
 
@@ -256,7 +259,37 @@ export default function DeckPage() {
         <AgentActivityFeed living={living} />
       </div>
 
-      <QueryBoundary
+      {deckMissing && (
+        <div className="panel mx-auto max-w-xl p-8 text-center">
+          <Layers className="mx-auto h-8 w-8 text-muted" />
+          <h2 className="mt-3 font-display text-xl font-semibold text-content">
+            This deck's research isn't here
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted">
+            {market.data
+              ? 'The market exists but its researched deck is missing — it may predate a storage recovery. Re-run the research, or check Settings → Data safety for a restorable backup.'
+              : 'This link points at a deck that no longer exists in your library.'}
+          </p>
+          <div className="mt-5 flex flex-wrap justify-center gap-2">
+            {market.data && marketId && (
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={refreshDeck.isPending}
+                onClick={() => refreshDeck.mutate(marketId)}
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshDeck.isPending ? 'animate-spin' : ''}`} />
+                {refreshDeck.isPending ? 'Researching…' : 'Re-run research'}
+              </button>
+            )}
+            <Link to="/settings" className="btn-ghost">Data safety</Link>
+            <Link to="/history" className="btn-ghost">All decks</Link>
+          </div>
+        </div>
+      )}
+
+      {!deckMissing && (
+            <QueryBoundary
         query={cards}
         loading={<CardGridSkeleton />}
         isEmpty={(list) => list.length === 0}
@@ -408,6 +441,7 @@ export default function DeckPage() {
           );
         }}
       </QueryBoundary>
+      )}
 
       {/* Compare mode action bar */}
       {compare && (
@@ -565,8 +599,9 @@ function TypeNav({
 }) {
   const counts = new Map<CardType, number>();
   for (const c of cards) counts.set(c.card.cardType, (counts.get(c.card.cardType) ?? 0) + 1);
-  const present = VISIBLE_CARD_TYPE_ORDER.filter((t) => (counts.get(t) ?? 0) > 0);
-  if (present.length <= 1 && !onToggleSplit) return null;
+  // EVERY card class keeps its tab, even at zero (audit: "the tab should
+  // still be there") — an empty class opens its hunt prompt, never vanishes.
+  const present = VISIBLE_CARD_TYPE_ORDER;
 
   const Tab = ({
     label,
