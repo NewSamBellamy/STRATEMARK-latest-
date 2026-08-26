@@ -32,13 +32,18 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     if (busy || !code.trim()) return;
     setBusy(true);
     setError(null);
-    const profile = await tryUnlock(code);
-    setBusy(false);
-    if (!profile) {
-      setError("That code didn't match. Codes are case-insensitive — check with Shannon or Toby.");
-      return;
+    try {
+      const profile = await tryUnlock(code);
+      if (!profile) {
+        setError("That code didn't match. Codes are case-insensitive — check with Shannon or Toby.");
+        return;
+      }
+      setCode('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something broke checking the code — try again.');
+    } finally {
+      setBusy(false);
     }
-    setCode('');
   };
 
   return (
