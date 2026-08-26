@@ -1248,7 +1248,7 @@ export class GeminiRepository implements MarketIntelRepository {
         `  "verdict": "supported"|"contradicted"|"unverified",`,
         `  "rationale": string (1-3 sentences)`,
         wantsCorrection
-          ? `, "correctedValue": number|null — ONLY when the notes name a concrete current figure for the company's ${metricLabel} that differs from the claim; the raw number in ${metricLabel === 'Market Share' ? 'percent (0-100)' : metricLabel === 'Users' || metricLabel === 'Employees' ? 'plain count' : 'US dollars'}; null otherwise. NEVER invent a figure the notes do not state.`
+          ? `, "correctedValue": number|null — ONLY when the notes name a concrete current figure for the company's ${metricLabel} that differs from the claim; the raw number in ${metricLabel === 'Market Share' ? 'percent (0-100)' : metricLabel === 'Users' || metricLabel === 'Employees' ? 'plain count' : 'US dollars'}; null otherwise. THE EXACT FIGURE, never a rounded approximation: if the notes say 7,832 the value is 7832 (not 5000, not 8000); if they say 61.7% the value is 61.7. When the notes carry several figures, use the most recent AND most precise one, and it MUST be the same figure your rationale cites. NEVER invent a figure the notes do not state.`
           : '',
         wantsCorrection ? `, "correctedAsOf": string|null — ISO date the corrected figure is reported as-of, when stated.` : '',
         `}`,

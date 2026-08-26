@@ -12,7 +12,7 @@ import { publisherOf, type LiveIntelItem } from '@mi/contracts';
 import { useCompany, useDashboardTab, useRerunDashboardTab } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { Modal } from '@/components/ui/Modal';
-import { EditorialCover } from '@/components/media/EditorialCover';
+import { AiCover } from '@/components/media/AiCover';
 import { LiveBadge } from '../LiveBadge';
 import { DigDeeper } from '@/features/deepdive/DeepDive';
 import { formatRelative } from '@/lib/format';
@@ -98,9 +98,16 @@ function ArticleReader({
       description={item.summary}
     >
       <div className="space-y-4">
-        {/* Cover by default — composed from the story itself, never a CAPTCHA. */}
+        {/* Generated cover (nano banana, prompted from the story's research);
+            designed editorial cover holds the frame until it lands. */}
         <div className="h-[200px] overflow-hidden rounded-xl border border-border">
-          <EditorialCover title={item.title} url={item.url} source={item.source} />
+          <AiCover
+            cacheKey={item.id}
+            title={item.title}
+            context={item.detail ?? item.summary ?? null}
+            url={item.url}
+            source={item.source}
+          />
         </div>
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted">
@@ -222,9 +229,16 @@ function IntelRow({
             <span className="ml-auto text-[11px] text-faint">Open story →</span>
           </div>
         </div>
-        {/* Cover by default — composed from the story, never a CAPTCHA shot. */}
+        {/* Generated cover — never a CAPTCHA; editorial cover until it lands. */}
         <div className="hidden h-[84px] w-[128px] shrink-0 overflow-hidden rounded-lg border border-border sm:block">
-          <EditorialCover title={item.title} url={item.url} source={item.source} compact />
+          <AiCover
+            cacheKey={item.id}
+            title={item.title}
+            context={item.detail ?? item.summary ?? null}
+            url={item.url}
+            source={item.source}
+            compact
+          />
         </div>
       </div>
       {item.stale && (

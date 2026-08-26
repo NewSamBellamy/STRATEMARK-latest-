@@ -4,6 +4,7 @@ import type { Product, RoadmapItem } from '@mi/contracts';
 import { useCompany, useDashboardTab } from '@/hooks/data';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { PageShot } from '@/components/media/PageShot';
+import { AiCover } from '@/components/media/AiCover';
 import { Modal } from '@/components/ui/Modal';
 import { InsightReader } from '@/components/reader/InsightReader';
 import { DigDeeper, DigDeeperMenu } from '@/features/deepdive/DeepDive';
@@ -49,7 +50,7 @@ function ProductReader({
       description={`${companyName} · ${product.status}`}
     >
       <div className="space-y-4">
-        {hasUrl && (
+        {hasUrl ? (
           <a
             href={product.url!}
             target="_blank"
@@ -59,6 +60,18 @@ function ProductReader({
           >
             <PageShot url={product.url!} className="max-h-[260px] w-full object-cover object-top" />
           </a>
+        ) : (
+          // No official page surfaced — a generated illustration of the
+          // product experience (nano banana, prompted from the research).
+          <div className="h-[180px] overflow-hidden rounded-xl border border-border">
+            <AiCover
+              cacheKey={`product:${companyName}:${product.name}`}
+              title={`${companyName} — ${product.name}`}
+              context={product.description}
+              url=""
+              source="news"
+            />
+          </div>
         )}
         <p className="text-sm leading-relaxed text-content/90">{product.description}</p>
         {product.revenueNote && (

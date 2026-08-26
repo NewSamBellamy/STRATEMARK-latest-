@@ -76,25 +76,32 @@ export function FactCheck({
   const metricAnchored = !!companyId && !!metricType && verify.isAvailable && !applied;
   const canApply =
     result?.verdict === 'contradicted' && result.correctedValue != null && metricAnchored;
+  // A non-supported verdict with NO usable correction still demands action —
+  // "contradicted" with nothing happening is the exact failure the founder
+  // filmed twice. These run the full re-verification (which can correct,
+  // downgrade, or re-confirm) instead of the fast path.
+  const needsFullReconcile =
+    metricAnchored &&
+    result != null &&
+    result.verdict !== 'supported' &&
+    !(result.verdict === 'contradicted' && result.correctedValue != null);
 
-  // AUTO-CORRECT: a contradicted metric with a cited correction applies itself.
-  // The founder's requirement, verbatim: "these agents should be fact-checking
-  // their own work and updating the UI consistently" — a verdict that waits
-  // for a click leaves wrong information on screen. The manual button remains
-  // as the retry path if the automatic write fails.
+  // AUTO-RECONCILE: any anchored, non-supported verdict resolves ITSELF.
+  // Contradicted with a cited figure → the fast path applies that exact
+  // evidence (milliseconds). Contradicted without a usable figure, or
+  // unverified → the full re-verification runs automatically. Nothing waits
+  // for a click; the buttons below remain only as retry paths.
   const autoFired = useRef(false);
   useEffect(() => {
-    if (!canApply || autoFired.current || verify.isPending || !companyId || !metricType) return;
+    if (autoFired.current || verify.isPending || !companyId || !metricType) return;
+    if (!canApply && !needsFullReconcile) return;
     autoFired.current = true;
-    // FAST correction: hand the repository the evidence this fact-check just
-    // gathered (corrected value + citations) so it writes back immediately
-    // instead of re-running the whole grounded hunt a second time.
     verify.mutate(
       {
         companyId,
         metricType,
         correction:
-          result?.correctedValue != null
+          canApply && result?.correctedValue != null
             ? {
                 value: result.correctedValue,
                 citations: result.citations,
@@ -106,11 +113,9 @@ export function FactCheck({
       { onSuccess: (res) => setApplied(res.changed ? 'corrected' : 'confirmed') },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canApply]);
-  // A check that can't corroborate the stored figure must be able to fix the
-  // badge — otherwise the metric keeps wearing "Verified" right next to an
-  // assessment saying "Unverified" (the two-truth-systems contradiction).
-  const canReconcile = result?.verdict === 'unverified' && metricAnchored;
+  }, [canApply, needsFullReconcile]);
+  // Manual retry path for the full-reconcile case (auto already fired once).
+  const canReconcile = needsFullReconcile;
 
   const apply = (e: React.MouseEvent) => {
     e.stopPropagation();
