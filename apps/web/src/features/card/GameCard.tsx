@@ -42,6 +42,7 @@ import {
   type MaturityTier,
 } from '@mi/contracts';
 import { cn } from '@/lib/cn';
+import { useSaveCard, useSavedCards, useUnsaveCard } from '@/hooks/data';
 import { formatCount, formatMetricValue } from '@/lib/format';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -216,14 +217,6 @@ export function GameCard({
 }: GameCardProps) {
   const { card, company, metrics } = data;
   const [, setLogoColor] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
-  const [toast, setToast] = useState(false);
-  const onBookmark = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSaved((s) => !s);
-    setToast(true);
-    setTimeout(() => setToast(false), 2000);
-  }, []);
   const TypeIcon = TYPE_ICON[card.cardType];
 
   // ── Market-level card ──
@@ -453,21 +446,9 @@ export function GameCard({
         )}
         {!hideActions && (
           <div className="flex items-center gap-0.5">
-            <Button
-              variant="ghost" size="icon"
-              className={cn('h-6 w-6 border-0', saved ? 'text-primary' : 'text-faint hover:text-content')}
-              onClick={onBookmark} tabIndex={-1} title={saved ? 'Unsave card' : 'Save card'}
-            >
-              <Bookmark className="h-3.5 w-3.5" strokeWidth={1.5} fill={saved ? 'currentColor' : 'none'} />
-            </Button>
+            <SaveCardButton cardId={card.id} />
             <CardMoreMenu onShare={onShare} />
           </div>
-        )}
-        {/* Save toast */}
-        {toast && (
-          <span className="absolute bottom-12 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-lg bg-content px-3 py-1.5 text-[11px] font-medium text-bg shadow-card">
-            {saved ? 'Card saved' : 'Card removed'}
-          </span>
         )}
       </CardFooter>
     </Card>
@@ -521,5 +502,56 @@ function CardMoreMenu({ onShare }: { onShare?: () => void }) {
         </div>
       )}
     </div>
+  );
+}
+
+
+/**
+ * The bookmark that actually bookmarks. The old button only flipped local
+ * state (and lost it on every remount) — the filmed "my saved card
+ * disappeared" bug. This one reads truth from the savedCards query and
+ * writes through the repository, so the state survives navigation, refresh,
+ * and appears on the Saved Cards page immediately.
+ */
+function SaveCardButton({ cardId }: { cardId: string }) {
+  const savedCards = useSavedCards();
+  const save = useSaveCard();
+  const unsave = useUnsaveCard();
+  const [toast, setToast] = useState<string | null>(null);
+  const isSaved = (savedCards.data ?? []).some((c) => c.card.id === cardId);
+  const busy = save.isPending || unsave.isPending;
+
+  const onClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const showToast = (msg: string) => {
+        setToast(msg);
+        setTimeout(() => setToast(null), 2000);
+      };
+      if (isSaved) unsave.mutate(cardId, { onSuccess: () => showToast('Card removed') });
+      else save.mutate(cardId, { onSuccess: () => showToast('Card saved') });
+    },
+    [cardId, isSaved, save, unsave],
+  );
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="icon"
+        className={cn('h-6 w-6 border-0', isSaved ? 'text-primary' : 'text-faint hover:text-content')}
+        onClick={onClick}
+        disabled={busy}
+        tabIndex={-1}
+        title={isSaved ? 'Unsave card' : 'Save card'}
+      >
+        <Bookmark className="h-3.5 w-3.5" strokeWidth={1.5} fill={isSaved ? 'currentColor' : 'none'} />
+      </Button>
+      {toast && (
+        <span className="absolute bottom-12 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-lg bg-content px-3 py-1.5 text-[11px] font-medium text-bg shadow-card">
+          {toast}
+        </span>
+      )}
+    </>
   );
 }

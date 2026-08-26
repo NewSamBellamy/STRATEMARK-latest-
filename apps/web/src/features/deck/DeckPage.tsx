@@ -291,7 +291,20 @@ export default function DeckPage() {
                   split={split}
                   onToggleSplit={() => setSplit({})}
                 />
+                <p className="mb-4 text-[12px] text-muted">
+                  Companies grouped by maturity tier — T8 giants down to T1 seeds.
+                  <span className="text-faint"> {CARD_TYPE_DESCRIPTIONS.company}</span>
+                </p>
                 <TierSplit cards={list} deckUserValues={userValues} marketId={marketId} />
+                {/* The deck never hard-stops in this view either. */}
+                <div className="mt-8">
+                  <ExpandPrompt
+                    marketId={marketId}
+                    focus={{}}
+                    label="Hunt for more companies in this market"
+                    compact
+                  />
+                </div>
               </section>
             );
           }
@@ -307,10 +320,11 @@ export default function DeckPage() {
                   split={split}
                   onToggleSplit={() => setSplit({ split: 'company' })}
                 />
-                <h2 className="mb-3 font-display text-lg text-content">
+                <h2 className="mb-1 font-display text-lg text-content">
                   {CARD_TYPE_LABELS[typeParam]} — {filtered.length} card
                   {filtered.length === 1 ? '' : 's'}
                 </h2>
+                <p className="mb-3 text-[12px] text-faint">{CARD_TYPE_DESCRIPTIONS[typeParam]}</p>
                 {filtered.length > 0 ? (
                   <CardGrid cards={filtered} deckUserValues={userValues} marketId={marketId} />
                 ) : (
@@ -352,6 +366,7 @@ export default function DeckPage() {
               <div className="mb-4">
                 <p className="text-[12px] text-muted">
                   {filtered.length} {cardCountNoun(defaultType, filtered.length)}
+                  <span className="text-faint"> — {CARD_TYPE_DESCRIPTIONS[defaultType]}</span>
                 </p>
               </div>
               {filtered.length > 0 ? (
@@ -664,16 +679,20 @@ function ExpandPrompt({
       {!compact && <p className="text-sm text-muted">Nothing surfaced in the first pass.</p>}
       <button
         type="button"
-        className="btn-ghost text-sm"
+        className={cn(
+          'btn-ghost text-sm',
+          mine?.status === 'running' && 'animate-pulse border-primary/60 bg-primary/5 text-primary-ink',
+          mine?.status === 'queued' && 'border-primary/30 text-primary-ink',
+        )}
         disabled={mine?.status === 'queued' || mine?.status === 'running' || !marketId}
         title="Hunts run one at a time (rate-limit friendly) — extra clicks queue in order."
         onClick={() => marketId && enqueueHunt({ marketId, focus, label })}
       >
         <Search className={`h-4 w-4 ${mine?.status === 'running' ? 'animate-pulse' : ''}`} />
         {mine?.status === 'running'
-          ? 'Hunting…'
+          ? 'Actively hunting this market…'
           : mine?.status === 'queued'
-            ? `Queued${queuePosition > 0 ? ` (#${queuePosition})` : ''}…`
+            ? `Queued${queuePosition > 0 ? ` (#${queuePosition})` : ''} — starts after the current hunt`
             : label}
       </button>
       {mine?.status === 'done' && mine.added === 0 && (

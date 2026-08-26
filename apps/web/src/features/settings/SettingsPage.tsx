@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   AlertTriangle,
   BadgeCheck,
@@ -7,11 +7,15 @@ import {
   Cpu,
   ExternalLink,
   Loader2,
+  DatabaseBackup,
+  Download,
   Monitor,
   ShieldCheck,
+  Upload,
   Trash2,
 } from 'lucide-react';
 import { createGeminiClient } from '@mi/research';
+import { exportSnapshot, importSnapshot, marketCountOf } from '@/lib/repository/vault';
 import { looksLikeGeminiKey, sanitizeApiKey, useApiKey } from '@/lib/settings/apiKey';
 import { useEngineChoice } from '@/lib/settings/engine';
 import { useDemo } from '@/lib/demo/DemoContext';
@@ -304,6 +308,8 @@ export default function SettingsPage() {
       </div>
 
       {/* Where your research lives — and the desktop path for keeping it local. */}
+      <DataSafetyPanel />
+
       <div className="panel mt-6 space-y-4 p-6">
         <div className="flex items-center gap-2">
           <Monitor className="h-5 w-5 text-primary-ink" />
@@ -326,6 +332,132 @@ export default function SettingsPage() {
           </span>
         </div>
       </div>
+    </div>
+  );
+}
+
+
+/**
+ * Data safety — the user's own hands on their research (the "my decks got
+ * erased" class of failure ends here). Shows what's stored, offers a one-click
+ * export/import, and restores the automatic backup that write() keeps
+ * whenever a save would DROP markets. The IndexedDB vault restores itself
+ * silently at startup; this panel is the manual override.
+ */
+function DataSafetyPanel() {
+  const KEY = 'mi.repo.v1';
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const read = (k: string): string | null => {
+    try {
+      return localStorage.getItem(k);
+    } catch {
+      return null;
+    }
+  };
+  const current = read(KEY);
+  const backup = read(`${KEY}.backup`);
+  const currentMarkets = marketCountOf(current);
+  const backupMarkets = marketCountOf(backup);
+  const sizeKb = current ? Math.round(current.length / 1024) : 0;
+
+  const restoreBackup = () => {
+    if (!backup) return;
+    if (current) {
+      try {
+        localStorage.setItem(`${KEY}.backup`, current); // swap, never destroy
+      } catch {
+        /* best effort */
+      }
+    }
+    try {
+      localStorage.setItem(KEY, backup);
+      window.location.reload();
+    } catch {
+      setMsg('Restore failed — storage is full. Export your research first.');
+    }
+  };
+
+  const onImportFile = async (file: File) => {
+    const text = await file.text();
+    const markets = await importSnapshot(text, KEY);
+    if (markets < 0) {
+      setMsg("That file isn't a Stratemark research export.");
+      return;
+    }
+    window.location.reload();
+  };
+
+  return (
+    <div className="panel mt-6 space-y-4 p-6">
+      <div className="flex items-center gap-2">
+        <DatabaseBackup className="h-5 w-5 text-primary-ink" />
+        <h2 className="font-display text-lg text-content">Data safety</h2>
+      </div>
+      <p className="text-sm text-muted">
+        Your research is written to three places: this browser, an IndexedDB vault that
+        auto-restores it if the browser copy is ever wiped, and an automatic backup kept whenever a
+        save would remove decks. You can also take it into your own hands:
+      </p>
+      <div className="flex flex-wrap items-center gap-4 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm">
+        <span className="text-content">
+          <span className="font-semibold tabular-nums">{Math.max(currentMarkets, 0)}</span>{' '}
+          deck{currentMarkets === 1 ? '' : 's'} stored
+        </span>
+        <span className="text-muted tabular-nums">{sizeKb} KB</span>
+        {backupMarkets > 0 && (
+          <span className="text-muted">
+            backup: <span className="tabular-nums">{backupMarkets}</span> deck
+            {backupMarkets === 1 ? '' : 's'}
+          </span>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          className="btn-ghost text-sm"
+          disabled={!current}
+          onClick={() => {
+            if (!exportSnapshot(KEY)) setMsg('Nothing to export yet.');
+          }}
+          title="Download your entire research snapshot as a JSON file"
+        >
+          <Download className="h-4 w-4" />
+          Export my research
+        </button>
+        <button
+          type="button"
+          className="btn-ghost text-sm"
+          onClick={() => fileRef.current?.click()}
+          title="Load a previously exported research file"
+        >
+          <Upload className="h-4 w-4" />
+          Import
+        </button>
+        {backupMarkets > 0 && backupMarkets > Math.max(currentMarkets, 0) && (
+          <button
+            type="button"
+            className="btn-primary text-sm"
+            onClick={restoreBackup}
+            title={`The automatic backup holds ${backupMarkets} decks — more than what's currently stored. One click brings them back.`}
+          >
+            <DatabaseBackup className="h-4 w-4" />
+            Restore {backupMarkets} deck{backupMarkets === 1 ? '' : 's'} from backup
+          </button>
+        )}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void onImportFile(f);
+            e.target.value = '';
+          }}
+        />
+      </div>
+      {msg && <p className="text-[12px] text-negative">{msg}</p>}
     </div>
   );
 }

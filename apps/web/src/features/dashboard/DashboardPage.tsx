@@ -312,18 +312,30 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <button
-        type="button"
-        // A real route back to the deck (audit: the back button "doesn't
-        // actually take you back to the deck"). History fallback only when the
-        // dashboard was reached without deck context. NOTE: the deck lives at
-        // /markets/:id/deck — /markets/:id alone is a 404.
-        onClick={() => (fromMarketId ? navigate(`/markets/${fromMarketId}/deck`) : navigate(-1))}
-        className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted hover:text-content"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to deck
-      </button>
+      {/* Breadcrumbs: back to where you came from, and — always — a way home
+          to the decks (audit 6:35: "it doesn't take you back to your decks"
+          when a card was opened from Saved Cards or a report). */}
+      <div className="mb-3 flex items-center gap-3">
+        <button
+          type="button"
+          // A real route back to the deck. History fallback only when the
+          // dashboard was reached without deck context. NOTE: the deck lives
+          // at /markets/:id/deck — /markets/:id alone is a 404.
+          onClick={() => (fromMarketId ? navigate(`/markets/${fromMarketId}/deck`) : navigate(-1))}
+          className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-content"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {fromMarketId ? 'Back to deck' : 'Back'}
+        </button>
+        <span className="text-faint">·</span>
+        <Link
+          to="/history"
+          className="text-sm text-muted transition-colors hover:text-content"
+          title="All your decks"
+        >
+          All decks
+        </Link>
+      </div>
 
       <QueryBoundary query={company}>
         {(c) => (
