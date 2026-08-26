@@ -1,7 +1,10 @@
 import { Link } from 'react-router-dom';
-import { LayoutDashboard, ExternalLink } from 'lucide-react';
+import { Check, LayoutDashboard, ExternalLink, Loader2, Share2 } from 'lucide-react';
 import { METRIC_TYPE_LABELS, isSignalCardType, publisherOf, type CardWithCompany } from '@mi/contracts';
 import { Modal } from '@/components/ui/Modal';
+import { useMarket } from '@/hooks/data';
+import { buildCardShare } from '@/lib/share/codec';
+import { useShareAction } from '@/lib/share/useShareAction';
 import { formatMetricValue } from '@/lib/format';
 import { Logo } from './Logo';
 import { ConfidenceBadge } from './ConfidenceBadge';
@@ -30,6 +33,8 @@ export function CardReader({
   marketId?: string;
 }) {
   const { chat } = useDeepDive();
+  const marketName = useMarket(marketId).data?.name ?? null;
+  const { share, status: shareStatus } = useShareAction();
   if (!data) return null;
 
   const { card, company, metrics, viceClaims } = data;
@@ -110,14 +115,36 @@ export function CardReader({
             </a>
           )}
         </div>
-        <Link
-          to={`/company/${company.id}/dashboard/overview${marketId ? `?deck=${marketId}` : ''}`}
-          onClick={() => onOpenChange(false)}
-          className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-primary px-4 py-2 text-[13px] font-medium text-primary-fg transition-opacity hover:opacity-90"
-        >
-          <LayoutDashboard className="h-4 w-4" />
-          View more
-        </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() =>
+              void share(
+                buildCardShare(data, marketName),
+                `${company.name} — market research snapshot`,
+              )
+            }
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-[13px] font-medium text-content transition-colors hover:bg-surface-2"
+            title="Share this card as a clean interactive snapshot — the whole card travels inside the link."
+          >
+            {shareStatus === 'working' ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : shareStatus === 'copied' || shareStatus === 'shared' ? (
+              <Check className="h-4 w-4 text-positive" />
+            ) : (
+              <Share2 className="h-4 w-4" />
+            )}
+            {shareStatus === 'copied' ? 'Link copied' : shareStatus === 'shared' ? 'Shared' : 'Share'}
+          </button>
+          <Link
+            to={`/company/${company.id}/dashboard/overview${marketId ? `?deck=${marketId}` : ''}`}
+            onClick={() => onOpenChange(false)}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-[13px] font-medium text-primary-fg transition-opacity hover:opacity-90"
+          >
+            <LayoutDashboard className="h-4 w-4" />
+            View more
+          </Link>
+        </div>
       </div>
 
       {/* Content: evidence + score side by side on large, stacked on small */}
