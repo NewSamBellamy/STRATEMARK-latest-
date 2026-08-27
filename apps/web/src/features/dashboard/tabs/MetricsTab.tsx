@@ -133,19 +133,33 @@ function MetricTile({
   metric,
   companyId,
   companyName,
+  highlight = false,
   children,
 }: {
   metric: CompanyMetric;
   companyId: string;
   companyName: string;
+  /** Just filled from live sources — make the update VISIBLE. */
+  highlight?: boolean;
   children: React.ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
   return (
-    <div className="panel flex flex-col p-5">
+    <div
+      className={
+        highlight
+          ? 'panel flex flex-col p-5 ring-2 ring-emerald-400/70 transition-shadow'
+          : 'panel flex flex-col p-5'
+      }
+    >
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted">
+          <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted">
             {METRIC_TYPE_LABELS[metric.metricType]}
+            {highlight && (
+              <span className="rounded-full border border-emerald-300 bg-emerald-50 px-1.5 py-px text-[9px] font-semibold normal-case tracking-normal text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                Updated from live sources
+              </span>
+            )}
           </span>
           <span className="flex items-center gap-1.5">
             <ConfidenceBadge
@@ -303,7 +317,15 @@ function MetricBody({ metric }: { metric: CompanyMetric }) {
  * company still has. Renders only on live-research transports, and only
  * while soft figures actually exist — an honest button, not a decoration.
  */
-function HuntMetricsButton({ companyId, metrics }: { companyId: string; metrics: CompanyMetric[] }) {
+function HuntMetricsButton({
+  companyId,
+  metrics,
+  onFilled,
+}: {
+  companyId: string;
+  metrics: CompanyMetric[];
+  onFilled?: (types: MetricType[]) => void;
+}) {
   const hunt = useHuntMetrics();
   const [outcome, setOutcome] = useState<string | null>(null);
   const softCount =
@@ -325,12 +347,16 @@ function HuntMetricsButton({ companyId, metrics }: { companyId: string; metrics:
           title="One grounded research pass hunts current figures for every metric still missing, unknown, or estimated — sourced, junk-gated, and written back everywhere."
           onClick={() =>
             hunt.mutate(companyId, {
-              onSuccess: (r) =>
+              onSuccess: (r) => {
+                // Name WHAT was filled — "filled 2 figures" with no visible
+                // change was the filmed confusion.
                 setOutcome(
                   r.filledTypes.length > 0
-                    ? `Filled ${r.filledTypes.length} figure${r.filledTypes.length === 1 ? '' : 's'} from live sources.`
+                    ? `Filled ${r.filledTypes.map((t) => METRIC_TYPE_LABELS[t]).join(' & ')} from live sources — highlighted below.`
                     : 'No additional figures met the sourcing bar — gaps stay honest.',
-                ),
+                );
+                if (r.filledTypes.length > 0) onFilled?.(r.filledTypes);
+              },
             })
           }
         >
@@ -350,6 +376,9 @@ export function MetricsTab({ companyId }: { companyId: string }) {
   const metricsQ = useCompanyMetrics(companyId);
   const seriesQ = useDashboardTab(companyId, 'metrics');
   const companyName = useCompany(companyId).data?.name ?? 'this company';
+  // Figures the hunt just filled — their widgets light up so the update is
+  // impossible to miss.
+  const [justFilled, setJustFilled] = useState<ReadonlySet<MetricType>>(new Set());
 
   return (
     <QueryBoundary
@@ -368,7 +397,11 @@ export function MetricsTab({ companyId }: { companyId: string }) {
             <div className="flex items-center justify-between gap-3">
               <KpiBand tiles={tiles} />
               <span className="flex shrink-0 items-center gap-1.5">
-                <HuntMetricsButton companyId={companyId} metrics={metrics} />
+                <HuntMetricsButton
+                  companyId={companyId}
+                  metrics={metrics}
+                  onFilled={(types) => setJustFilled(new Set(types))}
+                />
                 <DigDeeperMenu
                   topics={tiles.map((m) => DEEP_TOPIC[m.metricType])}
                   companyId={companyId}
@@ -378,7 +411,13 @@ export function MetricsTab({ companyId }: { companyId: string }) {
             </div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {tiles.map((m) => (
-                <MetricTile key={m.id} metric={m} companyId={companyId} companyName={companyName}>
+                <MetricTile
+                  key={m.id}
+                  metric={m}
+                  companyId={companyId}
+                  companyName={companyName}
+                  highlight={justFilled.has(m.metricType)}
+                >
                   <MetricBody metric={m} />
                 </MetricTile>
               ))}

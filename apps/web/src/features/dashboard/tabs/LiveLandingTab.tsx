@@ -8,10 +8,14 @@ import {
   SHOT_PLACEHOLDER_MAX_WIDTH as PLACEHOLDER_MAX_WIDTH,
   SHOT_RETRY_MS as RETRY_MS,
   pageShotUrl,
+  pageShotUrlAlt,
 } from '@/lib/screenshot';
 
 function SitePreview({ url, fallbackShot }: { url: string; fallbackShot: string | null }) {
   const [attempt, setAttempt] = useState(0);
+  // After mShots exhausts its attempts, ONE pass through the independent
+  // second provider (thum.io) — the permanent "works here, not there" fix.
+  const [provider, setProvider] = useState<'primary' | 'alt'>('primary');
   const [settled, setSettled] = useState(false);
   const [failed, setFailed] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -24,11 +28,22 @@ function SitePreview({ url, fallbackShot }: { url: string; fallbackShot: string 
   );
 
   const scheduleRetry = () => {
-    if (attempt >= MAX_ATTEMPTS) {
+    if (provider === 'alt') {
       setFailed(true);
       return;
     }
+    if (attempt >= MAX_ATTEMPTS) {
+      setProvider('alt');
+      return;
+    }
     timer.current = setTimeout(() => setAttempt((a) => a + 1), RETRY_MS);
+  };
+
+  const retryAll = () => {
+    setFailed(false);
+    setSettled(false);
+    setProvider('primary');
+    setAttempt((a) => a + 1); // fresh cache-buster
   };
 
   if (failed && fallbackShot) {
@@ -46,15 +61,23 @@ function SitePreview({ url, fallbackShot }: { url: string; fallbackShot: string 
         <div className="rounded-full bg-surface-2 p-4 text-muted">
           <Globe className="h-7 w-7" />
         </div>
-        <p className="max-w-sm text-sm text-muted">
-          This site blocks embedding and automated capture (anti-bot policy — common for large
-          companies). The audit still works: it reads the site through grounded search, not
-          scraping. Open the page directly instead.
+        <p className="max-w-sm text-sm font-medium text-content">
+          This site is anti-bot and we can't load a live capture. Please try again later.
         </p>
-        <a href={url} target="_blank" rel="noopener noreferrer" className="btn-primary">
-          <MonitorPlay className="h-4 w-4" />
-          Open live site
-        </a>
+        <p className="max-w-sm text-[12px] leading-relaxed text-muted">
+          Both capture services were refused (common for large companies). The audit still works —
+          it reads the site through grounded search, not scraping.
+        </p>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={retryAll} className="btn-ghost">
+            <Loader2 className="h-4 w-4" />
+            Try again
+          </button>
+          <a href={url} target="_blank" rel="noopener noreferrer" className="btn-primary">
+            <MonitorPlay className="h-4 w-4" />
+            Open live site
+          </a>
+        </div>
       </div>
     );
   }
@@ -62,8 +85,8 @@ function SitePreview({ url, fallbackShot }: { url: string; fallbackShot: string 
   return (
     <div className="relative h-full w-full">
       <img
-        key={attempt}
-        src={pageShotUrl(url, attempt)}
+        key={`${provider}:${attempt}`}
+        src={provider === 'alt' ? pageShotUrlAlt(url) : pageShotUrl(url, attempt)}
         alt={`Live preview of ${url}`}
         className="h-full w-full object-cover object-top"
         onLoad={(e) => {
@@ -77,7 +100,9 @@ function SitePreview({ url, fallbackShot }: { url: string; fallbackShot: string 
       {!settled && (
         <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-2 bg-surface/85 px-3 py-2 text-[11px] font-medium text-muted backdrop-blur">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          Capturing the live site — the preview sharpens in a few seconds…
+          {provider === 'alt'
+            ? 'First capture service was refused — trying a second one…'
+            : 'Capturing the live site — the preview sharpens in a few seconds…'}
         </div>
       )}
     </div>
