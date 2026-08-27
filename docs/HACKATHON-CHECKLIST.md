@@ -5,9 +5,13 @@ Host: Google Cloud (Devpost). Prize pool $180,000. **Deadline: Aug 31, 2026, 5:0
 
 ## ⚠️ The three MANDATORY tech requirements (Stage-1 pass/fail)
 
+> **Status:** two of three are closed in code. The remaining one is a deploy,
+> not a build — everything it needs is committed. Until it runs, the demo video
+> cannot show the required Google Cloud proof, so this is the critical path.
+
 1. [x] **Gemini 3.5 or newer** via Gemini API or Vertex AI — ✅ **verified**: grounded `gemini-3.7-flash`, structuring `gemini-3.5-flash-lite`, reasoning `gemini-3.1-pro-preview`, imagery `gemini-3.1-flash-lite-image` (see `packages/research/src/gemini.ts`).
-2. [ ] **At least one Google agent framework** (ADK, GenAI SDK, Antigravity SDK, or Genkit) — 🔴 **GAP: today "ADK" is UI copy, not a dependency.** Maruf's Cloud Run Sentinel agent must be built with the real ADK or GenAI SDK. This is the highest-priority pre-submission item.
-3. [ ] **At least one Google Cloud infrastructure service** (Cloud Run recommended; Firestore also counts) — 🔴 gap until Maruf deploys (his handover §1).
+2. [x] **At least one Google agent framework** (ADK, GenAI SDK, Antigravity SDK, or Genkit) — ✅ **closed**: the official **`@google/genai` SDK** is a real dependency and drives the agent graph. `packages/research/src/genai.ts` implements the same `LlmClient` contract as the fetch client, so `LivingDeckEngine` and `runAdkTaskGraph` run unchanged on the official SDK. Used by the service in `apps/api`.
+3. [ ] **At least one Google Cloud infrastructure service** (Cloud Run recommended; Firestore also counts) — 🟡 **built, not yet deployed.** `apps/api` is a complete Cloud Run service (Dockerfile + one-command `deploy.sh`, using Cloud Run, Cloud Scheduler and Secret Manager). Deploying it is the last pass/fail action and needs a GCP project — runbook in `apps/api/README.md`.
 
 ## Submission package (Devpost form)
 
