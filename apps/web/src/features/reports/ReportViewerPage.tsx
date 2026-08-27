@@ -3,7 +3,7 @@ import { isDirectSource, sourceHref } from '@/lib/sourceHref';
 import { Link, useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ArrowDown, ArrowLeft, ArrowUp, Download, ExternalLink, Presentation, Printer } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Download, ExternalLink, Presentation, Printer, Share2 } from 'lucide-react';
 import { TIER_LABELS, type CardWithCompany, type MaturityTier, type MetricType } from '@mi/contracts';
 import { useCards, useReport } from '@/hooks/data';
 import { SiteAuditView } from './SiteAuditView';
@@ -12,6 +12,8 @@ import { printScoped } from '@/lib/print';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { formatMetricValue, formatRelative } from '@/lib/format';
 import { METRIC_COLORS, TIER_COLORS, tint } from '@/lib/theme';
+import { buildReportShare } from '@/lib/share/codec';
+import { ShareDialog } from '@/features/share/ShareDialog';
 import { exportDeckPptx } from './pptx';
 
 type SortKey = 'name' | 'tier' | 'market_share' | 'arr' | 'value' | 'employees';
@@ -134,6 +136,7 @@ export default function ReportViewerPage() {
   const report = useReport(reportId);
   const deckCards = useCards(report.data?.kind === 'deck' ? report.data.subjectId : undefined);
   const [exporting, setExporting] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -188,6 +191,34 @@ export default function ReportViewerPage() {
                   <Printer className="h-4 w-4" />
                   PDF
                 </button>
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={() => setShareOpen(true)}
+                  title="Share this report as a Stratemark link — the whole report opens in a clean read-only display, no account needed."
+                >
+                  <Share2 className="h-4 w-4" />
+                  Share
+                </button>
+                <ShareDialog
+                  open={shareOpen}
+                  onOpenChange={setShareOpen}
+                  title={r.title}
+                  subtitle={`Stratemark ${r.kind === 'deck' ? 'market report' : 'company report'}`}
+                  build={async () =>
+                    buildReportShare(
+                      {
+                        title: r.title,
+                        kind: r.kind,
+                        markdown,
+                        citations,
+                        createdAt: r.createdAt,
+                      },
+                      r.kind === 'deck' ? r.title.replace(/ — Market Report$/, '') : null,
+                      (deckCards.data ?? []).filter((c) => c.card.cardType === 'company').slice(0, 3),
+                    )
+                  }
+                />
                 <button
                   type="button"
                   className="btn-ghost"

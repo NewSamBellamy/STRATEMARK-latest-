@@ -7,7 +7,9 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ExternalLink, Link2Off, MapPin, Sparkles } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { ExternalLink, Layers, Link2Off, MapPin } from 'lucide-react';
 import {
   METRIC_TYPE_LABELS,
   TIER_LABELS,
@@ -256,12 +258,110 @@ function SharedBriefingView({
                 to="/"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-[12px] font-medium text-content transition-colors hover:bg-surface-2"
               >
-                <Sparkles className="h-3.5 w-3.5 text-primary-ink" />
+                <Layers className="h-3.5 w-3.5 text-primary-ink" />
                 Research your own market
               </Link>
             </footer>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A shared report: the full editorial report rides the link — masthead,
+ * markdown body, sources, and (when included) the face-value cards beside it.
+ */
+function SharedReportView({
+  payload,
+  cards,
+}: {
+  payload: SharePayload & { report: NonNullable<SharePayload['report']> };
+  cards: CardWithCompany[];
+}) {
+  const r = payload.report;
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
+  const kindLabel =
+    r.k === 'deck' ? 'Market Report' : r.k === 'site_audit' ? 'Site Audit' : 'Company Report';
+  return (
+    <div className="min-h-screen bg-bg">
+      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+        <article className="panel p-6">
+          <header className="mb-4 border-y-[3px] border-double border-content/70 py-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-muted">
+              Stratemark · {kindLabel}
+            </p>
+            <h1 className="mt-1 font-display text-2xl font-bold tracking-tight text-content sm:text-3xl">
+              {r.t}
+            </h1>
+            <p className="mt-1 text-xs text-muted">
+              Generated{' '}
+              {new Date(r.at).toLocaleDateString(undefined, {
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric',
+              })}
+              {r.c.length > 0 && <> · {r.c.length} sources</>}
+              {payload.market && <> · {payload.market}</>}
+            </p>
+          </header>
+
+          <div className="markdown">
+            {/* Strip a leading H1 if the model repeated the title — the masthead owns it. */}
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {r.md.replace(/^#\s[^\n]*\n+/, '')}
+            </ReactMarkdown>
+          </div>
+
+          {r.c.length > 0 && (
+            <div className="mt-6 flex flex-wrap gap-x-4 gap-y-1.5 border-t border-border pt-4">
+              {r.c.map((c, i) => (
+                <a
+                  key={i}
+                  href={c.u}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] text-primary-ink hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  {publisherOf(c.u, c.t)}
+                </a>
+              ))}
+            </div>
+          )}
+        </article>
+
+        {cards.length > 0 && (
+          <section className="mt-8">
+            <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted">
+              The cards behind this report
+            </h2>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {cards.map((c, i) => (
+                <GameCard key={c.card.id} data={c} hideActions onOpen={() => setOpenIdx(i)} />
+              ))}
+            </div>
+            {openIdx != null && cards[openIdx] && (
+              <SharedReader data={cards[openIdx]!} onClose={() => setOpenIdx(null)} />
+            )}
+          </section>
+        )}
+
+        <footer className="mt-10 flex flex-col items-center gap-3 border-t border-border pt-5 text-center text-[11px] leading-relaxed text-faint">
+          <p>
+            Shared from STRATEMARK — a living market-intelligence deck. This report was composed
+            from sourced evidence; live verification and the agentic research desk run in the full
+            app.
+          </p>
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-[12px] font-medium text-content transition-colors hover:bg-surface-2"
+          >
+            <Layers className="h-3.5 w-3.5 text-primary-ink" />
+            Research your own market
+          </Link>
+        </footer>
       </div>
     </div>
   );
@@ -327,6 +427,15 @@ export default function SharePage() {
     );
   }
 
+  if (payload.kind === 'report' && payload.report) {
+    return (
+      <SharedReportView
+        payload={payload as SharePayload & { report: NonNullable<SharePayload['report']> }}
+        cards={cards}
+      />
+    );
+  }
+
   const companyCount = payload.cards.filter((c) => c.company).length;
   const sharedDate = new Date(payload.sharedAt).toLocaleDateString(undefined, {
     month: 'short',
@@ -360,7 +469,7 @@ export default function SharePage() {
             to="/"
             className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-[12px] font-medium text-content transition-colors hover:bg-surface-2"
           >
-            <Sparkles className="h-3.5 w-3.5 text-primary-ink" />
+            <Layers className="h-3.5 w-3.5 text-primary-ink" />
             Research your own market
           </Link>
         </header>

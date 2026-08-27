@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { LogOut, ChevronDown, Loader2, AlertCircle } from 'lucide-react';
+import { LogOut, ChevronDown, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { getAccessProfile, subscribeAccess } from '@/lib/access';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { initials } from '@/lib/format';
 
@@ -29,10 +30,12 @@ function GoogleIcon({ className = 'h-3.5 w-3.5' }: { className?: string }) {
 
 /** Right-side controls — rendered inside AppShell's header. */
 export function TopBar() {
-  const { user, isAuthenticated, isLoading, error, signInWithGoogle, signOut, clearError } =
-    useAuth();
+  const { user, isAuthenticated, isLoading, error, signOut, clearError } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  // Private-preview identity: whose access code opened this browser.
+  const [access, setAccess] = useState(() => getAccessProfile());
+  useEffect(() => subscribeAccess(() => setAccess(getAccessProfile())), []);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -129,22 +132,19 @@ export function TopBar() {
             </div>
           )}
         </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => signInWithGoogle()}
-          disabled={isLoading}
-          className="flex cursor-pointer items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-content disabled:opacity-50"
-          aria-label="Already purchased? Sign in"
+      ) : access ? (
+        /* Preview build: no Google auth yet — show WHO unlocked this browser,
+           so test-account sessions are visibly attributed. */
+        <span
+          className="flex items-center gap-2 rounded-full border border-border bg-surface px-2.5 py-1 text-xs font-medium text-muted"
+          title={`Signed in with ${access.name}'s access code${access.kind === 'test' ? ' (test account)' : ''} — Google sign-in arrives with launch.`}
         >
-          {isLoading ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted" />
-          ) : (
-            <GoogleIcon className="h-3.5 w-3.5" />
-          )}
-          <span>Already purchased? Sign in</span>
-        </button>
-      )}
+          <span className="grid h-5 w-5 place-items-center rounded-full bg-surface-2 text-[10px] font-semibold text-muted">
+            {initials(access.name)}
+          </span>
+          <span className="hidden max-w-[140px] truncate sm:inline">{access.name}</span>
+        </span>
+      ) : null}
     </div>
   );
 }

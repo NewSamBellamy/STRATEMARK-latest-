@@ -12,12 +12,17 @@ import {
 import { cn } from '@/lib/cn';
 import { useApiKey } from '@/lib/settings/apiKey';
 import { useMarkets } from '@/hooks/data';
+import { useResearchSession } from '@/features/deck/research-session';
 import wordmark from '@/assets/wordmark.svg';
 
 export function Sidebar() {
   const hasKey = useApiKey((s) => s.hasKey);
   const [collapsed, setCollapsed] = useState(false);
   const markets = useMarkets();
+  // A deck being researched RIGHT NOW belongs in this list already —
+  // "I started it, where is it?" should never have an empty answer.
+  const session = useResearchSession((s) => s.session);
+  const researching = session?.running ? session.query : null;
 
   // Most-recent decks first — the sidebar becomes the deck history itself.
   const recentDecks = useMemo(() => {
@@ -82,12 +87,24 @@ export function Sidebar() {
           <div className="min-h-0 flex-1 overflow-y-auto">
             {markets.isLoading ? (
               <p className="px-3 py-1 text-[12px] text-faint">Loading…</p>
-            ) : recentDecks.length === 0 ? (
+            ) : recentDecks.length === 0 && !researching ? (
               <p className="px-3 py-1 text-[12px] leading-snug text-faint">
                 No decks yet. Start one above.
               </p>
             ) : (
               <ul className="flex flex-col gap-0.5">
+                {researching && (
+                  <li>
+                    <NavLink
+                      to="/"
+                      title={`Researching now: ${researching}`}
+                      className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-[13px] text-muted transition-colors hover:bg-surface-2 hover:text-content"
+                    >
+                      <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-primary" />
+                      <span className="min-w-0 flex-1 truncate italic">{researching}</span>
+                    </NavLink>
+                  </li>
+                )}
                 {recentDecks.map((m) => (
                   <li key={m.id}>
                     <NavLink
@@ -135,7 +152,7 @@ export function Sidebar() {
               className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted hover:text-content"
             >
               <span className="h-1.5 w-1.5 rounded-full bg-neutral" />
-              Demo mode
+              Add your API key
             </NavLink>
           )
         )}

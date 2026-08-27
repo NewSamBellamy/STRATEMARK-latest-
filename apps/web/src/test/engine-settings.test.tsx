@@ -3,7 +3,6 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { DemoProvider } from '@/lib/demo/DemoContext';
 import { GoogleAuthProvider } from '@/lib/auth/AuthContext';
 import { TaskManagerProvider } from '@/lib/tasks/TaskManagerContext';
 import SettingsPage from '@/features/settings/SettingsPage';
@@ -18,15 +17,13 @@ function TestWrapper({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={createQueryClient()}>
       <GoogleAuthProvider>
-        <DemoProvider>
-          <TaskManagerProvider>
-            <RepositoryProvider repository={new MockRepository()}>
-              <MemoryRouter initialEntries={['/']}>
-                {children}
-              </MemoryRouter>
-            </RepositoryProvider>
-          </TaskManagerProvider>
-        </DemoProvider>
+        <TaskManagerProvider>
+          <RepositoryProvider repository={new MockRepository()}>
+            <MemoryRouter initialEntries={['/']}>
+              {children}
+            </MemoryRouter>
+          </RepositoryProvider>
+        </TaskManagerProvider>
       </GoogleAuthProvider>
     </QueryClientProvider>
   );

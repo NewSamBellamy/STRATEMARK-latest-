@@ -15,20 +15,18 @@ import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
-  Check,
   CheckCircle2,
   Loader2,
   Newspaper,
   RefreshCw,
   Share2,
-  Sparkles,
 } from 'lucide-react';
 import { deckBakedState, type DeckBriefing } from '@mi/contracts';
 import { useCards, useDeckBriefings, useDeckByMarket, useGenerateBriefing, useMarket } from '@/hooks/data';
 import { useRepository } from '@/lib/repository/RepositoryProvider';
 import { useApiKey } from '@/lib/settings/apiKey';
 import { buildBriefingShare } from '@/lib/share/codec';
-import { useShareAction } from '@/lib/share/useShareAction';
+import { ShareDialog } from '@/features/share/ShareDialog';
 import { cn } from '@/lib/cn';
 import { BriefingUnboxing } from './BriefingUnboxing';
 import { BriefingReport, toBriefingView } from './BriefingReport';
@@ -48,7 +46,7 @@ export default function BriefingPage() {
   const cards = useCards(deck.data?.id);
   const briefings = useDeckBriefings(marketId);
   const generate = useGenerateBriefing();
-  const { share, status: shareStatus } = useShareAction();
+  const [shareOpen, setShareOpen] = useState(false);
 
   const [windowHours, setWindowHours] = useState(24);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -77,8 +75,8 @@ export default function BriefingPage() {
     );
   };
 
-  const shareActive = () => {
-    if (!active) return;
+  const buildShare = async () => {
+    if (!active) throw new Error('No briefing to share yet.');
     const mentioned = new Set(
       active.updates.map((u) => u.companyId).filter((x): x is string => x != null),
     );
@@ -88,10 +86,7 @@ export default function BriefingPage() {
         mentioned.size > 0 ? c.card.companyId != null && mentioned.has(c.card.companyId) : true,
       )
       .slice(0, 10);
-    void share(
-      buildBriefingShare(active, evidence),
-      `${active.marketName} — Daily Briefing, ${new Date(active.generatedAt).toLocaleDateString()}`,
-    );
+    return buildBriefingShare(active, evidence);
   };
 
   const marketName = market.data?.name ?? 'this market';
@@ -189,7 +184,7 @@ export default function BriefingPage() {
             {generate.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Sparkles className="h-4 w-4" />
+              <Newspaper className="h-4 w-4" />
             )}
             {generate.isPending ? 'The desk is out hunting…' : "Unbox today's briefing"}
           </button>
@@ -236,24 +231,17 @@ export default function BriefingPage() {
                     className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-[12px] font-medium text-content transition-colors hover:bg-surface-2"
                     title="Replay the unboxing reveal"
                   >
-                    <Sparkles className="h-3.5 w-3.5" />
+                    <RefreshCw className="h-3.5 w-3.5" />
                     Replay
                   </button>
                   <button
                     type="button"
-                    onClick={shareActive}
-                    disabled={shareStatus === 'working'}
+                    onClick={() => setShareOpen(true)}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-[12px] font-medium text-content transition-colors hover:bg-surface-2"
                     title="Share this briefing — the unboxing, the report, and its evidence cards all travel inside the link. AI layer removed."
                   >
-                    {shareStatus === 'working' ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : shareStatus === 'copied' || shareStatus === 'shared' ? (
-                      <Check className="h-3.5 w-3.5 text-positive" />
-                    ) : (
-                      <Share2 className="h-3.5 w-3.5" />
-                    )}
-                    {shareStatus === 'copied' ? 'Copied' : shareStatus === 'shared' ? 'Shared' : 'Share'}
+                    <Share2 className="h-3.5 w-3.5" />
+                    Share
                   </button>
                   <button
                     type="button"
@@ -306,6 +294,15 @@ export default function BriefingPage() {
           )}
         </>
       )}
+
+      {/* The share dialog — packages the briefing + its evidence cards. */}
+      <ShareDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        title={active ? `${active.marketName} — Daily Briefing` : 'Daily Briefing'}
+        subtitle={active ? new Date(active.generatedAt).toLocaleDateString() : null}
+        build={async () => buildShare()}
+      />
     </div>
   );
 }

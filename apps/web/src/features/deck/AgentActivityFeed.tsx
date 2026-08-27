@@ -17,7 +17,7 @@ import {
   Moon,
   Pause,
   Play,
-  Sparkles,
+  Radar,
   Wand2,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -39,7 +39,7 @@ function EventRow({ event, now }: { event: AgentActivityEvent; now: number }) {
     ) : event.kind === 'verified' ? (
       <BadgeCheck className="h-3 w-3 text-positive" />
     ) : event.kind === 'prefetched' ? (
-      <Sparkles className="h-3 w-3 text-primary-ink" />
+      <Radar className="h-3 w-3 text-primary-ink" />
     ) : event.kind === 'finding' ? (
       <AlertTriangle
         className={cn(
@@ -50,7 +50,7 @@ function EventRow({ event, now }: { event: AgentActivityEvent; now: number }) {
     ) : event.kind === 'resting' ? (
       <Moon className="h-3 w-3 text-faint" />
     ) : (
-      <Sparkles className="h-3 w-3 text-primary-ink" />
+      <Radar className="h-3 w-3 text-primary-ink" />
     );
   return (
     <div className="flex items-start gap-2 py-1">

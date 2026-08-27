@@ -3,8 +3,10 @@ import { Check } from 'lucide-react';
 import type { CardWithCompany } from '@mi/contracts';
 import { cn } from '@/lib/cn';
 import { useMarket } from '@/hooks/data';
+import { useRepository } from '@/lib/repository/RepositoryProvider';
 import { buildCardShare } from '@/lib/share/codec';
-import { useShareAction } from '@/lib/share/useShareAction';
+import { verifyCardForShare } from '@/lib/share/preflight';
+import { ShareDialog } from '@/features/share/ShareDialog';
 import { GameCard } from '@/features/card/GameCard';
 import { CardReader } from '@/features/card/CardReader';
 
@@ -39,7 +41,8 @@ export function CardGrid({
   const [activeId, setActiveId] = useState<string | null>(null);
   const active = activeId != null ? (cards.find((c) => c.card.id === activeId) ?? null) : null;
   const marketName = useMarket(marketId).data?.name ?? null;
-  const { share, status } = useShareAction();
+  const repo = useRepository();
+  const [shareTarget, setShareTarget] = useState<CardWithCompany | null>(null);
   return (
     <>
       <div
@@ -54,12 +57,7 @@ export function CardGrid({
                 data={c}
                 deckUserValues={deckUserValues}
                 onOpen={() => (selectable ? onToggle?.(c.card.id) : setActiveId(c.card.id))}
-                onShare={() =>
-                  void share(
-                    buildCardShare(c, marketName),
-                    `${c.company?.name ?? c.card.title ?? 'Card'} — market research snapshot`,
-                  )
-                }
+                onShare={() => setShareTarget(c)}
                 className={cn(
                   selectable && 'transition-opacity',
                   selectable && !isSelected && 'opacity-80 hover:opacity-100',
@@ -75,12 +73,20 @@ export function CardGrid({
           );
         })}
       </div>
-      {/* Share feedback: one quiet toast for the whole grid. */}
-      {status === 'copied' && (
-        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-content px-4 py-2 text-[12px] font-medium text-bg shadow-card">
-          Share link copied — paste it into a text, email, or doc.
-        </div>
-      )}
+      {/* One share dialog for the whole grid — fact-checks the card first. */}
+      <ShareDialog
+        open={shareTarget !== null}
+        onOpenChange={(o) => {
+          if (!o) setShareTarget(null);
+        }}
+        title={shareTarget?.company?.name ?? shareTarget?.card.title ?? 'Card'}
+        subtitle={marketName ? `${marketName} — market research snapshot` : 'Market research snapshot'}
+        build={async (onStage) => {
+          if (!shareTarget) throw new Error('Nothing selected to share.');
+          const fresh = await verifyCardForShare(repo, shareTarget, onStage);
+          return buildCardShare(fresh, marketName);
+        }}
+      />
       <CardReader
         data={active}
         open={active !== null}
