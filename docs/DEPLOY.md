@@ -87,11 +87,13 @@ VITE_OPEN_ACCESS=true \
 pnpm build
 ```
 
-Then deploy `apps/web/dist`:
+Then deploy the build output. **Note you are still in `apps/web`**, so the
+public directory is `dist` — not `apps/web/dist`, which would resolve to
+`apps/web/apps/web/dist` and deploy nothing:
 
 ```bash
 firebase login
-firebase init hosting     # public dir: apps/web/dist ; SPA rewrite: yes
+firebase init hosting     # public dir: dist ; SPA rewrite: yes
 firebase deploy --only hosting
 ```
 

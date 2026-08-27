@@ -72,20 +72,24 @@ export interface CloudResearchDeckResponse {
 }
 
 /**
- * Where the cloud engine lives.
+ * Where the Sentinel cloud engine lives.
  *
  * There is deliberately NO hardcoded fallback URL. This previously defaulted to
  * `https://stratemark-sentinel-api.a.run.app`, a service that was never
  * deployed — so selecting the cloud engine produced a DNS failure that looked
  * like a bug in the app rather than missing configuration.
  *
- * An empty string is the honest value: callers check `isSentinelConfigured()`
- * and can say "not configured" instead of failing against a domain that does
- * not exist. Set `VITE_API_BASE_URL` (preferred — the agent service in
- * apps/api) or `VITE_SENTINEL_API_URL` to enable it.
+ * It also deliberately does NOT fall back to `VITE_API_BASE_URL`. That variable
+ * points at the agent service in `apps/api`, which is a DIFFERENT service with a
+ * different contract: it serves `/v1/*` and authenticates with `X-Gemini-Key` /
+ * `X-Stratemark-Token`, whereas this module calls `/api/*` with a Bearer token.
+ * Pointing one at the other produces 404s that surface as silent fallback data —
+ * worse than an honest "not configured", because the app appears to work.
+ *
+ * An empty string is the honest value: callers check `isSentinelConfigured()`.
+ * Set `VITE_SENTINEL_API_URL` explicitly to enable it.
  */
-const DEFAULT_SENTINEL_URL =
-  import.meta.env.VITE_SENTINEL_API_URL || import.meta.env.VITE_API_BASE_URL || '';
+const DEFAULT_SENTINEL_URL = import.meta.env.VITE_SENTINEL_API_URL || '';
 
 /** True when a cloud endpoint is actually configured. */
 export function isSentinelConfigured(): boolean {
@@ -103,7 +107,7 @@ function getSentinelUrl(path: string): string {
     // Fail with the actual reason rather than issuing a request to "/api/…" on
     // our own origin, which would 404 and read as a broken feature.
     throw new Error(
-      'No cloud engine is configured. Set VITE_API_BASE_URL to the deployed agent service, or use your own key locally.',
+      'The Sentinel cloud engine is not configured. Set VITE_SENTINEL_API_URL, or use your own Gemini key locally.',
     );
   }
   const cleanBase = base.replace(/\/+$/, '');
