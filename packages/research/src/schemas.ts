@@ -278,3 +278,36 @@ export const siteAuditOutSchema = z.object({
   designNotes: z.array(z.string()).default([]),
   testFirst: z.array(auditFindingSchema).default([]),
 });
+
+/**
+ * Output of the pre-report RED-TEAM pass (founder: "double-check the metrics
+ * and kind of red-team it before formulating this report"). One grounded
+ * audit of the report's face-value figures; confirmed-wrong figures write
+ * back through the fast verify path before the report is composed.
+ * Bare-array tolerant, like every single-list structured schema here.
+ */
+export const redTeamOutSchema = z.preprocess(
+  (input) => (Array.isArray(input) ? { findings: input } : input),
+  z.object({
+    findings: z
+      .array(
+        z.object({
+          companyName: z.string(),
+          metricType: z.enum([
+            'market_cap',
+            'valuation',
+            'market_share',
+            'arr',
+            'users',
+            'employees',
+          ]),
+          verdict: z.enum(['holds', 'wrong', 'unverifiable']).catch('unverifiable'),
+          /** Corrected value in native units — only meaningful for 'wrong'. */
+          correctedValue: z.number().nullable().default(null),
+          /** One line naming the source and as-of date. */
+          note: z.string().nullable().default(null),
+        }),
+      )
+      .default([]),
+  }),
+);
