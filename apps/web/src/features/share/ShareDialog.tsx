@@ -60,6 +60,47 @@ async function copyText(text: string, input: HTMLInputElement | null): Promise<b
   }
 }
 
+/**
+ * Keyless short link (TinyURL first — real CORS headers — then is.gd).
+ * The share URL carries the whole snapshot, which can run to several KB;
+ * Telegram/X/WhatsApp intent endpoints reject long URLs outright (the
+ * filmed "Bad Request"). A short link makes every one-tap target reliable.
+ * TinyURL's redirect breaks above ~8KB targets, so oversized snapshots skip
+ * shortening and the dialog guards each target by length instead.
+ */
+const SHORTEN_MAX = 8000;
+async function shortenUrl(longUrl: string): Promise<string | null> {
+  if (longUrl.length > SHORTEN_MAX) return null;
+  try {
+    const res = await fetch('https://tinyurl.com/api-create.php', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: `url=${encodeURIComponent(longUrl)}`,
+    });
+    if (res.ok) {
+      const text = (await res.text()).trim();
+      if (/^https:\/\/tinyurl\.com\/\S+$/.test(text)) return text;
+    }
+  } catch {
+    /* CSP-sandboxed serving may block the fetch — fall through */
+  }
+  try {
+    const res = await fetch(
+      `https://is.gd/create.php?format=simple&url=${encodeURIComponent(longUrl)}`,
+    );
+    if (res.ok) {
+      const text = (await res.text()).trim();
+      if (/^https:\/\/is\.gd\/\S+$/.test(text)) return text;
+    }
+  } catch {
+    /* fall through — the dialog degrades to length-guarded targets */
+  }
+  return null;
+}
+
+/** Practical intent-URL ceilings per destination (measured, conservative). */
+const TARGET_LIMITS = { email: 1900, telegram: 3800, whatsapp: 3800, x: 1900 } as const;
+
 function TargetLink({
   href,
   icon,
@@ -117,6 +158,8 @@ export function ShareDialog({
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<'idle' | 'ok' | 'fail'>('idle');
+  const [shortUrl, setShortUrl] = useState<string | null>(null);
+  const [shortening, setShortening] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const runId = useRef(0);
 
@@ -132,8 +175,18 @@ export function ShareDialog({
       });
       const blob = await encodeSharePayload(payload);
       if (runId.current !== id) return;
-      setUrl(shareUrlFor(blob));
+      const fullUrl = shareUrlFor(blob);
+      setUrl(fullUrl);
       setStage(null);
+      // Short link in the background — the dialog is already usable.
+      setShortening(true);
+      void shortenUrl(fullUrl)
+        .then((short) => {
+          if (runId.current === id) setShortUrl(short);
+        })
+        .finally(() => {
+          if (runId.current === id) setShortening(false);
+        });
       // The preflight may have corrected figures — let open views reconcile.
       void qc.invalidateQueries({ queryKey: ['cards'] });
     } catch (err) {
@@ -152,13 +205,17 @@ export function ShareDialog({
       setError(null);
       setStage(null);
       setCopied('idle');
+      setShortUrl(null);
+      setShortening(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  const bestLink = shortUrl ?? url;
+
   const onCopy = async () => {
-    if (!url) return;
-    const ok = await copyText(url, inputRef.current);
+    if (!bestLink) return;
+    const ok = await copyText(bestLink, inputRef.current);
     setCopied(ok ? 'ok' : 'fail');
     setTimeout(() => setCopied('idle'), 2500);
   };
@@ -201,12 +258,14 @@ export function ShareDialog({
 
         {url && (
           <>
-            {/* The link itself — visible, selectable, copyable. */}
+            {/* The link itself — visible, selectable, copyable. The short
+                link (when TinyURL answered) is what humans and chat apps
+                actually want; the full link still works identically. */}
             <div className="flex items-center gap-2">
               <input
                 ref={inputRef}
                 readOnly
-                value={url}
+                value={bestLink ?? ''}
                 onFocus={(e) => e.currentTarget.select()}
                 className="min-w-0 flex-1 rounded-lg border border-border bg-surface-2 px-3 py-2 font-mono text-[11px] text-muted outline-none focus:border-primary/50"
                 aria-label="Share link"
@@ -231,34 +290,62 @@ export function ShareDialog({
               </p>
             )}
 
-            {/* One-tap destinations — plain links, work in any context. */}
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <TargetLink
-                href={`mailto:?subject=${encodeURIComponent(message)}&body=${encodeURIComponent(`${message}\n\n${url}`)}`}
-                icon={<Mail className="h-3.5 w-3.5 text-muted" />}
-                label="Email"
-              />
-              <TargetLink
-                href={`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(message)}`}
-                icon={<Send className="h-3.5 w-3.5 text-muted" />}
-                label="Telegram"
-              />
-              <TargetLink
-                href={`https://wa.me/?text=${encodeURIComponent(`${message} ${url}`)}`}
-                icon={<Send className="h-3.5 w-3.5 rotate-45 text-muted" />}
-                label="WhatsApp"
-              />
-              <TargetLink
-                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}&url=${encodeURIComponent(url)}`}
-                icon={<XMark className="h-3 w-3 text-muted" />}
-                label="Post on X"
-              />
-            </div>
+            {shortening && (
+              <p className="flex items-center gap-1.5 text-[11px] text-faint">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Making a short link (via TinyURL) so one-tap sharing works everywhere…
+              </p>
+            )}
+
+            {/* One-tap destinations — plain links, LENGTH-GUARDED. Intent
+                endpoints reject over-long URLs with a Bad Request, so a
+                target only renders when its final URL fits. With the short
+                link, all of them fit. */}
+            {(() => {
+              const link = bestLink ?? url;
+              const emailHref = `mailto:?subject=${encodeURIComponent(message)}&body=${encodeURIComponent(`${message}\n\n${link}`)}`;
+              const telegramHref = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(message)}`;
+              const whatsappHref = `https://wa.me/?text=${encodeURIComponent(`${message} ${link}`)}`;
+              const xHref = `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}&url=${encodeURIComponent(link)}`;
+              const targets = [
+                { key: 'email', href: emailHref, ok: emailHref.length <= TARGET_LIMITS.email, icon: <Mail className="h-3.5 w-3.5 text-muted" />, label: 'Email' },
+                { key: 'telegram', href: telegramHref, ok: telegramHref.length <= TARGET_LIMITS.telegram, icon: <Send className="h-3.5 w-3.5 text-muted" />, label: 'Telegram' },
+                { key: 'whatsapp', href: whatsappHref, ok: whatsappHref.length <= TARGET_LIMITS.whatsapp, icon: <Send className="h-3.5 w-3.5 rotate-45 text-muted" />, label: 'WhatsApp' },
+                { key: 'x', href: xHref, ok: xHref.length <= TARGET_LIMITS.x, icon: <XMark className="h-3 w-3 text-muted" />, label: 'Post on X' },
+              ];
+              const shown = targets.filter((t) => t.ok);
+              return (
+                <>
+                  {shown.length > 0 && (
+                    <div
+                      className={
+                        shown.length >= 4
+                          ? 'grid grid-cols-2 gap-2 sm:grid-cols-4'
+                          : shown.length === 3
+                            ? 'grid grid-cols-2 gap-2 sm:grid-cols-3'
+                            : 'grid grid-cols-2 gap-2'
+                      }
+                    >
+                      {shown.map((t) => (
+                        <TargetLink key={t.key} href={t.href} icon={t.icon} label={t.label} />
+                      ))}
+                    </div>
+                  )}
+                  {shown.length < targets.length && !shortening && (
+                    <p className="text-[11px] leading-relaxed text-amber-600 dark:text-amber-400">
+                      This snapshot is large{shortUrl ? '' : ' and a short link couldn\u2019t be made from here'} — some
+                      one-tap buttons are hidden because those platforms reject long links. Copy the
+                      link instead and paste it anywhere; it always works.
+                    </p>
+                  )}
+                </>
+              );
+            })()}
 
             {hasNativeShare && (
               <button
                 type="button"
-                onClick={() => void nav.share!({ title: message, url }).catch(() => {})}
+                onClick={() => void nav.share!({ title: message, url: bestLink ?? url }).catch(() => {})}
                 className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-[12px] font-medium text-content transition-colors hover:bg-surface-2"
               >
                 <Share2 className="h-3.5 w-3.5 text-muted" />
