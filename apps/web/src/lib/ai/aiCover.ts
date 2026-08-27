@@ -23,7 +23,13 @@ import { useApiKey } from '@/lib/settings/apiKey';
 import { imageDelete, imageGet, imagePut } from '@/lib/repository/vault';
 import { imagesAllowed, recordCall } from '@/lib/usage';
 
-const IMAGE_MODEL = 'gemini-2.5-flash-image';
+/**
+ * Nano Banana 2 Lite — the current cheapest/fastest image model. The previous
+ * generation stays as a fallback: if an account can't reach the newest model
+ * (404/403), art still generates instead of the surface silently going bare.
+ */
+const IMAGE_MODEL = 'gemini-3.1-flash-lite-image';
+const IMAGE_MODEL_FALLBACK = 'gemini-2.5-flash-image';
 const MAX_CONCURRENT = 2;
 
 export type CoverAspect = '16:9' | '4:3' | '1:1' | '3:4';
@@ -90,25 +96,24 @@ async function generate(
     contents: [{ parts: [{ text: coverPrompt(cacheKey, subject, context) }] }],
     generationConfig: { imageConfig: { aspectRatio: aspect } },
   };
-  let res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL}:generateContent`,
-    {
+  const post = (model: string): Promise<Response> =>
+    fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify(body),
-    },
-  );
+    });
+
+  let model = IMAGE_MODEL;
+  let res = await post(model);
+  if (res.status === 404 || res.status === 403) {
+    // Newest image model not available to this key — fall back a generation.
+    model = IMAGE_MODEL_FALLBACK;
+    res = await post(model);
+  }
   if (res.status === 400) {
     // Older API surface without imageConfig — retry without it rather than fail.
     delete body.generationConfig;
-    res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL}:generateContent`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
-        body: JSON.stringify(body),
-      },
-    );
+    res = await post(model);
   }
   if (!res.ok) return null;
   const data = (await res.json()) as {

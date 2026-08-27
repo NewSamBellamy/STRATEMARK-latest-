@@ -5,7 +5,7 @@ Host: Google Cloud (Devpost). Prize pool $180,000. **Deadline: Aug 31, 2026, 5:0
 
 ## ⚠️ The three MANDATORY tech requirements (Stage-1 pass/fail)
 
-1. [ ] **Gemini 3.5 or newer** via Gemini API or Vertex AI — ✅ already the engine (verify the model ids in `packages/research/src/gemini.ts` are 3.5+; bump if needed).
+1. [x] **Gemini 3.5 or newer** via Gemini API or Vertex AI — ✅ **verified**: grounded `gemini-3.7-flash`, structuring `gemini-3.5-flash-lite`, reasoning `gemini-3.1-pro-preview`, imagery `gemini-3.1-flash-lite-image` (see `packages/research/src/gemini.ts`).
 2. [ ] **At least one Google agent framework** (ADK, GenAI SDK, Antigravity SDK, or Genkit) — 🔴 **GAP: today "ADK" is UI copy, not a dependency.** Maruf's Cloud Run Sentinel agent must be built with the real ADK or GenAI SDK. This is the highest-priority pre-submission item.
 3. [ ] **At least one Google Cloud infrastructure service** (Cloud Run recommended; Firestore also counts) — 🔴 gap until Maruf deploys (his handover §1).
 
@@ -31,7 +31,7 @@ Host: Google Cloud (Devpost). Prize pool $180,000. **Deadline: Aug 31, 2026, 5:0
 
 - [ ] Public blog/podcast/video about the build, stating it was made for this hackathon (+0.2)
 - [ ] Social post with **#AllThingsAgenticHackathon** (+0.2)
-- [ ] Each additional Google AI model integrated (+0.2, max +0.6) — **nano-banana image generation (`gemini-2.5-flash-image`) already counts as one**; mention it explicitly. Veo/Lyria/Gemma are further options if trivial to add — do not destabilize the build for these.
+- [ ] Each additional Google AI model integrated (+0.2, max +0.6) — **nano-banana image generation (`gemini-3.1-flash-lite-image`, Nano Banana 2 Lite) already counts as one**; mention it explicitly. Veo/Lyria/Gemma are further options if trivial to add — do not destabilize the build for these.
 
 ## Eligibility notes
 

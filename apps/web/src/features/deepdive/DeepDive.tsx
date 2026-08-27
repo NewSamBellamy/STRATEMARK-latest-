@@ -482,6 +482,12 @@ export function DeepDiveProviderWithPanel({ children }: { children: ReactNode })
         role="dialog"
         aria-label="AI Research"
         aria-hidden={!openState}
+        // `inert` with aria-hidden: the closed panel slides off-screen but its
+        // buttons stayed in the tab order — a keyboard user tabbed into an
+        // invisible panel (axe: aria-hidden-focus). inert removes them from
+        // focus AND from the a11y tree while the panel is closed.
+        // (React's types predate `inert`; the DOM attribute is what matters.)
+        {...({ inert: openState ? undefined : '' } as { inert?: string })}
       >
         {/* Drag handle (desktop only) */}
         {isDesktop && (

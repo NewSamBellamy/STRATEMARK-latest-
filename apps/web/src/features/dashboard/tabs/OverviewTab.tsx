@@ -61,7 +61,7 @@ export function OverviewTab({ companyId }: { companyId: string }) {
                           never look identical to a verified figure. */}
                       {m.confidence === 'estimated' && (
                         <span
-                          className="text-[9px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400"
+                          className="text-[9px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400"
                           title="Estimated — a desk agent will verify this from live sources shortly"
                         >
                           est

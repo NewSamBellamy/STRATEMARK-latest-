@@ -9,6 +9,7 @@ import {
   Loader2,
   DatabaseBackup,
   Download,
+  Github,
   Gauge,
   ImageOff,
   Monitor,
@@ -265,7 +266,8 @@ export default function SettingsPage() {
       </div>
 
       {/* The old Paddle "Stratemark Pro Subscription" panel is gone — the
-          tiered PricingPanel below is the ONE subscription call-to-action.
+          PricingPanel below shows all three doors (open source, one-time
+          easy install, subscription), matching getstratemark.com exactly.
           Google sign-in + real billing arrive with the Firebase round. */}
 
       {/* Where your research lives — and the desktop path for keeping it local. */}
@@ -565,79 +567,144 @@ function UsageBillingPanel() {
 
 
 /**
- * Stratemark Pro — the three tiers, kept deliberately simple (founder: "don't
- * overthink it"). Checkout runs on Lemon Squeezy; the buttons are live shells
- * awaiting the store keys. BYOK and the open-source build stay first-class
- * alternatives — nobody is forced onto a subscription.
+ * Three doors, not one — mirrors getstratemark.com exactly so the marketing
+ * site and the in-app pricing never disagree again:
+ *   1. Open Source — free, clone from GitHub, technical, BYOK.
+ *   2. Easy Install — one-time PAY WHAT YOU WANT ($1-$100, defaults $10):
+ *      a packaged desktop installer + web app access. Still BYOK — this is
+ *      packaging and convenience, never API credits or a hosted key.
+ *   3. Subscription — fully hosted on Google Cloud, no key to manage, the
+ *      easiest door. Checkout wiring (Lemon Squeezy) is Maruf's build; every
+ *      button here is a live shell until the store keys land.
  */
 function PricingPanel() {
+  const [oneTime, setOneTime] = useState(10);
   const TIERS = [
-    {
-      name: 'Starter',
-      price: 19,
-      blurb: 'Up to 10 decks a month, daily briefings, generated card art included.',
-      highlight: false,
-    },
-    {
-      name: 'Growth',
-      price: 49,
-      blurb: 'More room to run: 40 decks a month, everything in Starter, priority research lanes.',
-      highlight: true,
-    },
-    {
-      name: 'Max',
-      price: 99,
-      blurb: 'For teams living in the product: 150 decks a month and the full feature surface.',
-      highlight: false,
-    },
+    { name: 'Starter', price: 19, blurb: 'Up to 10 decks a month, daily briefings, generated card art included.', highlight: false },
+    { name: 'Growth', price: 49, blurb: 'More room to run: 40 decks a month, everything in Starter, priority research lanes.', highlight: true },
+    { name: 'Max', price: 99, blurb: 'For teams living in the product: 150 decks a month and the full feature surface.', highlight: false },
   ];
   return (
-    <div className="panel mt-6 space-y-4 p-6">
+    <div className="panel mt-6 space-y-5 p-6">
       <div className="flex items-center gap-2">
         <BadgeCheck className="h-5 w-5 text-primary-ink" />
-        <h2 className="font-display text-lg text-content">Stratemark Pro</h2>
+        <h2 className="font-display text-lg text-content">Pricing — three doors</h2>
       </div>
       <p className="text-sm text-muted">
-        Fully hosted on Google Cloud — no API key to manage, usage included up to your tier's
-        monthly cap. Every tier includes grounded research, living verification, daily briefings,
-        site audits, generated imagery, and cloud sync.
+        Research runs on your own Gemini key — we never see it. Pick how you want the app to
+        arrive: build it yourself, buy the easy install once, or let us host it.
       </p>
-      <div className="grid gap-3 sm:grid-cols-3">
-        {TIERS.map((t) => (
-          <div
-            key={t.name}
-            className={
-              t.highlight
-                ? 'relative rounded-xl border-2 border-primary bg-primary/5 p-4'
-                : 'relative rounded-xl border border-border bg-surface-2/60 p-4'
-            }
+
+      {/* Door 1 & 2 — Open Source (free) and Easy Install (one-time, slider). */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="relative rounded-xl border border-border bg-surface-2/60 p-4">
+          <p className="text-sm font-semibold text-content">Free</p>
+          <p className="text-[11px] font-medium text-faint">Demo & open source</p>
+          <p className="mt-1 font-display text-2xl font-bold tabular-nums text-content">$0</p>
+          <ul className="mt-2 space-y-1 text-[12px] leading-relaxed text-muted">
+            <li>Explore real sample decks in the browser — no signup</li>
+            <li>Full source on GitHub, free to clone and run</li>
+            <li>Bring your own Gemini key; research stays on your machine</li>
+          </ul>
+          <a
+            href="https://github.com/NewSamBellamy/STRATEMARK"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-ghost mt-3 w-full justify-center py-1.5 text-[12px]"
           >
-            {t.highlight && (
-              <span className="absolute -top-2.5 left-4 rounded-full bg-primary px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-white">
-                Popular
-              </span>
-            )}
-            <p className="text-sm font-semibold text-content">{t.name}</p>
-            <p className="mt-1 font-display text-2xl font-bold tabular-nums text-content">
-              ${t.price}
-              <span className="text-[11px] font-medium text-faint">/mo</span>
-            </p>
-            <p className="mt-2 text-[12px] leading-relaxed text-muted">{t.blurb}</p>
-            <button
-              type="button"
-              className="btn-primary mt-3 w-full justify-center py-1.5 text-[12px] opacity-60"
-              disabled
-              title="Checkout (Lemon Squeezy) is being connected — available at launch."
-            >
-              Subscribe
-            </button>
+            <Github className="h-3.5 w-3.5" />
+            View on GitHub
+          </a>
+        </div>
+
+        <div className="relative rounded-xl border-2 border-primary bg-primary/5 p-4">
+          <span className="absolute -top-2.5 left-4 rounded-full bg-primary px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-white">
+            Prefer not to build it?
+          </span>
+          <p className="text-sm font-semibold text-content">Easy install</p>
+          <p className="text-[11px] font-medium text-faint">One-time · you choose</p>
+          <p className="mt-1 font-display text-2xl font-bold tabular-nums text-content">
+            ${oneTime}
+            <span className="text-[11px] font-medium text-faint"> one-time</span>
+          </p>
+          <input
+            type="range"
+            min={1}
+            max={100}
+            value={oneTime}
+            onChange={(e) => setOneTime(Number(e.target.value))}
+            className="mt-2 w-full accent-primary"
+            aria-label="Choose your one-time price, $1 to $100"
+          />
+          <div className="flex justify-between text-[10px] text-faint">
+            <span>$1</span>
+            <span>$100</span>
           </div>
-        ))}
+          <ul className="mt-2 space-y-1 text-[12px] leading-relaxed text-muted">
+            <li>Packaged installer for Windows & macOS</li>
+            <li>Pay what you want, once</li>
+          </ul>
+          <p className="mt-2 text-[11px] leading-relaxed text-faint">
+            Still bring your own key. This is packaging and setup — not API credits, not a hosted
+            key, not a subscription.
+          </p>
+          <button
+            type="button"
+            className="btn-primary mt-3 w-full justify-center py-1.5 text-[12px] opacity-60"
+            disabled
+            title="Checkout (Lemon Squeezy) is being connected — available at launch."
+          >
+            Get easy install · ${oneTime}
+          </button>
+        </div>
       </div>
+
+      {/* Door 3 — Subscription. */}
+      <div className="border-t border-border pt-4">
+        <p className="text-sm font-semibold text-content">Stratemark Pro — subscription</p>
+        <p className="mt-1 text-[12px] leading-relaxed text-muted">
+          Fully hosted on Google Cloud — no API key to manage, usage included up to your tier's
+          monthly cap. Every tier includes grounded research, living verification, daily
+          briefings, site audits, generated imagery, and cloud sync. The easiest door.
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          {TIERS.map((t) => (
+            <div
+              key={t.name}
+              className={
+                t.highlight
+                  ? 'relative rounded-xl border-2 border-primary bg-primary/5 p-4'
+                  : 'relative rounded-xl border border-border bg-surface-2/60 p-4'
+              }
+            >
+              {t.highlight && (
+                <span className="absolute -top-2.5 left-4 rounded-full bg-primary px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-white">
+                  Popular
+                </span>
+              )}
+              <p className="text-sm font-semibold text-content">{t.name}</p>
+              <p className="mt-1 font-display text-2xl font-bold tabular-nums text-content">
+                ${t.price}
+                <span className="text-[11px] font-medium text-faint">/mo</span>
+              </p>
+              <p className="mt-2 text-[12px] leading-relaxed text-muted">{t.blurb}</p>
+              <button
+                type="button"
+                className="btn-primary mt-3 w-full justify-center py-1.5 text-[12px] opacity-60"
+                disabled
+                title="Checkout (Lemon Squeezy) is being connected — available at launch."
+              >
+                Subscribe
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <p className="text-[11px] leading-relaxed text-faint">
-        Checkout runs on Lemon Squeezy and is being connected now. Prefer to stay independent?
-        Bring your own Gemini key above (you pay Google directly, this app takes nothing) — or
-        run the open-source build entirely on your own machine.
+        Checkout for Easy Install and Subscription runs on Lemon Squeezy and is being connected
+        now. All three doors bring the exact same research quality — the only difference is who
+        runs it and who pays for the compute.
       </p>
     </div>
   );
