@@ -71,14 +71,40 @@ export interface CloudResearchDeckResponse {
   error?: string;
 }
 
+/**
+ * Where the cloud engine lives.
+ *
+ * There is deliberately NO hardcoded fallback URL. This previously defaulted to
+ * `https://stratemark-sentinel-api.a.run.app`, a service that was never
+ * deployed — so selecting the cloud engine produced a DNS failure that looked
+ * like a bug in the app rather than missing configuration.
+ *
+ * An empty string is the honest value: callers check `isSentinelConfigured()`
+ * and can say "not configured" instead of failing against a domain that does
+ * not exist. Set `VITE_API_BASE_URL` (preferred — the agent service in
+ * apps/api) or `VITE_SENTINEL_API_URL` to enable it.
+ */
 const DEFAULT_SENTINEL_URL =
-  import.meta.env.VITE_SENTINEL_API_URL || 'https://stratemark-sentinel-api.a.run.app';
+  import.meta.env.VITE_SENTINEL_API_URL || import.meta.env.VITE_API_BASE_URL || '';
+
+/** True when a cloud endpoint is actually configured. */
+export function isSentinelConfigured(): boolean {
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('mi.sentinelApiUrl')) return true;
+  return DEFAULT_SENTINEL_URL.length > 0;
+}
 
 function getSentinelUrl(path: string): string {
   let base = DEFAULT_SENTINEL_URL;
   if (typeof localStorage !== 'undefined') {
     const customUrl = localStorage.getItem('mi.sentinelApiUrl');
     if (customUrl) base = customUrl;
+  }
+  if (!base) {
+    // Fail with the actual reason rather than issuing a request to "/api/…" on
+    // our own origin, which would 404 and read as a broken feature.
+    throw new Error(
+      'No cloud engine is configured. Set VITE_API_BASE_URL to the deployed agent service, or use your own key locally.',
+    );
   }
   const cleanBase = base.replace(/\/+$/, '');
   const subPath = path.replace(/^\/+/, '');

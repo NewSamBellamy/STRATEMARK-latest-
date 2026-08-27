@@ -15,6 +15,26 @@ import wordmark from '@/assets/wordmark.svg';
  * Clean by request: wordmark, one input, one button. No decorative icons.
  * Tests bypass (they exercise the app, not the door).
  */
+
+/**
+ * Build the app with the door removed: `VITE_OPEN_ACCESS=true pnpm build`.
+ *
+ * This exists for the public/judging build. The hackathon rules require judges
+ * to test "free of charge and without restrictions", and a code they have to be
+ * given is friction that pushes them toward scoring from the video instead of
+ * the product.
+ *
+ * Removing the door is safe because the door was never what protected the
+ * money. Spending is guarded independently, server-side: /v1/research refuses
+ * any caller without a key or the app token, and the service caps its own daily
+ * spend. So an open app costs nothing. See apps/api/src/lib/authz.ts.
+ *
+ * Read once at module scope — Vite replaces it at build time, so an open build
+ * and a gated build are genuinely different artefacts rather than one artefact
+ * with a runtime switch someone could flip in the console.
+ */
+const OPEN_ACCESS = import.meta.env.VITE_OPEN_ACCESS === 'true';
+
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { isLoading, isAuthenticated } = useAuth();
   const [, force] = useState(0);
@@ -23,6 +43,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  if (OPEN_ACCESS) return <>{children}</>;
   if (import.meta.env.MODE === 'test') return <>{children}</>;
   if (isLoading) return <FullPageLoader label="Checking your session…" />;
   if (isAuthenticated || getAccessProfile()) return <>{children}</>;
