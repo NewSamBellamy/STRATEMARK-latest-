@@ -1,10 +1,13 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, LayoutDashboard, ExternalLink, Loader2, Share2 } from 'lucide-react';
+import { LayoutDashboard, ExternalLink, Share2 } from 'lucide-react';
 import { METRIC_TYPE_LABELS, isSignalCardType, publisherOf, type CardWithCompany } from '@mi/contracts';
 import { Modal } from '@/components/ui/Modal';
 import { useMarket } from '@/hooks/data';
+import { useRepository } from '@/lib/repository/RepositoryProvider';
 import { buildCardShare } from '@/lib/share/codec';
-import { useShareAction } from '@/lib/share/useShareAction';
+import { verifyCardForShare } from '@/lib/share/preflight';
+import { ShareDialog } from '@/features/share/ShareDialog';
 import { formatMetricValue } from '@/lib/format';
 import { Logo } from './Logo';
 import { ConfidenceBadge } from './ConfidenceBadge';
@@ -34,7 +37,8 @@ export function CardReader({
 }) {
   const { chat } = useDeepDive();
   const marketName = useMarket(marketId).data?.name ?? null;
-  const { share, status: shareStatus } = useShareAction();
+  const repo = useRepository();
+  const [shareOpen, setShareOpen] = useState(false);
   if (!data) return null;
 
   const { card, company, metrics, viceClaims } = data;
@@ -118,24 +122,23 @@ export function CardReader({
         <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
-            onClick={() =>
-              void share(
-                buildCardShare(data, marketName),
-                `${company.name} — market research snapshot`,
-              )
-            }
+            onClick={() => setShareOpen(true)}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-[13px] font-medium text-content transition-colors hover:bg-surface-2"
-            title="Share this card as a clean interactive snapshot — the whole card travels inside the link."
+            title="Share this card — figures get fact-checked first, then the whole card travels inside the link."
           >
-            {shareStatus === 'working' ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : shareStatus === 'copied' || shareStatus === 'shared' ? (
-              <Check className="h-4 w-4 text-positive" />
-            ) : (
-              <Share2 className="h-4 w-4" />
-            )}
-            {shareStatus === 'copied' ? 'Link copied' : shareStatus === 'shared' ? 'Shared' : 'Share'}
+            <Share2 className="h-4 w-4" />
+            Share
           </button>
+          <ShareDialog
+            open={shareOpen}
+            onOpenChange={setShareOpen}
+            title={company.name}
+            subtitle={marketName ? `${marketName} — market research snapshot` : 'Market research snapshot'}
+            build={async (onStage) => {
+              const fresh = await verifyCardForShare(repo, data, onStage);
+              return buildCardShare(fresh, marketName);
+            }}
+          />
           <Link
             to={`/company/${company.id}/dashboard/overview${marketId ? `?deck=${marketId}` : ''}`}
             onClick={() => onOpenChange(false)}

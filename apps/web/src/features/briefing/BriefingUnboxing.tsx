@@ -9,7 +9,7 @@
  * primary rather than a borrowed casino palette.
  */
 import { useMemo, useState } from 'react';
-import { ArrowRight, CalendarDays, Newspaper, Sparkles } from 'lucide-react';
+import { ArrowRight, CalendarDays, Newspaper } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import wordmark from '@/assets/wordmark.svg';
 
@@ -93,7 +93,7 @@ export function BriefingUnboxing({
                 {date}
               </span>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-400/15 px-3 py-1.5 text-[11px] font-semibold text-teal-100 ring-1 ring-inset ring-teal-300/40">
-                <Sparkles className="h-3.5 w-3.5" />
+                <ArrowRight className="h-3.5 w-3.5" />
                 Tap to unbox
               </span>
             </div>

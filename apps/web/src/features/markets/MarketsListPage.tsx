@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Cloud, Cpu, Layers, MapPin, PlusCircle, Trash2 } from 'lucide-react';
 import { useDeleteDeck, useMarkets } from '@/hooks/data';
+import { useResearchSession } from '@/features/deck/research-session';
 import { QueryBoundary } from '@/components/states/QueryBoundary';
 import { CardGridSkeleton } from '@/components/states/Skeleton';
 import { EmptyState } from '@/components/states/EmptyState';
@@ -124,6 +125,45 @@ function DeckStack({
           <Trash2 className="h-4 w-4" />
         </button>
       )}
+    </div>
+  );
+}
+
+/** The deck that's still in the oven — a pulsing stack for a running research. */
+function ResearchingStack({ query, onOpen }: { query: string; onOpen: () => void }) {
+  return (
+    <div className="relative">
+      <span
+        aria-hidden
+        className="absolute inset-x-2 -bottom-2 h-full rounded-[14px] border border-border bg-surface-2 shadow-sm"
+        style={{ transform: 'rotate(1.6deg)' }}
+      />
+      <span
+        aria-hidden
+        className="absolute inset-x-1 -bottom-1 h-full rounded-[14px] border border-border bg-surface shadow-sm"
+        style={{ transform: 'rotate(-1.1deg)' }}
+      />
+      <button
+        type="button"
+        onClick={onOpen}
+        className="panel relative w-full cursor-pointer overflow-hidden p-5 text-left"
+        title="Research is running — open the live progress"
+      >
+        <span aria-hidden className="absolute inset-x-0 top-0 h-1.5 animate-pulse bg-primary/70" />
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="truncate font-display text-lg font-semibold text-content">{query}</h2>
+            <p className="mt-1 flex items-center gap-1.5 text-sm text-muted">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+              Researching now…
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 space-y-1.5">
+          <span className="block h-2 w-3/4 animate-pulse rounded bg-surface-2" />
+          <span className="block h-2 w-1/2 animate-pulse rounded bg-surface-2" />
+        </div>
+      </button>
     </div>
   );
 }
@@ -240,6 +280,10 @@ export default function MarketsListPage() {
   const deleteDeck = useDeleteDeck();
   const navigate = useNavigate();
   const open = (id: string) => navigate(`/markets/${id}/deck`);
+  // A deck being researched right now shows here immediately — as a live,
+  // pulsing stack — instead of leaving the page pretending nothing started.
+  const session = useResearchSession((s) => s.session);
+  const researching = session?.running ? session.query : null;
 
   const sorted = useMemo(
     () =>
@@ -268,7 +312,7 @@ export default function MarketsListPage() {
       <QueryBoundary
         query={markets}
         loading={<CardGridSkeleton count={3} />}
-        isEmpty={(list) => list.length === 0}
+        isEmpty={(list) => list.length === 0 && !researching}
         empty={
           <EmptyState
             title="No decks yet"
@@ -296,6 +340,11 @@ export default function MarketsListPage() {
                 </h2>
               )}
               <ul className="grid gap-x-4 gap-y-6 sm:grid-cols-2">
+                {researching && (
+                  <li>
+                    <ResearchingStack query={researching} onOpen={() => navigate('/')} />
+                  </li>
+                )}
                 {[...sorted].reverse().map((m) => (
                   <li key={m.id}>
                     <DeckStack

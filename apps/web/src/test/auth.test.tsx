@@ -84,8 +84,12 @@ describe('Google Auth System', () => {
       const signOutBtn = screen.getByRole('button', { name: /sign out/i });
       await user.click(signOutBtn);
 
-      const signInBtn = await screen.findByRole('button', { name: /already purchased\? sign in/i });
-      expect(signInBtn).toBeInTheDocument();
+      // The dead "Already purchased? Sign in" Google button is GONE — Google
+      // auth arrives with the Firebase round. Unauthenticated TopBar shows
+      // no auth affordance (or the access-code chip when one is unlocked).
+      expect(
+        screen.queryByRole('button', { name: /already purchased\? sign in/i }),
+      ).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /user profile menu/i })).not.toBeInTheDocument();
     });
 
@@ -125,18 +129,17 @@ describe('Google Auth System', () => {
         <GoogleAuthProvider>
           <TaskManagerProvider>
             <TopBar />
+            <TestAuthComponent />
           </TaskManagerProvider>
         </GoogleAuthProvider>,
       );
 
-      // Sign out first to show sign in button
-      const profileBtn = screen.getByRole('button', { name: /user profile menu/i });
-      await user.click(profileBtn);
-      const signOutBtn = screen.getByRole('button', { name: /sign out/i });
-      await user.click(signOutBtn);
-
-      const signInBtn = await screen.findByRole('button', { name: /already purchased\? sign in/i });
-      await user.click(signInBtn);
+      // Sign out, then trigger the failing sign-in programmatically (the
+      // TopBar no longer carries a Google button until Firebase ships).
+      const logoutBtn = screen.getByRole('button', { name: 'Logout' });
+      await user.click(logoutBtn);
+      const loginBtn = screen.getByRole('button', { name: 'Login' });
+      await user.click(loginBtn);
 
       expect(await screen.findByTitle('OAuth provider popup blocked')).toBeInTheDocument();
       expect(screen.getByText('Auth Error')).toBeInTheDocument();

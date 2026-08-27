@@ -4,7 +4,6 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { App } from './App';
 import { RepositoryProvider } from '@/lib/repository/RepositoryProvider';
 import { AuthProvider } from '@/lib/auth/AuthContext';
-import { DemoProvider } from '@/lib/demo/DemoContext';
 import { TaskManagerProvider } from '@/lib/tasks/TaskManagerContext';
 import { createQueryClient } from '@/lib/query/queryClient';
 import { ErrorBoundary } from '@/components/states/ErrorBoundary';
@@ -19,13 +18,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <RepositoryProvider>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <DemoProvider>
-              <TaskManagerProvider>
-                <DeepDiveProviderWithPanel>
-                  <App />
-                </DeepDiveProviderWithPanel>
-              </TaskManagerProvider>
-            </DemoProvider>
+            <TaskManagerProvider>
+              <DeepDiveProviderWithPanel>
+                <App />
+              </DeepDiveProviderWithPanel>
+            </TaskManagerProvider>
           </AuthProvider>
         </QueryClientProvider>
       </RepositoryProvider>

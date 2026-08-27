@@ -7,6 +7,7 @@
  */
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight,
   ArrowUp,
@@ -27,12 +28,12 @@ import { runCloudResearchDeck } from '@/lib/sentinelApi';
 import { useRepository } from '@/lib/repository/RepositoryProvider';
 import { useApiKey } from '@/lib/settings/apiKey';
 import { useEngineChoice, type EngineChoice } from '@/lib/settings/engine';
-import { useDemo } from '@/lib/demo/DemoContext';
 import { cn } from '@/lib/cn';
 import logoMark from '@/assets/logo-mark.svg';
 import wordmark from '@/assets/wordmark.svg';
 import { MicButton } from '@/components/ui/MicButton';
 import { useResearchSession } from './research-session';
+import { qk } from '@/lib/query/keys';
 
 const SUGGESTIONS = [
   'Christian apparel companies',
@@ -366,11 +367,11 @@ function timeLabel(): string {
 
 export default function NewDeckPage() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const repo = useRepository();
   const { user, getToken } = useAuth();
   const isPro = user?.subscriptionTier === 'pro';
   const hasKey = useApiKey((s) => s.hasKey);
-  const { consumeDemoQuery } = useDemo();
 
   const [prompt, setPrompt] = useState('');
   const [region, setRegion] = useState('');
@@ -416,10 +417,6 @@ export default function NewDeckPage() {
     }
     setDemoGate(false);
 
-    if (!consumeDemoQuery()) {
-      return;
-    }
-
     const regionStr = region.trim();
     const userText = regionStr ? `${q} — ${regionStr}` : q;
 
@@ -441,6 +438,8 @@ export default function NewDeckPage() {
           const m = market as { id: string };
           const cardCount = res.cards?.length || res.candidates?.length || res.result?.cards?.length || 12;
           finish(`/markets/${m.id}/deck`, cardCount);
+          // The deck exists NOW — every deck list refetches immediately.
+          void qc.invalidateQueries({ queryKey: qk.markets });
           return;
         } else {
           const errMsg = res.error || 'Sentinel Cloud Agent failed to create deck.';
@@ -457,6 +456,7 @@ export default function NewDeckPage() {
     }
 
     let cardCount = 0;
+    let listedEarly = false;
     try {
       const { market } = await repo.createResearchedDeck(
         { prompt: q, region: regionStr || null },
@@ -465,6 +465,13 @@ export default function NewDeckPage() {
             if (p.message) {
               addLog(p.message, { stage: p.stage ?? null, progress: p.progress ?? null });
               if (p.kind === 'find') cardCount++;
+            }
+            // The market row is born early in the pipeline — refetch the deck
+            // lists ONCE so the new deck appears in "recent decks" while the
+            // research is still running (the filmed "my deck isn't here" bug).
+            if (!listedEarly && (p.card || p.kind === 'find')) {
+              listedEarly = true;
+              void qc.invalidateQueries({ queryKey: qk.markets });
             }
             // Stream every discovery onto the screen the moment it happens.
             if (p.card?.company?.name) {
@@ -483,6 +490,8 @@ export default function NewDeckPage() {
         },
       );
       finish(`/markets/${market.id}/deck`, cardCount);
+      // Belt & braces: the finished deck must be in every list before we land on it.
+      void qc.invalidateQueries({ queryKey: qk.markets });
       navigate(`/markets/${market.id}/deck`);
     } catch (err) {
       fail(err instanceof Error ? err.message : 'Research failed.');
@@ -684,12 +693,12 @@ export default function NewDeckPage() {
               Researching a new market needs your Gemini API key.
             </p>
             <p className="mt-1 text-[12px] leading-relaxed text-amber-800/90 dark:text-amber-300/90">
-              Demo mode only contains one pre-researched sample deck — it can’t research
-              “{prompt.trim() || 'a new market'}” and will never pretend to.{' '}
+              Grounded research runs on your own key — nothing here is ever faked.{' '}
               <Link to="/settings" className="font-semibold underline">
                 Add your key in Settings
               </Link>{' '}
-              (free tier works), then come back and run this for real.
+              (free tier works), then come back and run “{prompt.trim() || 'this market'}” for
+              real.
             </p>
           </div>
         )}

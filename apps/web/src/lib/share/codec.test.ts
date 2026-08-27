@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CardWithCompany } from '@mi/contracts';
 import {
+  buildReportShare,
   buildCardShare,
   buildBriefingShare,
   buildDeckShare,
@@ -150,6 +151,28 @@ describe('share codec round-trip', () => {
     expect(decoded?.briefing?.u[0]?.c[0]?.u).toBe('https://reuters.com/x');
     expect(decoded?.briefing?.i).toHaveLength(1);
     expect(decoded?.cards).toHaveLength(1); // the evidence rides along
+  });
+
+  it('a report share round-trips with the full markdown and stands alone (no cards)', async () => {
+    const md = `## Executive summary\n\n${'Sourced paragraph. '.repeat(120)}\n\n- point one\n- point two`;
+    const blob = await encodeSharePayload(
+      buildReportShare(
+        {
+          title: 'OpenAI — Company Report',
+          kind: 'company',
+          markdown: md,
+          citations: [{ title: 'Reuters', url: 'https://reuters.com/openai' }],
+          createdAt: '2026-08-26T12:00:00.000Z',
+        },
+        'Frontier AI Model Developers',
+      ),
+    );
+    const decoded = await decodeSharePayload(blob);
+    expect(decoded?.kind).toBe('report');
+    expect(decoded?.report?.t).toBe('OpenAI — Company Report');
+    expect(decoded?.report?.md).toBe(md);
+    expect(decoded?.report?.c[0]?.u).toBe('https://reuters.com/openai');
+    expect(decoded?.cards).toHaveLength(0); // a report can stand alone
   });
 
   it('old deck links (no briefing field) still decode', async () => {

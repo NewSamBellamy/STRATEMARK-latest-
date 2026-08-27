@@ -5,7 +5,6 @@ import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { ErrorBoundary } from '@/components/states/ErrorBoundary';
 import { FullPageLoader } from '@/components/states/FullPageLoader';
-import { UpgradeModal } from '@/components/UpgradeModal';
 import { useDeckRefreshSubscription } from '@/hooks/data';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { useDeepDive } from '@/features/deepdive/DeepDive';
@@ -31,7 +30,6 @@ export function AppShell() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-bg">
-      <UpgradeModal />
       {/* Desktop sidebar — hidden on mobile */}
       <div className="hidden md:flex">
         <Sidebar />

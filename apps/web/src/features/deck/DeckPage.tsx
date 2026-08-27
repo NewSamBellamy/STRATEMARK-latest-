@@ -2,11 +2,9 @@ import { useMemo, useEffect, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
-  Check,
   ChevronRight,
   FileText,
   Layers,
-  Loader2,
   MessagesSquare,
   MoreHorizontal,
   Newspaper,
@@ -38,7 +36,7 @@ import {
 import { useLivingDeck } from '@/lib/living/useLivingDeck';
 import { useAgentTrace } from '@/lib/agentic/agentTrace';
 import { buildDeckShare } from '@/lib/share/codec';
-import { useShareAction } from '@/lib/share/useShareAction';
+import { ShareDialog } from '@/features/share/ShareDialog';
 import { AgentActivityFeed } from './AgentActivityFeed';
 import { useDeepDive } from '@/features/deepdive/DeepDive';
 import { ThreadHistoryButton } from '@/features/research/ResearchControls';
@@ -134,7 +132,7 @@ export default function DeckPage() {
   // blank screen (audit 7:44): show a recovery path instead.
   const deckMissing = market.isSuccess && deck.isSuccess && (!market.data || !deck.data);
   const living = useLivingDeck(deckId, all);
-  const { share: shareDeck, status: shareStatus } = useShareAction();
+  const [shareOpen, setShareOpen] = useState(false);
 
   // Anchor the floating presence's "Chat" to THIS deck's synthesized research.
   const setChatContext = useAgentTrace((s) => s.setChatContext);
@@ -232,24 +230,20 @@ export default function DeckPage() {
             <button
               type="button"
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-[12px] font-medium text-content transition-colors hover:bg-surface-2"
-              disabled={all.length === 0 || shareStatus === 'working'}
+              disabled={all.length === 0}
               title="Share this whole deck as a clean interactive snapshot — all the research travels inside the link, AI layer removed."
-              onClick={() =>
-                void shareDeck(
-                  buildDeckShare(all, market.data?.name ?? null),
-                  `${market.data?.name ?? 'Market deck'} — research snapshot`,
-                )
-              }
+              onClick={() => setShareOpen(true)}
             >
-              {shareStatus === 'working' ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : shareStatus === 'copied' || shareStatus === 'shared' ? (
-                <Check className="h-3.5 w-3.5 text-positive" />
-              ) : (
-                <Share2 className="h-3.5 w-3.5" />
-              )}
-              {shareStatus === 'copied' ? 'Link copied' : shareStatus === 'shared' ? 'Shared' : 'Share'}
+              <Share2 className="h-3.5 w-3.5" />
+              Share
             </button>
+            <ShareDialog
+              open={shareOpen}
+              onOpenChange={setShareOpen}
+              title={market.data?.name ?? 'Market deck'}
+              subtitle="Full deck — research snapshot"
+              build={async () => buildDeckShare(all, market.data?.name ?? null)}
+            />
             <ThreadHistoryButton deckId={deckId} />
             <MoreMenu marketId={marketId} refreshDeck={refreshDeck} />
           </div>

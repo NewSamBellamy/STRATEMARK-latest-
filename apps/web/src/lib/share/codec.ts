@@ -79,14 +79,30 @@ export interface SharedBriefing {
   i: string[];
 }
 
+/** A research report, trimmed for the link — the markdown IS the report. */
+export interface SharedReport {
+  /** Title. */
+  t: string;
+  /** Report kind. */
+  k: 'deck' | 'company' | 'site_audit';
+  /** Generated at (ISO). */
+  at: string;
+  /** Markdown body. */
+  md: string;
+  /** Top citations: publisher + url. */
+  c: Array<{ t: string; u: string }>;
+}
+
 export interface SharePayload {
   v: 1;
-  kind: 'card' | 'deck' | 'briefing';
+  kind: 'card' | 'deck' | 'briefing' | 'report';
   market: string | null;
   sharedAt: string;
   cards: SharedCard[];
   /** Present when kind='briefing' — the unboxing + report payload. */
   briefing?: SharedBriefing;
+  /** Present when kind='report' — the full editorial report rides the link. */
+  report?: SharedReport;
 }
 
 // ---------------------------------------------------------------------------
@@ -183,6 +199,38 @@ export function buildBriefingShare(
         c: u.citations.slice(0, 2).map((c) => ({ t: c.title, u: c.url })),
       })),
       i: briefing.insights,
+    },
+  };
+}
+
+/**
+ * A shared report: the whole markdown travels in the link (deflate makes even
+ * a long report compact). Optionally rides with the subject's card so the
+ * recipient sees the face-value figures beside the prose.
+ */
+export function buildReportShare(
+  report: {
+    title: string;
+    kind: 'deck' | 'company' | 'site_audit';
+    markdown: string;
+    citations: Array<{ title: string; url: string }>;
+    createdAt: string;
+  },
+  marketName: string | null,
+  cards: CardWithCompany[] = [],
+): SharePayload {
+  return {
+    v: 1,
+    kind: 'report',
+    market: marketName,
+    sharedAt: new Date().toISOString(),
+    cards: cards.slice(0, 3).map(toSharedCard),
+    report: {
+      t: report.title,
+      k: report.kind,
+      at: report.createdAt,
+      md: report.markdown,
+      c: report.citations.slice(0, 8).map((c) => ({ t: c.title, u: c.url })),
     },
   };
 }
@@ -305,8 +353,8 @@ export async function decodeSharePayload(blob: string): Promise<SharePayload | n
     }
     const parsed = JSON.parse(new TextDecoder().decode(json)) as SharePayload;
     if (parsed?.v !== 1 || !Array.isArray(parsed.cards)) return null;
-    // A briefing can stand alone; card/deck shares need at least one card.
-    if (parsed.cards.length === 0 && !parsed.briefing) return null;
+    // A briefing or report can stand alone; card/deck shares need ≥1 card.
+    if (parsed.cards.length === 0 && !parsed.briefing && !parsed.report) return null;
     return parsed;
   } catch {
     return null;
