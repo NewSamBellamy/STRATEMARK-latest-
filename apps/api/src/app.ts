@@ -21,6 +21,15 @@ import { describeAgentGraph, runLivingDeckEngine } from '@mi/research';
 import type { MarketPlan } from '@mi/research';
 import { hasServerCredentials, type ServiceEnv } from './env';
 import { BYOK_HEADER, NoCredentialsError, resolveClient } from './lib/client';
+import {
+  APP_TOKEN_HEADER,
+  authorizeSpend,
+  callerKeyFor,
+  RateLimiter,
+  RateLimitedError,
+  UnauthorizedSpendError,
+} from './lib/authz';
+import { BudgetExhaustedError, DailyBudget } from './lib/budget';
 import { capturePage, CaptureError, type CaptureReceipt } from './lib/capture';
 import { verifyCapture } from './lib/verify';
 import { createVisionJudge } from './lib/vision';
@@ -70,8 +79,29 @@ async function planFromQuery(
   );
 }
 
+/** Estimated cost of one full deck run — checked before work begins. */
+const DECK_ESTIMATE_USD = 0.65;
+/** Estimated cost of one capture with a vision adjudication. */
+const CAPTURE_ESTIMATE_USD = 0.002;
+
 export function createApp(env: ServiceEnv): Hono {
   const app = new Hono();
+
+  // Per-instance guards. See lib/budget.ts and lib/authz.ts for why these are
+  // in memory and what that does and does not protect.
+  const budget = new DailyBudget(env.dailyCapUsd);
+  const researchLimiter = new RateLimiter(6, 60_000);
+  const captureLimiter = new RateLimiter(20, 60_000);
+
+  /** Maps our guard errors onto responses without leaking internals. */
+  const guardError = (err: unknown): { status: 401 | 429; body: Record<string, unknown> } | null => {
+    if (err instanceof UnauthorizedSpendError) return { status: 401, body: { error: err.message } };
+    if (err instanceof RateLimitedError) return { status: 429, body: { error: err.message } };
+    if (err instanceof BudgetExhaustedError) {
+      return { status: 429, body: { error: err.message, budget: err.budget } };
+    }
+    return null;
+  };
 
   app.use(
     '*',
@@ -100,7 +130,12 @@ export function createApp(env: ServiceEnv): Hono {
         capture: true,
         pdf: true,
         scheduledRefresh: Boolean(env.schedulerToken),
+        /** False means callers must bring their own key to spend anything. */
+        serverSpendEnabled: Boolean(env.appToken),
       },
+      // Deliberately public: the remaining allowance is not a secret, and
+      // surfacing it turns "why did research stop working" into one request.
+      budget: budget.status(),
     }),
   );
 
@@ -120,13 +155,37 @@ export function createApp(env: ServiceEnv): Hono {
       return c.json({ error: 'Provide either a query or a plan.' }, 400);
     }
 
+    const callerKey = c.req.header(BYOK_HEADER);
+    const appToken = c.req.header(APP_TOKEN_HEADER);
+
+    // Authorise and meter BEFORE any model work starts. A deck is ~27 requests;
+    // discovering the cap halfway through leaves the caller with a half-built
+    // deck and us holding the bill for it.
+    let metered = false;
+    try {
+      const authz = authorizeSpend({ env, callerKey, appToken });
+      metered = authz.metered;
+      researchLimiter.check(callerKeyFor({ forwardedFor: c.req.header('x-forwarded-for'), appToken }));
+      if (metered && !budget.canAfford(DECK_ESTIMATE_USD)) {
+        throw new BudgetExhaustedError(budget.status());
+      }
+    } catch (err) {
+      const mapped = guardError(err);
+      if (mapped) return c.json(mapped.body, mapped.status);
+      throw err;
+    }
+
     const calls: Array<{ model: string; kind: string }> = [];
     let resolved;
     try {
       resolved = resolveClient({
         env,
-        callerKey: c.req.header(BYOK_HEADER),
-        onCall: (info) => calls.push(info),
+        callerKey,
+        onCall: (info) => {
+          calls.push(info);
+          // Only spend on OUR credentials counts against the allowance.
+          if (metered) budget.record(info.kind === 'ground' ? 'ground' : 'structure');
+        },
       });
     } catch (err) {
       if (err instanceof NoCredentialsError) return c.json({ error: err.message }, 503);
@@ -154,7 +213,12 @@ export function createApp(env: ServiceEnv): Hono {
       timings: { bootMs: run.bootMs, totalMs: run.totalMs },
       aborted: run.aborted,
       // Cost attribution, so the meter can charge the right party.
-      billing: { keySource: resolved.keySource, calls: calls.length },
+      billing: {
+        keySource: resolved.keySource,
+        calls: calls.length,
+        metered,
+        ...(metered ? { budget: budget.status() } : {}),
+      },
     });
   });
 
@@ -166,6 +230,20 @@ export function createApp(env: ServiceEnv): Hono {
     const body = captureSchema.safeParse(await c.req.json().catch(() => null));
     if (!body.success) {
       return c.json({ error: 'Invalid request', detail: body.error.flatten() }, 400);
+    }
+
+    const appToken = c.req.header(APP_TOKEN_HEADER);
+    const callerKey = c.req.header(BYOK_HEADER);
+
+    // Capture needs no spend authorisation — it is the visible product feature
+    // and costs us CPU, not tokens. It IS rate limited, because launching
+    // Chromium is expensive enough to be a denial-of-service lever.
+    try {
+      captureLimiter.check(callerKeyFor({ forwardedFor: c.req.header('x-forwarded-for'), appToken }));
+    } catch (err) {
+      const mapped = guardError(err);
+      if (mapped) return c.json(mapped.body, mapped.status);
+      throw err;
     }
 
     let receipt: CaptureReceipt;
@@ -185,14 +263,34 @@ export function createApp(env: ServiceEnv): Hono {
       throw err;
     }
 
-    const callerKey = c.req.header(BYOK_HEADER);
+    // The vision adjudication DOES cost tokens, so it is authorised and metered
+    // like research. Without authorisation it is simply skipped, and
+    // verifyCapture fails closed — an unverified capture is never reported as
+    // genuine just because we could not afford to check it.
+    let visionAllowed = false;
+    let visionMetered = false;
+    try {
+      const authz = authorizeSpend({ env, callerKey, appToken });
+      visionMetered = authz.metered;
+      visionAllowed = !visionMetered || budget.canAfford(CAPTURE_ESTIMATE_USD);
+    } catch {
+      visionAllowed = false;
+    }
+
     const verdict = await verifyCapture({
       receipt,
       text,
       screenshot,
       ...(() => {
-        const vision = createVisionJudge({ env, callerKey });
-        return vision ? { vision } : {};
+        if (!visionAllowed) return {};
+        const judge = createVisionJudge({ env, callerKey });
+        if (!judge) return {};
+        return {
+          vision: async (input: { screenshot: Buffer; prompt: string }) => {
+            if (visionMetered) budget.record('vision');
+            return judge(input);
+          },
+        };
       })(),
     });
 

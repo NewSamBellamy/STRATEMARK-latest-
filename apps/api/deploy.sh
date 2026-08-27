@@ -41,7 +41,12 @@ gcloud services enable \
   aiplatform.googleapis.com \
   --project "${PROJECT}" --quiet
 
-ENV_VARS="USE_VERTEX_AI=${USE_VERTEX},GOOGLE_CLOUD_PROJECT=${PROJECT},GOOGLE_CLOUD_LOCATION=${REGION}"
+# DAILY_CAP_USD is the per-instance ceiling on spend from server credentials.
+# Worst case across the service is DAILY_CAP_USD × MAX_INSTANCES, so both are
+# set deliberately rather than left to defaults.
+DAILY_CAP_USD="${DAILY_CAP_USD:-4}"
+MAX_INSTANCES="${MAX_INSTANCES:-2}"
+ENV_VARS="USE_VERTEX_AI=${USE_VERTEX},GOOGLE_CLOUD_PROJECT=${PROJECT},GOOGLE_CLOUD_LOCATION=${REGION},DAILY_CAP_USD=${DAILY_CAP_USD}"
 SECRET_ARGS=()
 
 if [[ "${USE_VERTEX}" != "true" ]]; then
@@ -56,6 +61,17 @@ if [[ "${USE_VERTEX}" != "true" ]]; then
   fi
   SECRET_ARGS=(--set-secrets "GEMINI_API_KEY=${SECRET}:latest")
 fi
+
+# A shared token authorising use of the service's OWN credentials. Without it
+# the service refuses all server-credentialled work, which is the safe default:
+# Cloud Run's --max-instances bounds concurrency, not spend, so a public
+# endpoint attached to a billable key needs its own throttle.
+if ! gcloud secrets describe app-token --project "${PROJECT}" >/dev/null 2>&1; then
+  echo "▸ Generating an app access token"
+  openssl rand -hex 24 | tr -d '\n' | gcloud secrets create app-token \
+    --data-file=- --replication-policy=automatic --project "${PROJECT}" --quiet
+fi
+SECRET_ARGS+=(--update-secrets "APP_TOKEN=app-token:latest")
 
 # A shared secret so only Cloud Scheduler can trigger paid refresh work.
 if ! gcloud secrets describe scheduler-token --project "${PROJECT}" >/dev/null 2>&1; then
@@ -76,12 +92,14 @@ gcloud run deploy "${SERVICE}" \
   --cpu 2 \
   --timeout 600 \
   --concurrency 4 \
-  --max-instances 5 \
+  --max-instances "${MAX_INSTANCES}" \
   --set-env-vars "${ENV_VARS}" \
   "${SECRET_ARGS[@]}" \
   --quiet
 
 URL="$(gcloud run services describe "${SERVICE}" --project "${PROJECT}" --region "${REGION}" --format='value(status.url)')"
+
+APP_TOKEN_VALUE="$(gcloud secrets versions access latest --secret=app-token --project "${PROJECT}" 2>/dev/null || echo '<unset>')"
 
 echo
 echo "✓ Deployed: ${URL}"
@@ -91,7 +109,22 @@ echo "  Graph:    curl ${URL}/v1/agent-graph"
 echo
 echo "  This URL is what the demo video must show on screen."
 echo
-echo "  Point the web app at it by setting VITE_API_BASE_URL=${URL}"
+echo "  Spend guard:  \$${DAILY_CAP_USD}/day per instance × ${MAX_INSTANCES} instances."
+echo "                Browsing is free; only server-credentialled work is metered."
+echo "                Callers who send their own key in X-Gemini-Key are never metered."
+echo
+echo "  App token (authorises use of OUR credentials — also goes in the judge"
+echo "  testing instructions so they can try it without their own key):"
+echo "    ${APP_TOKEN_VALUE}"
+echo
+echo "  Point the web app at it:"
+echo "    VITE_API_BASE_URL=${URL}"
+echo "    VITE_API_APP_TOKEN=${APP_TOKEN_VALUE}"
+echo
+echo "  STRONGLY RECOMMENDED — a billing backstop the app cannot bypass:"
+echo "    gcloud billing budgets create --billing-account=YOUR_BILLING_ACCOUNT \\"
+echo "      --display-name='Stratemark cap' --budget-amount=50USD \\"
+echo "      --threshold-rule=percent=0.5 --threshold-rule=percent=0.9"
 echo
 echo "  Then create the scheduled refresh:"
 echo "    gcloud scheduler jobs create http stratemark-refresh \\"

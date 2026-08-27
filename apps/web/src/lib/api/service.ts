@@ -45,6 +45,15 @@ export interface ServiceConfig {
   baseUrl: string | undefined;
   /** The user's own Gemini key, when they have one. */
   apiKey?: string | undefined;
+  /**
+   * Shared token authorising use of the SERVICE's credentials.
+   *
+   * Only needed when the user has no key of their own. It is not a secret in
+   * any meaningful sense — it ships in the client bundle — it is a revocable
+   * throttle so a public endpoint attached to a billing account cannot be
+   * drained by anyone who finds the URL. Rotate it by redeploying.
+   */
+  appToken?: string | undefined;
   fetchImpl?: typeof fetch;
 }
 
@@ -54,22 +63,34 @@ function readBaseUrl(): string | undefined {
   return raw.replace(/\/+$/, '');
 }
 
+function readAppToken(): string | undefined {
+  return (import.meta.env?.VITE_API_APP_TOKEN as string | undefined)?.trim() || undefined;
+}
+
 /** True when a service endpoint is configured. Drives UI affordances. */
 export function isServiceConfigured(baseUrl: string | undefined = readBaseUrl()): boolean {
   return Boolean(baseUrl);
 }
 
-function headers(apiKey: string | undefined): Record<string, string> {
+function headers(config: ServiceConfig): Record<string, string> {
   const h: Record<string, string> = { 'Content-Type': 'application/json' };
   // Only ever sent to our own configured service, never to a third party.
-  if (apiKey) h['X-Gemini-Key'] = apiKey;
+  if (config.apiKey) h['X-Gemini-Key'] = config.apiKey;
+  if (config.appToken) h['X-Stratemark-Token'] = config.appToken;
   return h;
 }
 
 export interface ServiceHealth {
   status: string;
   credentials: string;
-  capabilities: { research: boolean; capture: boolean; pdf: boolean; scheduledRefresh: boolean };
+  capabilities: {
+    research: boolean;
+    capture: boolean;
+    pdf: boolean;
+    scheduledRefresh: boolean;
+    serverSpendEnabled: boolean;
+  };
+  budget: { capUsd: number; spentUsd: number; remainingUsd: number; exhausted: boolean };
 }
 
 export async function checkHealth(config: ServiceConfig): Promise<ServiceHealth | null> {
@@ -105,7 +126,7 @@ export async function captureSite(
   try {
     const res = await doFetch(`${config.baseUrl}/v1/capture`, {
       method: 'POST',
-      headers: headers(config.apiKey),
+      headers: headers(config),
       body: JSON.stringify({ url }),
     });
     if (!res.ok) {
@@ -143,7 +164,7 @@ export async function renderReportPdf(
   try {
     const res = await doFetch(`${config.baseUrl}/v1/report/pdf`, {
       method: 'POST',
-      headers: headers(config.apiKey),
+      headers: headers(config),
       body: JSON.stringify({ html, filename }),
     });
     if (!res.ok) return null;
@@ -155,5 +176,5 @@ export async function renderReportPdf(
 
 /** Build the config from ambient environment plus the user's stored key. */
 export function serviceConfig(apiKey?: string | undefined): ServiceConfig {
-  return { baseUrl: readBaseUrl(), apiKey };
+  return { baseUrl: readBaseUrl(), apiKey, appToken: readAppToken() };
 }

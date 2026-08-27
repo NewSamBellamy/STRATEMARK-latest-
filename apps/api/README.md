@@ -67,6 +67,40 @@ for a key with echo disabled and pipes it straight into Secret Manager. It is
 never passed as an argument — arguments land in shell history and in the
 process table.
 
+## Cost control — read this before deploying
+
+Cloud Run's `--max-instances` bounds **concurrency, not money.** A public endpoint
+backed by a billable API key will spend a credit pool in an afternoon if someone
+finds the URL, and the first sign is the invoice. Three layers guard against it:
+
+**1. Authorisation on the spending paths only.** Browsing is free — judges and
+users can explore the app without a credential, which the hackathon rules
+require. But `/v1/research` (and the vision half of `/v1/capture`) demand either
+a caller's own key or the app token. **No token configured means nobody may
+spend**, which is failing shut rather than open.
+
+**2. A daily allowance the service enforces itself.** `DAILY_CAP_USD` (default
+`$4`) caps spend on server credentials. It is checked with the *estimated cost of
+the whole operation* before work starts — a deck is ~27 requests, and hitting the
+cap halfway through leaves the caller with a half-built deck and us with the bill.
+When exhausted it returns 429 and tells the caller they can continue immediately
+with their own key.
+
+> **Honest limitation:** the counter is in memory, so it is **per instance**. The
+> true worst case is `DAILY_CAP_USD × MAX_INSTANCES` — bounded and known, which
+> is the property that matters, but not globally exact. `deploy.sh` sets
+> `MAX_INSTANCES=2` so the default worst case is $8/day. Moving the counter to
+> Firestore makes it exact.
+
+**3. Rate limiting per caller.** 6 research and 20 capture requests per minute.
+Blunts a script hammering the endpoint; not a distributed quota system.
+
+**And outside the app entirely:** set a Cloud Billing budget alert. It is the
+only guard the application cannot get wrong, and `deploy.sh` prints the command.
+
+`/healthz` publishes the remaining allowance, so "why did research stop working"
+is one `curl` rather than an investigation.
+
 ### Bring-your-own-key callers
 
 Every route accepts an optional `X-Gemini-Key` header. When present, that key
@@ -93,8 +127,8 @@ never echoed back in a response or an error.
 | --- | --- | --- |
 | `GET` | `/healthz` | Liveness plus an honest capability report |
 | `GET` | `/v1/agent-graph` | The agent topology as data. No credential needed |
-| `POST` | `/v1/research` | Runs the living-deck agent graph. `{ query }` or `{ plan }` |
-| `POST` | `/v1/capture` | Capture, verify, and return either a screenshot or a fallback |
+| `POST` | `/v1/research` | Runs the living-deck agent graph. `{ query }` or `{ plan }`. **Needs `X-Gemini-Key` or `X-Stratemark-Token`** |
+| `POST` | `/v1/capture` | Capture, verify, and return either a screenshot or a fallback. Open, rate limited; the vision step needs authorisation |
 | `POST` | `/v1/report/pdf` | Self-contained HTML in, real PDF out |
 | `POST` | `/tasks/refresh` | Cloud Scheduler target. Requires `x-scheduler-token` |
 

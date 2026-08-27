@@ -34,21 +34,22 @@ export interface SentinelUserProfile {
   subscriptionStatus: 'active' | 'trialing' | 'canceled';
 }
 
-/** Fetch authenticated user profile and subscription status from Sentinel Cloud Run */
-export async function fetchUserProfile(token?: string | null, email?: string | null): Promise<SentinelUserProfile | null> {
+/**
+ * Fetch the authenticated user's profile and subscription status.
+ *
+ * Returns null when the backend cannot be reached. It does NOT guess at
+ * entitlement: granting a paid tier because an email ends in a particular
+ * domain is a backdoor anyone can walk through by typing that address, and it
+ * publishes an internal access rule to every downloaded bundle. The billing
+ * system is the only source of truth for paid status, and failing to "free" is
+ * the safe direction.
+ */
+export async function fetchUserProfile(token?: string | null): Promise<SentinelUserProfile | null> {
   try {
     const data = await fetchSentinel<{ user: SentinelUserProfile }>('/api/me', { token });
     if (data.user) return data.user;
   } catch {
-    // If backend /api/me endpoint is not reached or in offline/demo mode, check domain rule
-  }
-  if (email && email.toLowerCase().endsWith('@omniveo.io')) {
-    return {
-      id: 'omniveo-user',
-      email,
-      subscriptionTier: 'pro',
-      subscriptionStatus: 'active',
-    };
+    // Offline, or the endpoint is not deployed yet.
   }
   return null;
 }

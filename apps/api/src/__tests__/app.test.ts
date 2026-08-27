@@ -14,7 +14,14 @@ async function asJson<T>(res: Response): Promise<T> {
 interface HealthBody {
   status: string;
   credentials: string;
-  capabilities: { research: boolean; capture: boolean; pdf: boolean; scheduledRefresh: boolean };
+  capabilities: {
+    research: boolean;
+    capture: boolean;
+    pdf: boolean;
+    scheduledRefresh: boolean;
+    serverSpendEnabled: boolean;
+  };
+  budget: { capUsd: number; spentUsd: number; remainingUsd: number; exhausted: boolean };
 }
 interface ErrorBody {
   error: string;
@@ -64,6 +71,25 @@ describe('GET /healthz', () => {
     const on = await asJson<HealthBody>(await app({ SCHEDULER_TOKEN: 't' }).request('/healthz'));
     expect(on.capabilities.scheduledRefresh).toBe(true);
   });
+
+  it('reports whether anyone may spend the service credentials', async () => {
+    const closed = await asJson<HealthBody>(await app({ GEMINI_API_KEY: 'k' }).request('/healthz'));
+    expect(closed.capabilities.serverSpendEnabled).toBe(false);
+
+    const open = await asJson<HealthBody>(
+      await app({ GEMINI_API_KEY: 'k', APP_TOKEN: 't' }).request('/healthz'),
+    );
+    expect(open.capabilities.serverSpendEnabled).toBe(true);
+  });
+
+  it('publishes the remaining allowance so an exhausted budget is diagnosable', async () => {
+    const body = await asJson<HealthBody>(
+      await app({ GEMINI_API_KEY: 'k', DAILY_CAP_USD: '7.5' }).request('/healthz'),
+    );
+    expect(body.budget.capUsd).toBe(7.5);
+    expect(body.budget.spentUsd).toBe(0);
+    expect(body.budget.exhausted).toBe(false);
+  });
 });
 
 describe('GET /v1/agent-graph', () => {
@@ -88,10 +114,55 @@ describe('POST /v1/research', () => {
     expect(res.status).toBe(400);
   });
 
-  it('refuses honestly when nobody has supplied credentials', async () => {
-    const res = await post(app(), '/v1/research', { query: 'vegan sneaker brands' });
-    expect(res.status).toBe(503);
-    expect((await asJson<ErrorBody>(res)).error).toMatch(/X-Gemini-Key/);
+  it('refuses to spend without authorisation, before reaching credentials', async () => {
+    // 401 rather than 503: the question "who is paying for this" is answered
+    // before the question "do we have a key". An open endpoint attached to a
+    // billing account is the failure mode this prevents.
+    const res = await post(app({ GEMINI_API_KEY: 'k' }), '/v1/research', {
+      query: 'vegan sneaker brands',
+    });
+    expect(res.status).toBe(401);
+    const body = await asJson<ErrorBody>(res);
+    expect(body.error).toMatch(/X-Gemini-Key/);
+    expect(body.error).toMatch(/X-Stratemark-Token/);
+  });
+
+  it('refuses an invalid app token', async () => {
+    const res = await post(
+      app({ GEMINI_API_KEY: 'k', APP_TOKEN: 'right' }),
+      '/v1/research',
+      { query: 'vegan sneaker brands' },
+      { 'x-stratemark-token': 'wrong' },
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('refuses when the daily allowance cannot cover a deck', async () => {
+    // Cap below the cost of one deck: the request must be turned away up front
+    // rather than producing half a deck and a bill.
+    const res = await post(
+      app({ GEMINI_API_KEY: 'k', APP_TOKEN: 'tok', DAILY_CAP_USD: '0.01' }),
+      '/v1/research',
+      { query: 'vegan sneaker brands' },
+      { 'x-stratemark-token': 'tok' },
+    );
+    expect(res.status).toBe(429);
+    expect((await asJson<ErrorBody>(res)).error).toMatch(/daily spending limit/);
+  });
+
+  it('rate limits a caller hammering research', async () => {
+    const a = app({ GEMINI_API_KEY: 'k', APP_TOKEN: 'tok', DAILY_CAP_USD: '0.01' });
+    const hit = () =>
+      post(a, '/v1/research', { query: 'vegan sneaker brands' }, {
+        'x-stratemark-token': 'tok',
+        'x-forwarded-for': '203.0.113.7',
+      });
+    // Limit is 6/minute; the budget refusal at 429 does not consume authorisation,
+    // so the seventh must be refused by the limiter rather than reaching work.
+    for (let i = 0; i < 6; i += 1) await hit();
+    const res = await hit();
+    expect(res.status).toBe(429);
+    expect((await asJson<ErrorBody>(res)).error).toMatch(/Too many requests/);
   });
 });
 
