@@ -45,6 +45,9 @@ During the private preview the app is gated by **named access codes** (SHA-256 h
 apps/
   web/        React + Vite + Tailwind SPA (the product)
   desktop/    Electron shell (same UI, key in OS keychain, decks on disk)
+  api/        Cloud Run agent service — official Google GenAI SDK, page
+              capture + verification, PDF rendering, scheduled refresh.
+              OPTIONAL: the apps run standalone with a user's own key.
 packages/
   contracts/  Types, Zod schemas, enums — THE source of truth for all shapes
   research/   The research engine: Gemini client, grounded pipelines,
@@ -63,8 +66,19 @@ flowchart LR
   Repo --> Snap[(RepoSnapshot - localStorage + IndexedDB vault)]
   UI --> Vault[(IndexedDB vault - snapshots + paid-for images)]
   Desktop[Electron - apps/desktop] --> UI
-  Cloud[Sentinel Cloud Agent - Cloud Run, Maruf] -.->|Pro tier| Repo
+  UI -.->|optional - VITE_API_BASE_URL| Svc[Agent service - apps/api on Cloud Run]
+  Svc -->|official @google/genai SDK| Gemini
+  Svc --> Cap[Headless Chromium - capture + verify + PDF]
+  Sched[Cloud Scheduler] -.->|daily refresh| Svc
 ```
+
+**Two clients, one contract.** Every model call goes through the `LlmClient`
+interface in `packages/research`. `gemini.ts` implements it with plain `fetch`
+for the browser and Electron, where the user's own key does the work.
+`genai.ts` implements the same interface on the **official Google GenAI SDK**
+for the server, where a shared key or Vertex AI service-account credentials do
+it. Because `LivingDeckEngine` and `runAdkTaskGraph` depend only on the
+interface, the entire agent pipeline runs unchanged on either.
 
 **The two-call pattern** powers everything: `client.ground(prompt)` runs a grounded Google-Search pass and returns text + citations; `client.structure(prompt, zodSchema)` extracts typed JSON that must parse against a Zod schema (all single-list schemas are bare-array tolerant via `z.preprocess`). Every write path is gated by the **provenance contract** (`packages/contracts/src/provenance.ts`): junk sources filtered, corrections require verification-grade citations.
 
