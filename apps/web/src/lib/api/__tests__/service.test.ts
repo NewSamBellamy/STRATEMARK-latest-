@@ -79,10 +79,25 @@ describe('renderReportPdf', () => {
     expect(await renderReportPdf('<html></html>', { baseUrl: undefined })).toBeNull();
   });
 
-  it('returns the blob on success', async () => {
-    const fetchImpl = vi.fn(async () => new Response(new Blob(['%PDF-']), { status: 200 }));
+  it('returns the document bytes on success', async () => {
+    // Body given as a string, not a Blob: under jsdom the global Blob is
+    // jsdom's, which Node's Response does not accept as a body — it coerces it
+    // to "[object Blob]" instead of erroring, which makes for a confusing test.
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response('%PDF-1.7 body', {
+          status: 200,
+          headers: { 'Content-Type': 'application/pdf' },
+        }),
+    );
     const blob = await renderReportPdf('<html></html>', { baseUrl: BASE, fetchImpl: fetchImpl as never });
-    expect(blob).toBeInstanceOf(Blob);
+
+    // Asserting on the CONTENT rather than `toBeInstanceOf(Blob)`: under jsdom
+    // the global Blob and the one Node's Response hands back are different
+    // classes, so an identity check passes or fails depending on the Node
+    // version rather than on whether the code works.
+    expect(blob).not.toBeNull();
+    expect(await blob?.text()).toBe('%PDF-1.7 body');
   });
 
   it('returns null rather than throwing when the service errors', async () => {
