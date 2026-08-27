@@ -28,6 +28,13 @@ import {
   SHOT_RETRY_MS,
 } from '@/lib/screenshot';
 import { AiCover } from '@/components/media/AiCover';
+import {
+  captureSite,
+  isServiceConfigured,
+  serviceConfig,
+  type CaptureOutcome,
+} from '@/lib/api/service';
+import { useApiKey } from '@/lib/settings/apiKey';
 import { printScoped } from '@/lib/print';
 import { isDirectSource, sourceHref } from '@/lib/sourceHref';
 import { cn } from '@/lib/cn';
@@ -42,10 +49,21 @@ const AREA_LABEL: Record<SiteAuditArea, string> = {
 };
 
 /**
- * Live page capture in a browser-chrome frame, retried until it's real.
- * Anti-bot walls can still poison a capture (a CAPTCHA is not site art), so
- * a one-click swap replaces the frame with a generated impression of the
- * site's design language instead.
+ * Live page capture in a browser-chrome frame.
+ *
+ * Two paths, and which one runs depends only on whether the agent service is
+ * configured:
+ *
+ *   SERVICE PRESENT — capture happens in real Chromium server-side and the
+ *     result is VERIFIED before it is shown. A blocked page yields a generated
+ *     card carrying the capture receipt (final URL, HTTP status, content hash)
+ *     rather than a screenshot of a CAPTCHA. That receipt is the evidence the
+ *     site was genuinely visited, which is what makes the audit trustworthy
+ *     when the image is missing.
+ *
+ *   NO SERVICE — the previous browser-side path, retried past the renderer's
+ *     placeholder, with a manual swap to an illustration. Kept so the app stays
+ *     fully usable standalone.
  */
 function PageCapture({
   url,
@@ -60,12 +78,39 @@ function PageCapture({
   const [failed, setFailed] = useState(false);
   const [swapped, setSwapped] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [verified, setVerified] = useState<CaptureOutcome | null>(null);
+  const [verifying, setVerifying] = useState(isServiceConfigured());
+  // The user's own key travels with the request when they have one, so a
+  // bring-your-own-key subscriber spends their quota rather than ours.
+  const apiKey = useApiKey((s) => s.apiKey);
+
   useEffect(
     () => () => {
       if (timer.current) clearTimeout(timer.current);
     },
     [],
   );
+
+  // Server-side capture, when a service exists to do it.
+  useEffect(() => {
+    if (!isServiceConfigured()) return;
+    let live = true;
+    setVerifying(true);
+    captureSite(url, serviceConfig(apiKey || undefined))
+      .then((outcome) => {
+        if (live) setVerified(outcome);
+      })
+      .finally(() => {
+        if (live) setVerifying(false);
+      });
+    return () => {
+      live = false;
+    };
+  }, [url, apiKey]);
+
+  const serviceBlocked = verified && !verified.ok && 'fallbackSvg' in verified;
+  const serviceOk = verified?.ok === true;
+
   return (
     <figure className="overflow-hidden rounded-xl border border-border shadow-card">
       {/* Browser chrome — the capture reads as "their actual site". */}
@@ -80,7 +125,27 @@ function PageCapture({
         </span>
       </div>
       <div className="relative h-[300px] bg-surface-2 sm:h-[360px]">
-        {swapped ? (
+        {verifying ? (
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-muted">
+            <Globe className="h-7 w-7 animate-pulse" />
+            <p className="text-sm">Capturing the live page…</p>
+          </div>
+        ) : serviceOk && verified?.ok ? (
+          <img
+            src={verified.screenshot}
+            alt={`Verified screenshot of ${siteName}`}
+            className="h-full w-full object-cover object-top"
+          />
+        ) : serviceBlocked && verified && 'fallbackSvg' in verified ? (
+          // A generated card, not the block page. The receipt inside it is the
+          // proof of visit that keeps the rest of the audit credible.
+          <div
+            className="flex h-full w-full items-center justify-center bg-surface p-3"
+            // The SVG is produced by our own service from structured fields,
+            // every one of them escaped at the point of render (lib/fallback.ts).
+            dangerouslySetInnerHTML={{ __html: verified.fallbackSvg }}
+          />
+        ) : swapped ? (
           <AiCover
             cacheKey={`audit-hero:${url}`}
             title={`${siteName} — landing page impression`}
@@ -112,17 +177,28 @@ function PageCapture({
       </div>
       <figcaption className="flex items-center justify-between gap-3 border-t border-border bg-surface-2/60 px-3 py-1.5 text-[10px] text-faint">
         <span>
-          {swapped
-            ? 'Generated impression of the design language (the live capture hit an anti-bot wall).'
-            : 'Live capture of the audited page. Some sites serve anti-bot challenges to capture services — if this frame looks wrong, swap it.'}
+          {serviceOk && verified?.ok
+            ? `Verified live capture — ${verified.receipt.finalUrl.replace(/^https?:\/\//, '')} answered ${
+                verified.receipt.httpStatus ?? 'a response'
+              } at ${verified.receipt.capturedAt.replace('T', ' ').slice(0, 16)} UTC.`
+            : serviceBlocked && verified && 'caption' in verified
+              ? verified.caption
+              : swapped
+                ? 'Generated impression of the design language (the live capture hit an anti-bot wall).'
+                : 'Live capture of the audited page. Some sites serve anti-bot challenges to capture services — if this frame looks wrong, swap it.'}
         </span>
-        <button
-          type="button"
-          className="brf-no-print shrink-0 font-medium text-primary-ink hover:underline"
-          onClick={() => setSwapped((v) => !v)}
-        >
-          {swapped ? 'Show live capture' : 'Swap to illustration'}
-        </button>
+        {/* The manual swap only makes sense on the unverified path. When the
+            service has ruled, its verdict is the answer — offering a cosmetic
+            override would invite dressing a blocked capture up as content. */}
+        {!serviceOk && !serviceBlocked ? (
+          <button
+            type="button"
+            className="brf-no-print shrink-0 font-medium text-primary-ink hover:underline"
+            onClick={() => setSwapped((v) => !v)}
+          >
+            {swapped ? 'Show live capture' : 'Swap to illustration'}
+          </button>
+        ) : null}
       </figcaption>
     </figure>
   );

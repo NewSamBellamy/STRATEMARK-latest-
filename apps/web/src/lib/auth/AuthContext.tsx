@@ -85,12 +85,20 @@ function initFirebaseAuth(): Auth | null {
   }
 }
 
+/**
+ * Fill in the subscription fields an upstream profile did not supply.
+ *
+ * Entitlement is NEVER inferred from an email domain. A domain check is a
+ * backdoor: anyone who can type that address grants themselves a paid tier, and
+ * it ships an internal access rule to every client that downloads the bundle.
+ * Paid status comes from the billing system — a Lemon Squeezy webhook writing a
+ * claim that the client merely reads.
+ */
 function enrichUserSubscription(u: AuthUser): AuthUser {
-  const isOmniveo = u.email ? u.email.toLowerCase().endsWith('@omniveo.io') : false;
   return {
     ...u,
-    subscriptionTier: u.subscriptionTier || (isOmniveo ? 'pro' : 'free'),
-    subscriptionStatus: u.subscriptionStatus || (isOmniveo ? 'active' : 'trialing'),
+    subscriptionTier: u.subscriptionTier || 'free',
+    subscriptionStatus: u.subscriptionStatus || 'trialing',
   };
 }
 
