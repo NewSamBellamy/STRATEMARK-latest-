@@ -15,6 +15,16 @@ export function pageShotUrl(url: string, attempt = 0): string {
   return attempt === 0 ? base : `${base}&r=${attempt}`;
 }
 
+/**
+ * Second, independent keyless capture service (thum.io) — the permanent fix
+ * for "the preview works for one site but not another": when mShots keeps
+ * returning its placeholder (anti-bot walls, slow renders), callers get one
+ * more shot through a different pipeline before showing the honest fallback.
+ */
+export function pageShotUrlAlt(url: string): string {
+  return `https://image.thum.io/get/width/1280/crop/800/noanimate/${url}`;
+}
+
 /** mShots' "generating…" placeholder is far narrower than a real 1280px capture. */
 export const SHOT_PLACEHOLDER_MAX_WIDTH = 700;
 export const SHOT_MAX_ATTEMPTS = 8;

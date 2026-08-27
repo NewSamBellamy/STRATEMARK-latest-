@@ -126,6 +126,32 @@ async function generate(
 
 const storageKey = (cacheKey: string, aspect: CoverAspect): string => `${cacheKey}@${aspect}`;
 
+const ALL_ASPECTS: CoverAspect[] = ['16:9', '4:3', '1:1', '3:4'];
+
+/**
+ * One generation per STORY, not per surface. When the thumb (4:3) and the
+ * reader (16:9) both want art for the same item, the first paid image serves
+ * both (object-cover crops gracefully) — the filmed "image shows here but not
+ * there" inconsistency was two aspect variants generating independently and
+ * landing at different times, doubling the bill along the way.
+ */
+const generatingByStory = new Map<string, Promise<string | null>>();
+
+/** Any already-available variant of this story, memory first, then vault. */
+async function anyVariant(cacheKey: string, except: CoverAspect): Promise<string | null> {
+  for (const a of ALL_ASPECTS) {
+    if (a === except) continue;
+    const hit = cache.get(storageKey(cacheKey, a));
+    if (hit) return hit;
+  }
+  for (const a of ALL_ASPECTS) {
+    if (a === except) continue;
+    const stored = await imageGet(storageKey(cacheKey, a));
+    if (stored) return stored;
+  }
+  return null;
+}
+
 /**
  * Resolve (or start generating) the AI cover for a story.
  * Order: memory → IndexedDB vault (paid-for images survive refreshes) →
@@ -151,13 +177,32 @@ export function getAiCover(
       cache.set(key, stored);
       return stored;
     }
+    // A sibling aspect that's already paid for serves this surface too —
+    // every surface of a story shows the SAME art, and the story only ever
+    // bills one generation.
+    const sibling = await anyVariant(cacheKey, aspect);
+    if (sibling) {
+      cache.set(key, sibling);
+      return sibling;
+    }
+    // A sibling aspect mid-generation? Wait for it instead of double-billing.
+    const inflightStory = generatingByStory.get(cacheKey);
+    if (inflightStory) {
+      const shared = await inflightStory;
+      if (shared) {
+        cache.set(key, shared);
+        return shared;
+      }
+    }
     const apiKey = useApiKey.getState().apiKey;
     if (!apiKey) return null;
     // Opt-out + spending cap: generation is autonomous spend — it asks first.
     // (Vault reads above still serve already-paid-for images either way.)
     if (!imagesAllowed()) return null;
     recordCall('image');
-    const url = await slot(() => generate(apiKey, cacheKey, subject, context, aspect));
+    const gen = slot(() => generate(apiKey, cacheKey, subject, context, aspect));
+    generatingByStory.set(cacheKey, gen);
+    const url = await gen.finally(() => generatingByStory.delete(cacheKey));
     if (url) {
       cache.set(key, url);
       void imagePut(key, url);
@@ -184,10 +229,14 @@ export async function respinAiCover(
   context: string | null,
   aspect: CoverAspect = '16:9',
 ): Promise<string | null> {
-  const key = storageKey(cacheKey, aspect);
-  cache.delete(key);
-  failed.delete(key);
-  await imageDelete(key);
+  // Variants share one image now — a respin that left a sibling behind would
+  // just resurrect the old art, so every variant goes.
+  for (const a of ALL_ASPECTS) {
+    const key = storageKey(cacheKey, a);
+    cache.delete(key);
+    failed.delete(key);
+    await imageDelete(key);
+  }
   return getAiCover(cacheKey, subject, context, aspect);
 }
 
