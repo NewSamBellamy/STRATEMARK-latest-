@@ -71,14 +71,44 @@ export interface CloudResearchDeckResponse {
   error?: string;
 }
 
-const DEFAULT_SENTINEL_URL =
-  import.meta.env.VITE_SENTINEL_API_URL || 'https://stratemark-sentinel-api.a.run.app';
+/**
+ * Where the Sentinel cloud engine lives.
+ *
+ * There is deliberately NO hardcoded fallback URL. This previously defaulted to
+ * `https://stratemark-sentinel-api.a.run.app`, a service that was never
+ * deployed — so selecting the cloud engine produced a DNS failure that looked
+ * like a bug in the app rather than missing configuration.
+ *
+ * It also deliberately does NOT fall back to `VITE_API_BASE_URL`. That variable
+ * points at the agent service in `apps/api`, which is a DIFFERENT service with a
+ * different contract: it serves `/v1/*` and authenticates with `X-Gemini-Key` /
+ * `X-Stratemark-Token`, whereas this module calls `/api/*` with a Bearer token.
+ * Pointing one at the other produces 404s that surface as silent fallback data —
+ * worse than an honest "not configured", because the app appears to work.
+ *
+ * An empty string is the honest value: callers check `isSentinelConfigured()`.
+ * Set `VITE_SENTINEL_API_URL` explicitly to enable it.
+ */
+const DEFAULT_SENTINEL_URL = import.meta.env.VITE_SENTINEL_API_URL || '';
+
+/** True when a cloud endpoint is actually configured. */
+export function isSentinelConfigured(): boolean {
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('mi.sentinelApiUrl')) return true;
+  return DEFAULT_SENTINEL_URL.length > 0;
+}
 
 function getSentinelUrl(path: string): string {
   let base = DEFAULT_SENTINEL_URL;
   if (typeof localStorage !== 'undefined') {
     const customUrl = localStorage.getItem('mi.sentinelApiUrl');
     if (customUrl) base = customUrl;
+  }
+  if (!base) {
+    // Fail with the actual reason rather than issuing a request to "/api/…" on
+    // our own origin, which would 404 and read as a broken feature.
+    throw new Error(
+      'The Sentinel cloud engine is not configured. Set VITE_SENTINEL_API_URL, or use your own Gemini key locally.',
+    );
   }
   const cleanBase = base.replace(/\/+$/, '');
   const subPath = path.replace(/^\/+/, '');
