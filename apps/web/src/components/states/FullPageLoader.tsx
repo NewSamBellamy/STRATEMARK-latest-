@@ -16,6 +16,11 @@ const RESEARCH_LINES = [
 
 export function FullPageLoader({ label }: { label?: string }) {
   const [step, setStep] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const tick = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(tick);
+  }, []);
   useEffect(() => {
     if (label) return;
     const t = setInterval(() => setStep((s) => (s + 1) % RESEARCH_LINES.length), 4000);
@@ -32,9 +37,15 @@ export function FullPageLoader({ label }: { label?: string }) {
       <span className="text-sm transition-opacity duration-300">
         {label ?? RESEARCH_LINES[step]}
       </span>
+      {/* An honest clock: a long pass must read as WORK, never as a hang. */}
+      {elapsed >= 5 && (
+        <span className="tabular-nums text-[11px] text-faint">{elapsed}s</span>
+      )}
       {!label && (
-        <span className="text-[11px] text-faint">
-          Live research runs 15–30 seconds — every figure arrives with its sources.
+        <span className="max-w-sm text-center text-[11px] leading-relaxed text-faint">
+          {elapsed < 35
+            ? 'Live research usually runs 15–30 seconds — every figure arrives with its sources.'
+            : 'Still working — several research passes are queued (free-tier pacing keeps your key under its rate cap). This tab is in line and WILL land; feel free to browse other tabs meanwhile.'}
         </span>
       )}
     </div>

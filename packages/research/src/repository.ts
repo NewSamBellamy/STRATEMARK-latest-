@@ -73,7 +73,7 @@ import { researchMarketSignals } from './signal-agents';
 import { mapWithConcurrency, throwIfAborted } from './util';
 import { expandDeckWithDeltaAgent } from './delta-agent';
 import { CHAT_SYSTEM, GROUNDED_SYSTEM, STRUCTURE_SYSTEM } from './prompts';
-import { briefingOutSchema, factCheckOutSchema, huntMetricsOutSchema, siteAuditOutSchema, verifyMetricOutSchema } from './schemas';
+import { briefingOutSchema, factCheckOutSchema, huntMetricsOutSchema, redTeamOutSchema, siteAuditOutSchema, verifyMetricOutSchema } from './schemas';
 import type { LlmClient, ResearchCoverage, RunResearchOptions } from './types';
 
 interface CachedTab {
@@ -1629,6 +1629,94 @@ export class GeminiRepository implements MarketIntelRepository {
     }
   }
 
+  /**
+   * RED-TEAM PASS — runs immediately before a report is composed (founder:
+   * "make sure all these metrics are actually accurate… double-check the
+   * metrics and kind of red-team it before formulating this report").
+   *
+   * One grounded audit challenges the report's soft face-value figures
+   * against current sources; a figure confirmed wrong (with verification-
+   * grade sourcing) writes back through the fast verify path — value
+   * revises, badge upgrades, tier recomputes, every open view reconciles —
+   * so the report composes from corrected numbers AND the deck keeps them.
+   * Capped at 12 figures; failures never block the report.
+   */
+  private async redTeamReportFigures(companyIds: string[]): Promise<string[]> {
+    const CAP = 12;
+    const picked: Array<{ companyId: string; companyName: string; metricType: MetricType; value: number }> = [];
+    for (const id of companyIds) {
+      const company = this.snap.companies.find((c) => c.id === id);
+      if (!company) continue;
+      for (const m of this.snap.metrics.filter((x) => x.companyId === id)) {
+        if (m.value == null) continue;
+        // Only soft figures get challenged: user figures are law, verified
+        // ones re-check via freshness decay.
+        if (m.confidence !== 'estimated') continue;
+        picked.push({ companyId: id, companyName: company.name, metricType: m.metricType, value: m.value });
+        if (picked.length >= CAP) break;
+      }
+      if (picked.length >= CAP) break;
+    }
+    if (picked.length === 0) return [];
+
+    const listing = picked
+      .map((t) => `- ${t.companyName}: ${METRIC_TYPE_LABELS[t.metricType]} = ${t.value}`)
+      .join('\n');
+    const g = await this.client.ground(
+      [
+        `RED-TEAM these stored figures before they go into an executive report. For EACH figure, check it against the most current reliable sources (Google Search):`,
+        listing,
+        `For each: state whether the stored figure HOLDS (within ~5% of current reporting), is WRONG/STALE (name the corrected current figure, its source, and as-of date), or is UNVERIFIABLE from credible sources. Never guess a correction — a correction needs a named source.`,
+        `UNITS: Market Share in percent (0-100); Users and Employees as plain counts; Valuation, Market Cap, and ARR in US dollars.`,
+      ].join('\n'),
+      { system: GROUNDED_SYSTEM },
+    );
+    const out = await this.client.structure(
+      [
+        `Based ONLY on these red-team notes, output JSON { "findings": [ { "companyName", "metricType": "market_cap"|"valuation"|"market_share"|"arr"|"users"|"employees", "verdict": "holds"|"wrong"|"unverifiable", "correctedValue": number|null (native units; only for "wrong"), "note": string|null (one line: source + as-of date) } ] }. Include one finding per audited figure.`,
+        ``,
+        `NOTES:`,
+        g.text,
+      ].join('\n'),
+      redTeamOutSchema,
+      { system: STRUCTURE_SYSTEM },
+    );
+
+    const cited = usableCitations(g.citations);
+    const lines: string[] = [];
+    for (const f of out.findings) {
+      const target = picked.find(
+        (t) => companyKey(t.companyName) === companyKey(f.companyName) && t.metricType === f.metricType,
+      );
+      if (!target) continue;
+      const label = METRIC_TYPE_LABELS[f.metricType];
+      if (f.verdict === 'wrong' && f.correctedValue != null && hasVerificationGradeCitation(cited)) {
+        try {
+          await this.verifyMetric({
+            companyId: target.companyId,
+            metricType: f.metricType,
+            correction: {
+              value: f.correctedValue,
+              citations: g.citations,
+              rationale: f.note ?? null,
+              asOf: null,
+            },
+          });
+          lines.push(
+            `CORRECTED: ${target.companyName} ${label} → ${f.correctedValue}${f.note ? ` (${f.note})` : ''}`,
+          );
+        } catch {
+          /* a failed write-back never blocks the report */
+        }
+      } else if (f.verdict === 'holds') {
+        lines.push(`CONFIRMED: ${target.companyName} ${label} holds${f.note ? ` (${f.note})` : ''}`);
+      } else if (f.verdict === 'unverifiable') {
+        lines.push(`UNVERIFIABLE: ${target.companyName} ${label} — flag as estimated in the report`);
+      }
+    }
+    return lines;
+  }
+
   async generateReport(request: ReportRequest): Promise<Report> {
     let title = 'Research Report';
     let digest = '';
@@ -1641,7 +1729,20 @@ export class GeminiRepository implements MarketIntelRepository {
       this.assertDeckSettled(deck.id, 'report');
       title = `${market.name} — Market Report`;
       const cards = this.snap.cards.filter((c) => c.deckId === deck.id);
+      // Red-team the face-value figures FIRST — the digest below then reads
+      // the corrected metrics straight from the snapshot.
+      const redTeam = await this.redTeamReportFigures(
+        cards
+          .filter((c) => c.cardType === 'company' && c.companyId)
+          .map((c) => c.companyId as string),
+      );
       const lines: string[] = [`MARKET: ${market.name} (${market.scopeDefinition.vertical})`];
+      if (redTeam.length > 0) {
+        lines.push(
+          `RED-TEAM VERIFICATION (ran moments ago — the figures below already reflect its corrections):`,
+          ...redTeam.map((l) => `  ${l}`),
+        );
+      }
       for (const card of cards) {
         const co = card.companyId ? this.snap.companies.find((c) => c.id === card.companyId) : null;
         if (card.cardType === 'company' && co) {
@@ -1662,8 +1763,15 @@ export class GeminiRepository implements MarketIntelRepository {
       const company = this.snap.companies.find((c) => c.id === request.subjectId);
       if (!company) throw new Error('Company not found for report');
       title = `${company.name} — Company Report`;
+      const redTeam = await this.redTeamReportFigures([company.id]);
       const ms = this.snap.metrics.filter((m) => m.companyId === company.id);
       digest = [
+        ...(redTeam.length > 0
+          ? [
+              `RED-TEAM VERIFICATION (ran moments ago — the figures below already reflect its corrections):`,
+              ...redTeam.map((l) => `  ${l}`),
+            ]
+          : []),
         `COMPANY: ${company.name} (${this.snap.companyMarket[company.id] ?? 'market unknown'})`,
         `${company.oneLiner} HQ: ${company.hqLocation ?? '?'} Site: ${company.websiteUrl ?? '?'}`,
         ...ms.map(

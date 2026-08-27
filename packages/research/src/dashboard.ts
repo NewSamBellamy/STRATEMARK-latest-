@@ -137,12 +137,12 @@ export async function researchDashboardTab<T extends DashboardTab>(
       // hungry, not unbounded.
       const MIN_LEADERS = 5;
       const g = await client.ground(
-        `Identify the leadership and key org structure of ${ctx(args)} — founders, C-suite, and heads of product/AI/design where known. Note who reports to whom, and for each person one or two sentences of reported background (prior roles, tenure, what they own) where the sources actually say it. TITLES MUST BE CURRENT AND COMPLETE: use each person's exact present title as recent sources report it — a "President & CEO" must carry both, a departed executive must not appear at all. When sources disagree, prefer the most recent.`,
+        `Identify the leadership and key org structure of ${ctx(args)} — founders, C-suite, and heads of product/AI/design where known. Note who reports to whom. For EACH person, gather a real profile where sources support it: (a) reported background — prior roles and career arc; (b) tenure at this company; (c) their most recent or notable prior company; (d) one notable project, product, or ownership area tied to them; (e) what they visibly bring to the table — their style of working, public interests, or leadership emphasis AS COVERAGE DESCRIBES IT (interviews, talks, profiles). TITLES MUST BE CURRENT AND COMPLETE: use each person's exact present title as recent sources report it — a "President & CEO" must carry both, a departed executive must not appear at all. When sources disagree, prefer the most recent.`,
         system,
       );
       let notes = g.text;
       const firstPass = await client.structure(
-        `Convert to JSON { "nodes": [ { "id" (short slug), "name", "role", "group": "exec"|"ai"|"product"|"design"|"other", "parentId" (id of manager or null), "bio" (1-2 reported sentences, or "" when the notes say nothing about the person) } ] }. The top leader has parentId null. Never invent a bio.\n\nNOTES:\n${notes}`,
+        `Convert to JSON { "nodes": [ { "id" (short slug), "name", "role", "group": "exec"|"ai"|"product"|"design"|"other", "parentId" (id of manager or null), "bio" (2-4 sentences: who this person is, what they own, and what they bring — reported facts first; a clearly-hedged reading of their working style from coverage is welcome, phrased like "Coverage suggests…"), "tenure" (reported tenure at the company, string or null), "priorCompany" (most recent/notable prior company, string or null), "notableProject" (a project or ownership area explicitly tied to them, string or null) } ] }. The top leader has parentId null. Never invent facts — null the fields the notes don't support.\n\nNOTES:\n${notes}`,
         teamOrgContentSchema,
         structSys,
       );
@@ -155,7 +155,7 @@ export async function researchDashboardTab<T extends DashboardTab>(
         );
         notes = `${notes}\n\nADDITIONAL LEADERSHIP NOTES:\n${gapFill.text}`;
         const secondPass = await client.structure(
-          `Output a single JSON OBJECT (not a bare array) of the exact shape { "nodes": [ { "id" (short slug), "name", "role", "group": "exec"|"ai"|"product"|"design"|"other", "parentId" (id of manager or null), "bio" (1-2 reported sentences, or "" when the notes say nothing about the person) } ] }. Merge ALL people found across the notes; the top leader has parentId null. Never invent a bio.\n\nNOTES:\n${notes}`,
+          `Output a single JSON OBJECT (not a bare array) of the exact shape { "nodes": [ { "id" (short slug), "name", "role", "group": "exec"|"ai"|"product"|"design"|"other", "parentId" (id of manager or null), "bio" (2-4 sentences: who this person is, what they own, and what they bring — reported facts first; a clearly-hedged reading of their working style from coverage is welcome, phrased like "Coverage suggests…"), "tenure" (reported tenure at the company, string or null), "priorCompany" (most recent/notable prior company, string or null), "notableProject" (a project or ownership area explicitly tied to them, string or null) } ] }. Merge ALL people found across the notes; the top leader has parentId null. Never invent facts — null the fields the notes don't support.\n\nNOTES:\n${notes}`,
           teamOrgContentSchema,
           structSys,
         );
