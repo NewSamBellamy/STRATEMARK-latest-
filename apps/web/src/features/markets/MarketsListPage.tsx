@@ -244,7 +244,6 @@ function DeckShelf({
           drag.current = null;
         }}
         className="flex cursor-grab snap-x snap-mandatory gap-8 overflow-x-auto px-[30%] pb-8 pt-4 [scrollbar-width:none] active:cursor-grabbing [&::-webkit-scrollbar]:hidden"
-        role="listbox"
         aria-label="All decks — drag to browse, oldest left to newest right"
       >
         {decks.map((m, i) => (
@@ -254,8 +253,6 @@ function DeckShelf({
               'w-[220px] shrink-0 snap-center transition-all duration-200 sm:w-[250px]',
               i === activeIdx ? 'scale-100 opacity-100' : 'scale-[0.88] opacity-55',
             )}
-            role="option"
-            aria-selected={i === activeIdx}
           >
             <DeckStack
               market={m}
@@ -272,8 +269,6 @@ function DeckShelf({
               'w-[220px] shrink-0 snap-center transition-all duration-200 sm:w-[250px]',
               activeIsResearch ? 'scale-100 opacity-100' : 'scale-[0.88] opacity-55',
             )}
-            role="option"
-            aria-selected={activeIsResearch}
           >
             <ResearchingStack
               query={researching}

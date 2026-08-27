@@ -280,9 +280,18 @@ export function GameCard({
           face.frame,
           className,
         )}
-        onClick={onOpen} role="button" tabIndex={0}
-        aria-label={`${CARD_TYPE_LABELS[card.cardType]}: ${card.title ?? ''}`}
+        onClick={onOpen}
       >
+        {/* Same accessible card pattern as the company card above. */}
+        <button
+          type="button"
+          className="absolute inset-0 z-0 cursor-pointer rounded-[16px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpen?.();
+          }}
+          aria-label={`${CARD_TYPE_LABELS[card.cardType]}: ${card.title ?? ''}`}
+        />
         {/* Banner band — the card names its class up top, game-card style. */}
         <div className={cn('flex items-center justify-between border-b px-4 py-2', face.band)}>
           <span className="text-[10px] font-bold uppercase tracking-[0.24em]">
@@ -354,13 +363,25 @@ export function GameCard({
   return (
     <Card
       className={cn(
-        'group cursor-pointer rounded-[14px] transition-all hover:-translate-y-px hover:shadow-card-hover',
+        'group relative cursor-pointer rounded-[14px] transition-all hover:-translate-y-px hover:shadow-card-hover',
         tint?.card,
         className,
       )}
-      onClick={onOpen} role="button" tabIndex={0}
-      aria-label={`${company.name} — ${CARD_TYPE_LABELS[card.cardType]} card`}
+      onClick={onOpen}
     >
+      {/* Accessible card pattern: the CONTAINER is not a button (it holds real
+          buttons — save, more — and nesting controls is invalid: axe
+          nested-interactive). Instead one stretched button covers the card for
+          keyboard and screen-reader users; the footer controls sit above it. */}
+      <button
+        type="button"
+        className="absolute inset-0 z-0 cursor-pointer rounded-[14px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpen?.();
+        }}
+        aria-label={`${company.name} — ${CARD_TYPE_LABELS[card.cardType]} card`}
+      />
       {/* ─── Identity ─── */}
       <CardHeader className="pb-2">
         <div className="flex items-start gap-3">
@@ -484,7 +505,14 @@ export function GameCard({
                     <p className="font-display text-[18px] font-bold leading-tight text-content">—</p>
                   )}
                   <p className="mt-0.5 text-[11px] font-medium text-muted">Market Share</p>
-                  {shareKnown && <Progress value={shareVal} className="mt-1.5 h-1" indicatorClassName="bg-primary" />}
+                  {shareKnown && (
+                    <Progress
+                      value={shareVal}
+                      label={`${company.name} market share`}
+                      className="mt-1.5 h-1"
+                      indicatorClassName="bg-primary"
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -530,7 +558,7 @@ export function GameCard({
           <span />
         )}
         {!hideActions && (
-          <div className="flex items-center gap-0.5">
+          <div className="relative z-10 flex items-center gap-0.5">
             <SaveCardButton cardId={card.id} />
             <CardMoreMenu onShare={onShare} />
           </div>
@@ -561,6 +589,10 @@ function CardMoreMenu({ onShare }: { onShare?: () => void }) {
         className="h-6 w-6 border-0 text-faint hover:text-content"
         onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
         tabIndex={-1}
+        // Icon-only control: without this it is a nameless button to a screen
+        // reader (axe: button-name).
+        aria-label="More card actions"
+        aria-expanded={open}
       >
         <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={1.5} />
       </Button>

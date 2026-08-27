@@ -11,8 +11,13 @@
  * Dark values are Apple's Dark Mode palette (true black canvas, elevated
  * panels). Every muted/faint value was contrast-checked against `surface`:
  *
- *   LIGHT  muted #86868B on #FFFFFF → 4.54:1 (AA)
- *   LIGHT  faint #AEAEB2 on #FFFFFF → 3.00:1 (large-text AA)
+ *   LIGHT  muted #68716F on #FFFFFF → 5.02:1 (AA)
+ *   LIGHT  faint #68716F on #FFFFFF → 5.02:1 (AA), 4.69:1 on #F4F8F7
+ *
+ * NOTE (a11y): `faint` was #A3ACA9 (2.33:1) — it failed WCAG AA everywhere it
+ * was used and was the single cause of every color-contrast violation the axe
+ * suite reported. Tertiary text is still visually recessed by SIZE and weight;
+ * it no longer relies on a non-compliant value to look quiet.
  *   DARK   muted #A1A1A6 on #1C1C1E → 7.10:1
  *   DARK   faint #8E8E93 on #1C1C1E → 5.30:1
  *   DARK   content #F5F5F7 on #1C1C1E → 14.8:1
@@ -26,7 +31,7 @@
   --c-border: 220 232 229;     /* #DCE8E5 */
   --c-content: 23 26 25;       /* #171A19 charcoal ink */
   --c-muted: 104 113 111;      /* #68716F secondary text */
-  --c-faint: 163 172 169;      /* #A3ACA9 tertiary */
+  --c-faint: 104 113 111;      /* #68716F tertiary — AA on surface + canvas */
   --c-primary: 15 118 110;     /* #0F766E Deep Teal — accent only */
   --c-primary-fg: 255 255 255;
   --c-primary-ink: 15 118 110; /* #0F766E same teal for links */

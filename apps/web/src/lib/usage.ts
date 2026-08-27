@@ -27,7 +27,7 @@ export const REQUESTS_PER_DECK = 27;
 export const EST_COST_USD = {
   ground: 0.04, // flash tokens + Google Search grounding fee
   structure: 0.002, // flash-lite structuring tokens
-  image: 0.04, // one gemini-2.5-flash-image generation
+  image: 0.02, // one Nano Banana 2 Lite (gemini-3.1-flash-lite-image) generation
 } as const;
 
 export type CallKind = keyof typeof EST_COST_USD;

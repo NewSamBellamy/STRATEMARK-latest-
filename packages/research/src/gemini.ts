@@ -3,7 +3,7 @@
  *
  * Verified against the current API (2026-07): v1beta generateContent, grounded
  * via tools:[{google_search:{}}], citations in candidates[0].groundingMetadata.
- * Grounding + JSON-schema can't be combined on gemini-2.5-*, so `ground` and
+ * Grounding + JSON-schema can't be combined in one call, so `ground` and
  * `structure` are two separate calls (the pipeline threads citations between
  * them). Retries 429/5xx with backoff. Free-tier default models below.
  */
@@ -36,10 +36,15 @@ export interface GeminiClientConfig {
 export const DEFAULT_GROUNDED_RPM = 15;
 export const DEFAULT_STRUCTURE_RPM = 30;
 
-// Bleeding-edge Google Gemini 3.7 Flash & 3.1 Pro frontier models (August 2026).
+// Current Google Gemini frontier models (verified August 2026).
+//   grounded  — 3.7 Flash: newest Flash, carries Google Search grounding.
+//   reasoning — 3.1 Pro: the frontier reasoning tier.
+//   structure — 3.5 Flash-Lite: fastest + cheapest GA model (replaces the
+//               3.1 Flash-Lite *preview*), used for the high-volume JSON
+//               extraction half of every two-call pass.
 export const DEFAULT_GROUNDED_MODEL = 'gemini-3.7-flash';
 export const DEFAULT_REASONING_MODEL = 'gemini-3.1-pro-preview';
-export const DEFAULT_STRUCTURE_MODEL = 'gemini-3.1-flash-lite-preview';
+export const DEFAULT_STRUCTURE_MODEL = 'gemini-3.5-flash-lite';
 
 interface GeminiPart {
   text?: string;

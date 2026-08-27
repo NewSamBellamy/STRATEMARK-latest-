@@ -43,7 +43,7 @@ test('shipped single-file build boots inside a sandboxed iframe (opaque origin)'
   }, html);
 
   const frame = page.frameLocator('#host iframe');
-  await expect(frame.getByText('Your decks')).toBeVisible({ timeout: 30_000 });
+  await expect(frame.getByText('All decks')).toBeVisible({ timeout: 30_000 });
   await expect(frame.getByText(/Frontier AI/i).first()).toBeVisible({ timeout: 30_000 });
 
   const storageErrors = errors.filter((m) => /localStorage|sessionStorage|sandboxed/i.test(m));

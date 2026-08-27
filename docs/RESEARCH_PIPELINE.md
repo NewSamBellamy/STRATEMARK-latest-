@@ -28,8 +28,8 @@ interpret ─▶ discover ─▶ enrich (fan-out, concurrency-gated) ─▶ scor
 1. Grounded steps **always** send `tools:[{google_search:{}}]` — facts come only
    from search results, never training data.
 2. **Ground → Structure two-call pattern.** Grounding and JSON-schema output are
-   mutually exclusive on `gemini-2.5-flash`, so a grounded call gathers facts +
-   citations, then a cheap non-grounded call (`gemini-2.5-flash-lite`) structures
+   mutually exclusive in one call, so a grounded call gathers facts +
+   citations, then a cheap non-grounded call (`gemini-3.5-flash-lite`) structures
    that text into JSON, validated by Zod (`schemas.ts`).
 3. Every figure is tagged **verified / estimated / unknown** with a source index
    into the grounding citations. Unsupported figures become Unknown — never
@@ -42,7 +42,7 @@ interpret ─▶ discover ─▶ enrich (fan-out, concurrency-gated) ─▶ scor
   barriers). Default `targetCompanies` keeps N modest.
 - Dashboard tabs are **researched lazily** on first open and cached, so a deck of
   N companies isn't `8N` calls up front.
-- `gemini-2.5-flash` grounding is free up to ~500 requests/day (shared pool).
+- Flash grounding is free up to ~500 requests/day (shared pool).
 - Concurrency is gated (default 2) and calls retry 429/5xx with exponential
   backoff + jitter.
 
@@ -61,8 +61,10 @@ adapter (localStorage in web; SQLite/electron-store later).
 
 ## Model migration note
 
-`gemini-2.5-flash` / `-flash-lite` are current + free-grounding-eligible but sunset
-Oct 2026; move to a Gemini 3.x model (Settings → model override) before then.
+Current defaults (Aug 2026): grounded `gemini-3.7-flash`, structuring
+`gemini-3.5-flash-lite`, reasoning `gemini-3.1-pro-preview`, imagery
+`gemini-3.1-flash-lite-image` (Nano Banana 2 Lite, with a 2.5 fallback).
+Override per-user in Settings → model override.
 Standard AI Studio keys are being replaced by "Authorization keys" — regenerate an
 old key if calls 403.
 
