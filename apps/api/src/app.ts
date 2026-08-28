@@ -14,7 +14,7 @@
  * costs while we provide storage, sync and sharing. Omitting it means the
  * service's own credentials do the work. See lib/client.ts.
  */
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { z } from 'zod';
 import { describeAgentGraph, runLivingDeckEngine } from '@mi/research';
@@ -106,17 +106,13 @@ export function createApp(env: ServiceEnv): Hono {
   app.use(
     '*',
     cors({
-      origin: env.allowedOrigins.length > 0 ? env.allowedOrigins : [],
-      allowHeaders: ['Content-Type', 'X-Gemini-Key'],
+      origin: env.allowedOrigins.length > 0 ? env.allowedOrigins : '*',
+      allowHeaders: ['Content-Type', 'X-Gemini-Key', 'X-Stratemark-Token', 'x-scheduler-token'],
       allowMethods: ['GET', 'POST', 'OPTIONS'],
     }),
   );
 
-  /**
-   * Liveness plus an honest capability report. Cloud Run needs the former;
-   * the latter turns "why does nothing work" into a single curl.
-   */
-  app.get('/healthz', (c) =>
+  const healthHandler = (c: Context) =>
     c.json({
       status: 'ok',
       service: 'stratemark-agent-service',
@@ -136,8 +132,15 @@ export function createApp(env: ServiceEnv): Hono {
       // Deliberately public: the remaining allowance is not a secret, and
       // surfacing it turns "why did research stop working" into one request.
       budget: budget.status(),
-    }),
-  );
+    });
+
+  /**
+   * Liveness plus an honest capability report. Cloud Run needs the former;
+   * the latter turns "why does nothing work" into a single curl.
+   */
+  app.get('/healthz', healthHandler);
+  app.get('/health', healthHandler);
+  app.get('/', healthHandler);
 
   /**
    * The agent topology as data. Judges (and the UI) can see the graph without
