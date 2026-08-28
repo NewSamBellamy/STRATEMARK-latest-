@@ -23,4 +23,5 @@ apps/web/shots/
 .aider*
 .claude/
 .cursor/
+.opencode/
 *.session.json
