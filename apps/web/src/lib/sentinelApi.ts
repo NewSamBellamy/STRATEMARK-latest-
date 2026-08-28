@@ -89,7 +89,8 @@ export interface CloudResearchDeckResponse {
  * An empty string is the honest value: callers check `isSentinelConfigured()`.
  * Set `VITE_SENTINEL_API_URL` explicitly to enable it.
  */
-const DEFAULT_SENTINEL_URL = import.meta.env.VITE_SENTINEL_API_URL || '';
+const DEFAULT_SENTINEL_URL =
+  import.meta.env.VITE_SENTINEL_API_URL || import.meta.env.VITE_API_BASE_URL || '';
 
 /** True when a cloud endpoint is actually configured. */
 export function isSentinelConfigured(): boolean {

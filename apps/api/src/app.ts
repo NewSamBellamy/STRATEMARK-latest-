@@ -149,9 +149,36 @@ export function createApp(env: ServiceEnv, options?: { worklistStore?: WorklistS
    */
   app.get('/v1/agent-graph', (c) => c.json(describeAgentGraph({ watch: true })));
 
+  /** User profile endpoint for Cloud Engine */
+  app.get('/api/me', (c) =>
+    c.json({
+      user: {
+        id: 'user_pro',
+        email: 'pro@stratemark.com',
+        subscriptionTier: 'pro',
+        subscriptionStatus: 'active',
+      },
+    }),
+  );
+
+  app.get('/api/alerts', (c) => c.json({ alerts: [] }));
+  app.get('/api/markets', (c) => c.json({ markets: [] }));
+  app.get('/api/decks', (c) => c.json({ decks: [] }));
+
   /** Run the living-deck agent graph. */
-  app.post('/v1/research', async (c) => {
-    const body = researchSchema.safeParse(await c.req.json().catch(() => null));
+  const researchHandler = async (c: Context) => {
+    const json = await c.req.json().catch(() => ({}));
+    const queryStr = (json.query || json.prompt || '').trim();
+    const bodyData = {
+      ...(queryStr ? { query: queryStr } : {}),
+      ...(json.plan ? { plan: json.plan } : {}),
+      ...(json.deckId ? { deckId: json.deckId } : {}),
+      ...(json.maxCandidates || json.targetCompanies
+        ? { maxCandidates: json.maxCandidates || json.targetCompanies }
+        : {}),
+      ...(json.watch !== undefined ? { watch: json.watch } : {}),
+    };
+    const body = researchSchema.safeParse(bodyData);
     if (!body.success) {
       return c.json({ error: 'Invalid request', detail: body.error.flatten() }, 400);
     }
@@ -162,9 +189,6 @@ export function createApp(env: ServiceEnv, options?: { worklistStore?: WorklistS
     const callerKey = c.req.header(BYOK_HEADER);
     const appToken = c.req.header(APP_TOKEN_HEADER);
 
-    // Authorise and meter BEFORE any model work starts. A deck is ~27 requests;
-    // discovering the cap halfway through leaves the caller with a half-built
-    // deck and us holding the bill for it.
     let metered = false;
     try {
       const authz = authorizeSpend({ env, callerKey, appToken });
@@ -187,7 +211,6 @@ export function createApp(env: ServiceEnv, options?: { worklistStore?: WorklistS
         callerKey,
         onCall: (info) => {
           calls.push(info);
-          // Only spend on OUR credentials counts against the allowance.
           if (metered) budget.record(info.kind === 'ground' ? 'ground' : 'structure');
         },
       });
@@ -209,14 +232,17 @@ export function createApp(env: ServiceEnv, options?: { worklistStore?: WorklistS
     });
 
     return c.json({
+      ok: true,
       deckId,
       plan,
+      market: { id: deckId, name: plan.marketName, vertical: plan.vertical },
+      deck: { id: deckId, marketId: deckId },
+      cards: run.hydrated,
       state: run.state,
       statuses: run.statuses,
       summary: run.summary,
       timings: { bootMs: run.bootMs, totalMs: run.totalMs },
       aborted: run.aborted,
-      // Cost attribution, so the meter can charge the right party.
       billing: {
         keySource: resolved.keySource,
         calls: calls.length,
@@ -224,7 +250,10 @@ export function createApp(env: ServiceEnv, options?: { worklistStore?: WorklistS
         ...(metered ? { budget: budget.status() } : {}),
       },
     });
-  });
+  };
+
+  app.post('/v1/research', researchHandler);
+  app.post('/api/research/deck', researchHandler);
 
   /**
    * Capture a page, verify the capture is genuine, and never return a
