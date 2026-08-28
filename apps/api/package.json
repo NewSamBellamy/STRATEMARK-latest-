@@ -12,6 +12,7 @@
     "test:run": "vitest run"
   },
   "dependencies": {
+    "@google-cloud/firestore": "^9.0.0",
     "@google/genai": "^2.19.0",
     "@hono/node-server": "^1.13.7",
     "@mi/contracts": "workspace:*",

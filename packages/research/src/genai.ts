@@ -22,7 +22,7 @@
  *                 this means the service account, so no key exists to leak.
  */
 import type { ZodType, ZodTypeDef } from 'zod';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 import type { GenerateContentResponse } from '@google/genai';
 import type { Citation, LlmClient } from './types';
 import { createRateLimiter, extractJson, withRetry, type RetryableError } from './util';
@@ -95,6 +95,66 @@ function citationsOf(res: GenerateContentResponse): Citation[] {
     if (uri) out.push({ title: c.web?.title ?? uri, url: uri });
   }
   return out;
+}
+
+export function zodToGenAiSchema(schema: ZodType<unknown, ZodTypeDef, unknown>): Record<string, unknown> {
+  const def = schema._def as Record<string, unknown>;
+  const typeName = def?.typeName as string | undefined;
+
+  if (typeName === 'ZodOptional' || typeName === 'ZodNullable' || typeName === 'ZodDefault') {
+    return zodToGenAiSchema((def.innerType || def.type) as ZodType);
+  }
+  if (typeName === 'ZodEffects') {
+    return zodToGenAiSchema(def.schema as ZodType);
+  }
+  if (typeName === 'ZodString') {
+    return { type: Type.STRING };
+  }
+  if (typeName === 'ZodNumber') {
+    return { type: Type.NUMBER };
+  }
+  if (typeName === 'ZodBoolean') {
+    return { type: Type.BOOLEAN };
+  }
+  if (typeName === 'ZodEnum') {
+    return { type: Type.STRING, enum: def.values };
+  }
+  if (typeName === 'ZodNativeEnum') {
+    return { type: Type.STRING, enum: Object.values((def.values as Record<string, unknown>) ?? {}) };
+  }
+  if (typeName === 'ZodArray') {
+    return { type: Type.ARRAY, items: zodToGenAiSchema(def.type as ZodType) };
+  }
+  if (typeName === 'ZodObject') {
+    const shape = (typeof def.shape === 'function' ? def.shape() : def.shape) as Record<string, ZodType>;
+    const properties: Record<string, unknown> = {};
+    const required: string[] = [];
+    if (shape) {
+      for (const [key, propSchema] of Object.entries(shape)) {
+        const propTypeName = (propSchema._def as Record<string, unknown>)?.typeName;
+        const isOptional =
+          propTypeName === 'ZodOptional' ||
+          propTypeName === 'ZodNullable' ||
+          propTypeName === 'ZodDefault';
+        properties[key] = zodToGenAiSchema(propSchema);
+        if (!isOptional) {
+          required.push(key);
+        }
+      }
+    }
+    return {
+      type: Type.OBJECT,
+      properties,
+      ...(required.length > 0 ? { required } : {}),
+    };
+  }
+  if (typeName === 'ZodUnion' || typeName === 'ZodDiscriminatedUnion') {
+    const options = (def.options || (def.optionsMap as Map<string, ZodType> | undefined)?.values()) as ZodType[];
+    if (Array.isArray(options) && options.length > 0) {
+      return zodToGenAiSchema(options[0]!);
+    }
+  }
+  return { type: Type.STRING };
 }
 
 export function createGenAiClient(config: GenAiClientConfig): LlmClient {
@@ -196,6 +256,7 @@ export function createGenAiClient(config: GenAiClientConfig): LlmClient {
     ): Promise<T> {
       const cfg: Record<string, unknown> = {
         responseMimeType: 'application/json',
+        responseSchema: zodToGenAiSchema(schema),
         temperature: 0,
       };
       if (opts?.system) cfg.systemInstruction = opts.system;

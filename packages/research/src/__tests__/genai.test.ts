@@ -111,7 +111,7 @@ describe('createGenAiClient', () => {
     expect(out).toEqual({ name: 'OpenAI', tier: 8 });
   });
 
-  it('requests JSON mode when structuring', async () => {
+  it('requests JSON mode and passes native responseSchema when structuring', async () => {
     const spy = vi.fn(async (_p: GenerateArgs) => res({ text: '{"ok":true}' }));
     const client = createGenAiClient({
       apiKey: 'k',
@@ -120,7 +120,15 @@ describe('createGenAiClient', () => {
       clientImpl: stub(spy),
     });
     await client.structure('x', z.object({ ok: z.boolean() }));
-    expect(spy.mock.calls[0]?.[0]?.config?.responseMimeType).toBe('application/json');
+    const cfg = spy.mock.calls[0]?.[0]?.config;
+    expect(cfg?.responseMimeType).toBe('application/json');
+    expect(cfg?.responseSchema).toEqual({
+      type: 'OBJECT',
+      properties: {
+        ok: { type: 'BOOLEAN' },
+      },
+      required: ['ok'],
+    });
   });
 
   it('retries a malformed structuring response exactly once, then fails loudly', async () => {

@@ -35,6 +35,7 @@ import { verifyCapture } from './lib/verify';
 import { createVisionJudge } from './lib/vision';
 import { fallbackCaption, renderFallbackCard } from './lib/fallback';
 import { renderPdf } from './lib/pdf';
+import { executeScheduledRefresh, type WorklistStore } from './lib/worklist';
 
 const planSchema = z.object({
   marketName: z.string().min(1),
@@ -84,7 +85,7 @@ const DECK_ESTIMATE_USD = 0.65;
 /** Estimated cost of one capture with a vision adjudication. */
 const CAPTURE_ESTIMATE_USD = 0.002;
 
-export function createApp(env: ServiceEnv): Hono {
+export function createApp(env: ServiceEnv, options?: { worklistStore?: WorklistStore }): Hono {
   const app = new Hono();
 
   // Per-instance guards. See lib/budget.ts and lib/authz.ts for why these are
@@ -348,14 +349,21 @@ export function createApp(env: ServiceEnv): Hono {
     if (!hasServerCredentials(env)) {
       return c.json({ error: 'No server credentials; nothing to refresh with.' }, 503);
     }
-    // The refresh worklist lives in Firestore, which is Maruf's step to wire.
-    // Until then this reports honestly rather than pretending to have run.
-    return c.json({
-      ok: true,
-      ranAt: new Date().toISOString(),
-      refreshed: 0,
-      note: 'No persistence layer bound yet — connect Firestore to populate the refresh worklist.',
+    let resolved;
+    try {
+      resolved = resolveClient({ env });
+    } catch (err) {
+      if (err instanceof NoCredentialsError) return c.json({ error: err.message }, 503);
+      throw err;
+    }
+
+    const result = await executeScheduledRefresh({
+      client: resolved.client,
+      env,
+      store: options?.worklistStore,
     });
+
+    return c.json(result);
   });
 
   app.onError((err, c) => {
