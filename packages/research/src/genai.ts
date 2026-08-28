@@ -33,6 +33,12 @@ import {
   DEFAULT_STRUCTURE_RPM,
 } from './gemini';
 
+export interface GenAiUsage {
+  promptTokens?: number;
+  candidatesTokens?: number;
+  totalTokens?: number;
+}
+
 export interface GenAiClientConfig {
   /** Gemini Developer API key. Omit when using `vertex`. */
   apiKey?: string;
@@ -49,7 +55,11 @@ export interface GenAiClientConfig {
   groundedRpm?: number;
   structureRpm?: number;
   /** Observability hook — fires once per outbound request. Powers cost metering. */
-  onCall?: (info: { model: string; kind: 'ground' | 'structure' }) => void;
+  onCall?: (info: {
+    model: string;
+    kind: 'ground' | 'structure';
+    usage?: GenAiUsage;
+  }) => void;
   /** Injectable for tests — anything satisfying the slice of the SDK we use. */
   clientImpl?: GenAiLike;
 }
@@ -119,8 +129,7 @@ export function createGenAiClient(config: GenAiClientConfig): LlmClient {
     kind: 'ground' | 'structure',
   ): Promise<GenerateContentResponse> {
     await (kind === 'ground' ? groundLimiter : structureLimiter)?.acquire(signal);
-    config.onCall?.({ model, kind });
-    return withRetry(
+    const res = await withRetry(
       async () => {
         try {
           return await ai.models.generateContent({
@@ -141,6 +150,25 @@ export function createGenAiClient(config: GenAiClientConfig): LlmClient {
       },
       { signal },
     );
+
+    const usageMeta = res.usageMetadata;
+    const usage: GenAiUsage | undefined = usageMeta
+      ? {
+          ...(typeof usageMeta.promptTokenCount === 'number' ? { promptTokens: usageMeta.promptTokenCount } : {}),
+          ...(typeof usageMeta.candidatesTokenCount === 'number'
+            ? { candidatesTokens: usageMeta.candidatesTokenCount }
+            : {}),
+          ...(typeof usageMeta.totalTokenCount === 'number' ? { totalTokens: usageMeta.totalTokenCount } : {}),
+        }
+      : undefined;
+
+    config.onCall?.({
+      model,
+      kind,
+      ...(usage && Object.keys(usage).length > 0 ? { usage } : {}),
+    });
+
+    return res;
   }
 
   return {

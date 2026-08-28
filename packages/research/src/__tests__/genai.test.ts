@@ -156,6 +156,37 @@ describe('createGenAiClient', () => {
     expect(onCall).toHaveBeenNthCalledWith(2, { model: 'gemini-3.5-flash-lite', kind: 'structure' });
   });
 
+  it('surfaces token usage telemetry to onCall when available', async () => {
+    const onCall = vi.fn();
+    const client = createGenAiClient({
+      apiKey: 'k',
+      groundedRpm: 0,
+      structureRpm: 0,
+      onCall,
+      clientImpl: stub(async () =>
+        res({
+          text: 'grounded output',
+          usageMetadata: {
+            promptTokenCount: 150,
+            candidatesTokenCount: 50,
+            totalTokenCount: 200,
+          },
+        }),
+      ),
+    });
+
+    await client.ground('test telemetry');
+    expect(onCall).toHaveBeenCalledWith({
+      model: expect.any(String),
+      kind: 'ground',
+      usage: {
+        promptTokens: 150,
+        candidatesTokens: 50,
+        totalTokens: 200,
+      },
+    });
+  });
+
   it('preserves the HTTP status from SDK errors so backoff behaves', async () => {
     const err = Object.assign(new Error('rate limited'), { status: 429 });
     let calls = 0;
