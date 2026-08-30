@@ -22,6 +22,7 @@ import {
   type Auth,
 } from 'firebase/auth';
 import { isElectron } from '@/lib/repository/ipc-repository';
+import { fetchUserProfile } from '@/lib/sentinelApi';
 
 export interface AuthUser {
   id: string;
@@ -143,6 +144,18 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
             } catch (err) {
               console.warn('Failed to save user to localStorage:', err);
             }
+            fbUser.getIdToken().then(token => {
+              fetchUserProfile(token).then(profile => {
+                if (profile) {
+                  setUser(prev => {
+                    if (!prev || prev.id !== fbUser.uid) return prev;
+                    const enriched = { ...prev, subscriptionTier: profile.subscriptionTier, subscriptionStatus: profile.subscriptionStatus };
+                    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(enriched)); } catch { /* ignore */ }
+                    return enriched;
+                  });
+                }
+              }).catch(() => {});
+            }).catch(() => {});
           } else {
             setUser(null);
             try {
