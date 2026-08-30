@@ -327,7 +327,7 @@ function InputPill({
           <div className="flex items-center gap-2">
             <img src={wordmark} alt="" className="h-3.5 opacity-40" />
             <RegionPicker value={region} onChange={setRegion} disabled={disabled} />
-            <EnginePicker value={engine} onChange={setEngine} isPro={isPro || !!user} disabled={disabled} />
+            <EnginePicker value={engine} onChange={setEngine} isPro={isPro} disabled={disabled} />
           </div>
           <div className="flex items-center gap-1.5">
             <MicButton
@@ -681,7 +681,7 @@ export default function NewDeckPage() {
           setRegion={setRegion}
           engine={engine}
           setEngine={setEngine}
-          isPro={isPro}
+          isPro={isPro || !!user}
           onSubmit={onSubmit}
           disabled={running}
           hasKey={hasKey}
