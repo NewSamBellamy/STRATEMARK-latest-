@@ -19,6 +19,9 @@ import {
   signInWithRedirect,
   signOut as firebaseSignOut,
   onAuthStateChanged,
+  browserPopupRedirectResolver,
+  indexedDBLocalPersistence,
+  initializeAuth,
   type Auth,
 } from 'firebase/auth';
 import { isElectron } from '@/lib/repository/ipc-repository';
@@ -79,10 +82,24 @@ function initFirebaseAuth(): Auth | null {
     const config = getFirebaseConfig();
     if (!config) return null;
     const app: FirebaseApp = getApps().length === 0 ? initializeApp(config) : getApp();
-    return getAuth(app);
-  } catch (err) {
-    console.warn('Firebase Auth initialization failed:', err);
-    return null;
+    
+    // Explicitly initialize auth using IndexedDB first.
+    // If we use getAuth(), it might randomly drop back to memory or cause the "Database is closing/hidden" error
+    // in strict environments. By initializing it explicitly, we ensure the persistence cache mechanism 
+    // is correctly tracked by the Firebase internals rather than fighting with the browser.
+    const auth = initializeAuth(app, {
+      persistence: indexedDBLocalPersistence,
+      popupRedirectResolver: browserPopupRedirectResolver,
+    });
+    return auth;
+  } catch (err: unknown) {
+    // If initializeAuth fails (likely because it was already initialized), fallback to getAuth
+    try {
+      return getAuth(getApp());
+    } catch {
+      console.warn('Firebase Auth initialization failed:', err);
+      return null;
+    }
   }
 }
 
