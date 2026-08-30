@@ -71,6 +71,7 @@ import {
   saveCloudCard,
   unsaveCloudCard,
   listCloudSavedCards,
+  type CloudResearchDeckResponse,
 } from '@/lib/sentinelApi';
 
 export class SentinelRepository implements MarketIntelRepository {
@@ -490,8 +491,52 @@ export class SentinelRepository implements MarketIntelRepository {
     return () => {};
   }
 
+  cacheCloudDeckResponse(res: CloudResearchDeckResponse): void {
+    const rawM = res.market ?? res.result?.market ?? res.deck;
+    const m: CloudRecord = (rawM as CloudRecord | undefined) ?? {};
+    const marketId = String(m.id || m.marketId || `mkt_${Date.now().toString(36)}`);
+    const marketName = String(m.name || 'Sentinel Cloud Market');
+    const scopeDef = m.scopeDefinition as CloudRecord | undefined;
+
+    const market: CloudMarket = {
+      id: marketId,
+      name: marketName,
+      scopeDefinition: {
+        vertical: String(scopeDef?.vertical || 'Competitive Market Intelligence'),
+        geography: (m.region || m.geography || null) as string | null,
+        notes: null,
+      },
+      refreshCadence: 'weekly',
+      createdAt: new Date().toISOString(),
+      engine: 'cloud',
+    };
+
+    const deckRecord: CloudRecord = (res.deck as CloudRecord | undefined) ?? {};
+    const deckId = String(deckRecord.id || res.result?.deck?.id || `dck_${marketId}`);
+    const deck: CloudDeck = {
+      id: deckId,
+      marketId,
+      createdAt: new Date().toISOString(),
+      lastRefreshedAt: new Date().toISOString(),
+      engine: 'cloud',
+    };
+
+    this.memoryMarkets.set(market.id, market);
+    this.memoryDecks.set(market.id, deck);
+    this.memoryDecks.set(deck.id, deck);
+
+    if (res.cards && res.cards.length > 0) {
+      const cardsWithCompany = this.mapCloudCards(res);
+      this.memoryCards.set(deck.id, cardsWithCompany);
+      this.memoryCards.set(market.id, cardsWithCompany);
+    }
+  }
+
   private mapCloudCards(payload: CloudCardPayload): CardWithCompany[] {
-    const rawCards: CloudRecord[] = payload.cards || payload.result?.cards || [];
+    const rawCards: Array<Record<string, unknown>> =
+      (payload.cards as Array<Record<string, unknown>> | undefined) ||
+      (payload.result?.cards as Array<Record<string, unknown>> | undefined) ||
+      [];
     const rawCompanies: CloudRecord[] = payload.companies || [];
     const rawMetrics: CloudRecord[] = payload.metrics || [];
     const rawViceClaims: CloudRecord[] = payload.viceClaims || [];
@@ -520,7 +565,50 @@ export class SentinelRepository implements MarketIntelRepository {
       }
     }
 
-    return rawCards.map((c: CloudRecord) => {
+    const results: CardWithCompany[] = [];
+
+    for (const rawItem of rawCards) {
+      if (!rawItem) continue;
+      const item = rawItem as CloudRecord;
+      const primaryCard = item.primaryCard as { card?: Card; company?: Company; metrics?: CompanyMetric[]; viceClaims?: ViceClaim[] } | undefined;
+      // Handle HydrateCompanyCardResult objects (with primaryCard and cards arrays)
+      if (primaryCard?.card && primaryCard?.company) {
+        results.push({
+          card: { ...primaryCard.card, engine: 'cloud' } as Card,
+          company: primaryCard.company,
+          metrics: (item.metrics as CompanyMetric[] | undefined) || primaryCard.metrics || [],
+          viceClaims: (item.viceClaims as ViceClaim[] | undefined) || primaryCard.viceClaims || [],
+        });
+        if (Array.isArray(item.cards)) {
+          for (const facet of (item.cards as Array<{ card?: Card; company?: Company; metrics?: CompanyMetric[]; viceClaims?: ViceClaim[] }>).slice(1)) {
+            if (facet?.card && facet?.company) {
+              results.push({
+                card: { ...facet.card, engine: 'cloud' } as Card,
+                company: facet.company,
+                metrics: facet.metrics || [],
+                viceClaims: facet.viceClaims || [],
+              });
+            }
+          }
+        }
+        continue;
+      }
+
+      const directCard = item.card as Card | undefined;
+      const directCompany = item.company as Company | undefined;
+      // Handle direct CardWithCompany objects
+      if (directCard && directCompany) {
+        results.push({
+          card: { ...directCard, engine: 'cloud' } as Card,
+          company: directCompany,
+          metrics: (item.metrics as CompanyMetric[] | undefined) || [],
+          viceClaims: (item.viceClaims as ViceClaim[] | undefined) || [],
+        });
+        continue;
+      }
+
+      // Handle raw card records
+      const c = item as CloudRecord;
       const companyId = String(c.companyId || `comp_${String(c.id)}`);
       let company = companyMap.get(companyId);
       if (!company) {
@@ -555,7 +643,7 @@ export class SentinelRepository implements MarketIntelRepository {
         citations: (c.citations ?? []) as unknown as Citation[],
         keyPoints: (c.keyPoints ?? []) as string[],
         createdAt: String(c.createdAt || new Date().toISOString()),
-        engine: 'cloud', // Visual distinction flag
+        engine: 'cloud',
       };
 
       const companyObj = company;
@@ -564,12 +652,14 @@ export class SentinelRepository implements MarketIntelRepository {
       const viceClaims = rawViceClaims
         .filter((vc: CloudRecord) => vc.cardId === c.id || vc.companyId === companyObj.id) as unknown as ViceClaim[];
 
-      return {
+      results.push({
         card,
         company: companyObj,
         metrics,
         viceClaims,
-      };
-    });
+      });
+    }
+
+    return results;
   }
 }

@@ -436,6 +436,9 @@ export default function NewDeckPage() {
           (res.deck?.id ? { id: res.deck.id as string } : null);
         if (res.ok && market && (market as { id?: string }).id) {
           const m = market as { id: string };
+          if ('cacheCloudDeckResponse' in repo && typeof repo.cacheCloudDeckResponse === 'function') {
+            (repo as { cacheCloudDeckResponse: (r: typeof res) => void }).cacheCloudDeckResponse(res);
+          }
           const cardCount = res.cards?.length || res.candidates?.length || res.result?.cards?.length || 12;
           finish(`/markets/${m.id}/deck`, cardCount);
           // The deck exists NOW — every deck list refetches immediately.

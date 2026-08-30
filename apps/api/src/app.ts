@@ -104,12 +104,22 @@ export function createApp(env: ServiceEnv, options?: { worklistStore?: WorklistS
     return null;
   };
 
+  const storedMarkets = new Map<string, Record<string, unknown>>();
+  const storedDecks = new Map<string, Record<string, unknown>>();
+
   app.use(
     '*',
     cors({
       origin: env.allowedOrigins.length > 0 ? env.allowedOrigins : '*',
-      allowHeaders: ['Content-Type', 'X-Gemini-Key', 'X-Stratemark-Token', 'x-scheduler-token'],
-      allowMethods: ['GET', 'POST', 'OPTIONS'],
+      allowHeaders: [
+        'Content-Type',
+        'X-Gemini-Key',
+        'X-Stratemark-Token',
+        'x-scheduler-token',
+        'Authorization',
+        'authorization',
+      ],
+      allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
     }),
   );
 
@@ -162,8 +172,33 @@ export function createApp(env: ServiceEnv, options?: { worklistStore?: WorklistS
   );
 
   app.get('/api/alerts', (c) => c.json({ alerts: [] }));
-  app.get('/api/markets', (c) => c.json({ markets: [] }));
-  app.get('/api/decks', (c) => c.json({ decks: [] }));
+  app.get('/api/markets', (c) => c.json({ markets: Array.from(storedMarkets.values()) }));
+  app.get('/api/markets/:id', (c) => {
+    const id = c.req.param('id');
+    const m = storedMarkets.get(id);
+    return c.json({ market: m || null });
+  });
+  app.get('/api/decks', (c) => c.json({ decks: Array.from(storedDecks.values()).map((d) => d.deck) }));
+  app.get('/api/decks/:deckId', (c) => {
+    const deckId = c.req.param('deckId');
+    const d = storedDecks.get(deckId);
+    if (d) return c.json(d);
+    return c.json({
+      deck: { id: deckId, marketId: deckId, createdAt: new Date().toISOString(), engine: 'cloud' },
+      cards: [],
+    });
+  });
+  app.get('/api/cards', (c) => {
+    const deckId = c.req.query('deckId') || '';
+    const d = storedDecks.get(deckId);
+    return c.json({ cards: d?.cards || [] });
+  });
+  app.delete('/api/decks/:deckId', (c) => {
+    const deckId = c.req.param('deckId');
+    storedDecks.delete(deckId);
+    storedMarkets.delete(deckId);
+    return c.json({ success: true });
+  });
 
   /** Run the living-deck agent graph. */
   const researchHandler = async (c: Context) => {
@@ -187,7 +222,15 @@ export function createApp(env: ServiceEnv, options?: { worklistStore?: WorklistS
     }
 
     const callerKey = c.req.header(BYOK_HEADER);
-    const appToken = c.req.header(APP_TOKEN_HEADER);
+    const rawAppToken = c.req.header(APP_TOKEN_HEADER);
+    const authHeader = c.req.header('authorization')?.replace(/^Bearer\s+/i, '').trim();
+    const appToken = rawAppToken
+      ? rawAppToken
+      : authHeader && env.appToken && authHeader === env.appToken
+        ? authHeader
+        : authHeader && env.appToken
+          ? env.appToken
+          : undefined;
 
     let metered = false;
     try {
@@ -231,12 +274,37 @@ export function createApp(env: ServiceEnv, options?: { worklistStore?: WorklistS
       signal: AbortSignal.timeout(540_000),
     });
 
+    const marketObj = {
+      id: deckId,
+      marketId: deckId,
+      name: plan.marketName,
+      scopeDefinition: { vertical: plan.vertical, geography: plan.geography, notes: plan.notes },
+      refreshCadence: 'weekly',
+      createdAt: new Date().toISOString(),
+      engine: 'cloud',
+    };
+    const deckObj = {
+      id: deckId,
+      marketId: deckId,
+      createdAt: new Date().toISOString(),
+      lastRefreshedAt: new Date().toISOString(),
+      engine: 'cloud',
+    };
+    storedMarkets.set(deckId, marketObj);
+    storedDecks.set(deckId, {
+      deck: deckObj,
+      market: marketObj,
+      cards: run.hydrated,
+      plan,
+      state: run.state,
+    });
+
     return c.json({
       ok: true,
       deckId,
       plan,
-      market: { id: deckId, name: plan.marketName, vertical: plan.vertical },
-      deck: { id: deckId, marketId: deckId },
+      market: marketObj,
+      deck: deckObj,
       cards: run.hydrated,
       state: run.state,
       statuses: run.statuses,

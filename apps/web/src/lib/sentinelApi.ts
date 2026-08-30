@@ -75,7 +75,7 @@ export interface CloudResearchDeckResponse {
  * Where the Sentinel cloud engine lives.
  *
  * There is deliberately NO hardcoded fallback URL. This previously defaulted to
- * `https://stratemark-sentinel-api.a.run.app`, a service that was never
+ * `https://stratemark-agent-142700126606.us-central1.run.app`, a service that was never
  * deployed — so selecting the cloud engine produced a DNS failure that looked
  * like a bug in the app rather than missing configuration.
  *
