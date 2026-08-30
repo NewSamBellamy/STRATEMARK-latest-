@@ -1,9 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { createApp } from '../app';
 import { readEnv } from '../env';
+import { CloudDeckService, MockFirebaseAdapter } from '../lib/CloudDeckService';
+import { MemoryDataStore } from '../lib/firestoreStore';
 
 function app(over: NodeJS.ProcessEnv = {}) {
-  return createApp(readEnv({ PORT: '8080', ...over }));
+  const store = new MemoryDataStore();
+  const mockAuth = new MockFirebaseAdapter();
+  const cloudDeckService = new CloudDeckService(store, mockAuth, mockAuth);
+  return createApp(readEnv({ PORT: '8080', ...over }), { store, cloudDeckService, forceMemoryStore: true });
 }
 
 /** `Response.json()` is `unknown` under strict typing; tests state the shape. */
@@ -237,3 +242,52 @@ describe('POST /tasks/refresh', () => {
     expect(res.status).toBe(503);
   });
 });
+
+describe('REST Persistence API Endpoints', () => {
+  it('serves /api/me user profile', async () => {
+    const res = await app().request('/api/me', {
+      headers: { Authorization: 'Bearer valid_token' },
+    });
+    expect(res.status).toBe(200);
+    const body = await asJson<{ user: { id: string; subscriptionTier: string } }>(res);
+    expect(body.user.id).toBe('user_123');
+    expect(body.user.subscriptionTier).toBe('pro');
+  });
+
+  it('handles saved cards CRUD', async () => {
+    const a = app();
+    const headers = { Authorization: 'Bearer valid_token' };
+
+    // Initially empty
+    const list1 = await a.request('/api/cards/saved', { headers });
+    expect(list1.status).toBe(200);
+    expect((await asJson<{ cards: Array<Record<string, unknown>> }>(list1)).cards).toEqual([]);
+
+    // Save a card
+    const saveRes = await post(a, '/api/cards/saved', { cardId: 'card_xyz', title: 'Top AI Co' }, headers);
+    expect(saveRes.status).toBe(200);
+
+    // List again
+    const list2 = await a.request('/api/cards/saved', { headers });
+    const cards2 = (await asJson<{ cards: Array<{ cardId: string }> }>(list2)).cards;
+    expect(cards2.length).toBe(1);
+    expect(cards2[0]?.cardId).toBe('card_xyz');
+
+    // Unsave card
+    const deleteRes = await a.request('/api/cards/saved/card_xyz', { method: 'DELETE', headers });
+    expect(deleteRes.status).toBe(200);
+
+    // List after deletion
+    const list3 = await a.request('/api/cards/saved', { headers });
+    expect((await asJson<{ cards: Array<Record<string, unknown>> }>(list3)).cards.length).toBe(0);
+  });
+
+  it('manages markets and decks listing', async () => {
+    const a = app();
+    const marketsRes = await a.request('/api/markets', { headers: { Authorization: 'Bearer valid_token' } });
+    expect(marketsRes.status).toBe(200);
+    const decksRes = await a.request('/api/decks', { headers: { Authorization: 'Bearer valid_token' } });
+    expect(decksRes.status).toBe(200);
+  });
+});
+

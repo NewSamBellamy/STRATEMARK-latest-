@@ -36,6 +36,8 @@ import { createVisionJudge } from './lib/vision';
 import { fallbackCaption, renderFallbackCard } from './lib/fallback';
 import { renderPdf } from './lib/pdf';
 import { executeScheduledRefresh, type WorklistStore } from './lib/worklist';
+import { createDataStore, type StratemarkDataStore } from './lib/firestoreStore';
+import { CloudDeckService, FirebaseAdapter } from './lib/CloudDeckService';
 
 const planSchema = z.object({
   marketName: z.string().min(1),
@@ -85,8 +87,22 @@ const DECK_ESTIMATE_USD = 0.65;
 /** Estimated cost of one capture with a vision adjudication. */
 const CAPTURE_ESTIMATE_USD = 0.002;
 
-export function createApp(env: ServiceEnv, options?: { worklistStore?: WorklistStore }): Hono {
+export function createApp(
+  env: ServiceEnv,
+  options?: {
+    store?: StratemarkDataStore;
+    worklistStore?: WorklistStore;
+    forceMemoryStore?: boolean;
+    cloudDeckService?: CloudDeckService;
+  },
+): Hono {
   const app = new Hono();
+  const store = createDataStore(env, {
+    store: options?.store,
+    forceMemory: options?.forceMemoryStore,
+  });
+
+  const cloudDeckService = options?.cloudDeckService ?? new CloudDeckService(store, new FirebaseAdapter(), new FirebaseAdapter());
 
   // Per-instance guards. See lib/budget.ts and lib/authz.ts for why these are
   // in memory and what that does and does not protect.
@@ -104,8 +120,13 @@ export function createApp(env: ServiceEnv, options?: { worklistStore?: WorklistS
     return null;
   };
 
-  const storedMarkets = new Map<string, Record<string, unknown>>();
-  const storedDecks = new Map<string, Record<string, unknown>>();
+  const getUserId = async (c: Context): Promise<string | null> => {
+    const auth = c.req.header('authorization')?.replace(/^Bearer\s+/i, '').trim();
+    if (auth) {
+      return await cloudDeckService.authenticate(auth);
+    }
+    return null;
+  };
 
   app.use(
     '*',
@@ -160,43 +181,85 @@ export function createApp(env: ServiceEnv, options?: { worklistStore?: WorklistS
   app.get('/v1/agent-graph', (c) => c.json(describeAgentGraph({ watch: true })));
 
   /** User profile endpoint for Cloud Engine */
-  app.get('/api/me', (c) =>
-    c.json({
+  app.get('/api/me', async (c) => {
+    const userId = await getUserId(c);
+    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+    const isPro = await cloudDeckService.checkEntitlement(userId);
+    return c.json({
       user: {
-        id: 'user_pro',
-        email: 'pro@stratemark.com',
-        subscriptionTier: 'pro',
+        id: userId,
+        email: `${userId}@stratemark.com`, // placeholder
+        subscriptionTier: isPro ? 'pro' : 'free',
         subscriptionStatus: 'active',
       },
-    }),
-  );
-
-  app.get('/api/alerts', (c) => c.json({ alerts: [] }));
-  app.get('/api/markets', (c) => c.json({ markets: Array.from(storedMarkets.values()) }));
-  app.get('/api/markets/:id', (c) => {
-    const id = c.req.param('id');
-    const m = storedMarkets.get(id);
-    return c.json({ market: m || null });
-  });
-  app.get('/api/decks', (c) => c.json({ decks: Array.from(storedDecks.values()).map((d) => d.deck) }));
-  app.get('/api/decks/:deckId', (c) => {
-    const deckId = c.req.param('deckId');
-    const d = storedDecks.get(deckId);
-    if (d) return c.json(d);
-    return c.json({
-      deck: { id: deckId, marketId: deckId, createdAt: new Date().toISOString(), engine: 'cloud' },
-      cards: [],
     });
   });
-  app.get('/api/cards', (c) => {
+
+  app.get('/api/alerts', (c) => c.json({ alerts: [] }));
+  app.get('/api/markets', async (c) => {
+    const userId = await getUserId(c);
+    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+    const markets = await cloudDeckService.getMarkets(userId);
+    return c.json({ markets });
+  });
+  app.get('/api/markets/:id', async (c) => {
+    const userId = await getUserId(c);
+    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+    const id = c.req.param('id');
+    const m = await cloudDeckService.getMarket(userId, id);
+    if (!m) return c.json({ error: 'Not found' }, 404);
+    return c.json({ market: m });
+  });
+  app.get('/api/decks', async (c) => {
+    const userId = await getUserId(c);
+    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+    const decks = await cloudDeckService.getDecks(userId);
+    return c.json({ decks });
+  });
+  app.get('/api/decks/:deckId', async (c) => {
+    const userId = await getUserId(c);
+    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+    const deckId = c.req.param('deckId');
+    const d = await cloudDeckService.getDeck(userId, deckId);
+    if (!d) return c.json({ error: 'Not found' }, 404);
+    return c.json(d);
+  });
+  app.get('/api/cards', async (c) => {
+    const userId = await getUserId(c);
+    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
     const deckId = c.req.query('deckId') || '';
-    const d = storedDecks.get(deckId);
+    const d = deckId ? await cloudDeckService.getDeck(userId, deckId) : null;
     return c.json({ cards: d?.cards || [] });
   });
-  app.delete('/api/decks/:deckId', (c) => {
+  app.get('/api/cards/saved', async (c) => {
+    const userId = await getUserId(c);
+    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+    const cards = await cloudDeckService.getSavedCards(userId);
+    return c.json({ cards });
+  });
+  app.post('/api/cards/saved', async (c) => {
+    const userId = await getUserId(c);
+    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+    const body = await c.req.json().catch(() => ({}));
+    if (!body.cardId) {
+      return c.json({ error: 'cardId is required' }, 400);
+    }
+    await cloudDeckService.saveCard(userId, String(body.cardId), body);
+    return c.json({ ok: true });
+  });
+  app.delete('/api/cards/saved/:cardId', async (c) => {
+    const userId = await getUserId(c);
+    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+    const cardId = c.req.param('cardId');
+    await cloudDeckService.unsaveCard(userId, cardId);
+    return c.json({ ok: true });
+  });
+  app.delete('/api/decks/:deckId', async (c) => {
+    const userId = await getUserId(c);
+    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
     const deckId = c.req.param('deckId');
-    storedDecks.delete(deckId);
-    storedMarkets.delete(deckId);
+    const success = await cloudDeckService.deleteDeck(userId, deckId);
+    if (!success) return c.json({ error: 'Not found' }, 404);
     return c.json({ success: true });
   });
 
@@ -232,9 +295,18 @@ export function createApp(env: ServiceEnv, options?: { worklistStore?: WorklistS
           ? env.appToken
           : undefined;
 
+    const userId = await getUserId(c);
+
     let metered = false;
     try {
       const authz = authorizeSpend({ env, callerKey, appToken });
+      
+      // If no callerKey (BYOK), it's a cloud operation and requires entitlement
+      if (!callerKey && userId) {
+         const isEntitled = await cloudDeckService.checkEntitlement(userId);
+         if (!isEntitled) throw new UnauthorizedSpendError('Active Pro entitlement required for cloud research');
+      }
+
       metered = authz.metered;
       researchLimiter.check(callerKeyFor({ forwardedFor: c.req.header('x-forwarded-for'), appToken }));
       if (metered && !budget.canAfford(DECK_ESTIMATE_USD)) {
@@ -290,14 +362,17 @@ export function createApp(env: ServiceEnv, options?: { worklistStore?: WorklistS
       lastRefreshedAt: new Date().toISOString(),
       engine: 'cloud',
     };
-    storedMarkets.set(deckId, marketObj);
-    storedDecks.set(deckId, {
-      deck: deckObj,
-      market: marketObj,
-      cards: run.hydrated,
-      plan,
-      state: run.state,
-    });
+    if (!callerKey && userId) {
+      await cloudDeckService.saveDeck(userId, deckId, {
+        deck: deckObj,
+        market: marketObj,
+        cards: run.hydrated,
+        plan,
+        state: run.state,
+        userId,
+        query: plan.marketName,
+      });
+    }
 
     return c.json({
       ok: true,
@@ -457,7 +532,7 @@ export function createApp(env: ServiceEnv, options?: { worklistStore?: WorklistS
     const result = await executeScheduledRefresh({
       client: resolved.client,
       env,
-      store: options?.worklistStore,
+      store: options?.worklistStore ?? store,
     });
 
     return c.json(result);
