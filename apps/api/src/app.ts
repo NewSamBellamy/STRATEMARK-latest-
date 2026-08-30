@@ -244,7 +244,10 @@ export function createApp(
     if (!body.cardId) {
       return c.json({ error: 'cardId is required' }, 400);
     }
-    await cloudDeckService.saveCard(userId, String(body.cardId), body);
+    await cloudDeckService.saveCard(userId, String(body.cardId), { 
+      deckId: body.deckId, 
+      deckRevision: body.deckRevision 
+    });
     return c.json({ ok: true });
   });
   app.delete('/api/cards/saved/:cardId', async (c) => {

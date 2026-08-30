@@ -90,8 +90,8 @@ export class CloudDeckService {
     return this.store.listSavedCards(uid);
   }
 
-  async saveCard(uid: string, cardId: string, data: Record<string, unknown>) {
-    await this.store.saveCard(uid, cardId, data);
+  async saveCard(uid: string, cardId: string, options?: { deckId?: string; deckRevision?: number }) {
+    await this.store.saveCard(uid, cardId, options);
   }
 
   async unsaveCard(uid: string, cardId: string) {
@@ -112,10 +112,10 @@ export class CloudDeckService {
     return true;
   }
   
-  async saveDeck(uid: string, deckId: string, record: StoredDeckRecord) {
+  async saveDeck(uid: string, deckId: string, record: StoredDeckRecord, expectedRevision?: number) {
     await this.store.saveDeck(deckId, {
       ...record,
       userId: uid
-    });
+    }, expectedRevision);
   }
 }

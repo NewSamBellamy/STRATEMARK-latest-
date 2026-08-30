@@ -39,7 +39,14 @@ gcloud services enable \
   cloudscheduler.googleapis.com \
   secretmanager.googleapis.com \
   aiplatform.googleapis.com \
+  firestore.googleapis.com \
   --project "${PROJECT}" --quiet
+
+# Ensure Firestore database exists in native mode
+if ! gcloud firestore databases describe --project "${PROJECT}" >/dev/null 2>&1; then
+  echo "▸ Provisioning Firestore Database (default) in ${REGION}"
+  gcloud firestore databases create --location="${REGION}" --type=firestore-native --project "${PROJECT}" --quiet || true
+fi
 
 # DAILY_CAP_USD is the per-instance ceiling on spend from server credentials.
 # Worst case across the service is DAILY_CAP_USD × MAX_INSTANCES, so both are
