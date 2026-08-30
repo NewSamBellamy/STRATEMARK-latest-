@@ -169,6 +169,7 @@ export class MemoryDataStore implements StratemarkDataStore {
       const query = record.query || planName || marketName || id;
       results.push({
         deckId: id,
+        userId: record.userId || 'unknown',
         query,
         updatedAt: record.updatedAt || record.refreshedAt,
         cards: record.cards,
@@ -471,12 +472,13 @@ export class FirestoreDataStore implements StratemarkDataStore {
     snap.forEach((doc) => {
       const data = doc.data();
       if (data && (data.query || data.title || data.deckId || data.id)) {
-        decks.push({
-          deckId: doc.id,
-          query: data.query ?? data.title ?? doc.id,
-          updatedAt: tsToStr(data.updatedAt) ?? tsToStr(data.refreshedAt),
-          cards: Array.isArray(data.cards) ? (data.cards as CardWithCompany[]) : [],
-        });
+          decks.push({
+            deckId: String(data.deckId || doc.id),
+            userId: String(data.userId || 'unknown'),
+            query: String(data.query || data.title || doc.id),
+            updatedAt: tsToStr(data.updatedAt) ?? tsToStr(data.refreshedAt),
+            cards: Array.isArray(data.cards) ? data.cards : [],
+          });
       }
     });
     return decks;

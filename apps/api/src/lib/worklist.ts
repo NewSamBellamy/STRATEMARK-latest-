@@ -7,7 +7,6 @@
  */
 import { Firestore } from '@google-cloud/firestore';
 import type { CardWithCompany } from '@mi/contracts';
-import { expandDeckWithDeltaAgent, type LlmClient } from '@mi/research';
 import type { ServiceEnv } from '../env';
 import type { CloudDeckService } from './CloudDeckService';
 import type { TasksAdapter } from './CloudTasksAdapter';

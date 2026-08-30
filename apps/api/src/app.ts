@@ -581,7 +581,9 @@ export function createApp(
 
     try {
       const token = authHeader.split(' ')[1];
+      if (!token) throw new Error('Missing token');
       const payloadBase64 = token.split('.')[1];
+      if (!payloadBase64) throw new Error('Missing payload');
       const payloadJson = Buffer.from(payloadBase64, 'base64').toString('utf8');
       const payload = JSON.parse(payloadJson);
       
@@ -595,14 +597,10 @@ export function createApp(
     if (!hasServerCredentials(env)) {
       return c.json({ error: 'No server credentials; nothing to refresh with.' }, 503);
     }
-    let resolved;
-    try {
-      resolved = resolveClient({ env });
-    } catch (err) {
-      if (err instanceof NoCredentialsError) return c.json({ error: err.message }, 503);
-      throw err;
-    }
-
+    
+    // We don't resolve the LlmClient directly anymore in the scheduler since
+    // executeScheduledRefresh fan-out logic now delegates to workers.
+    
     const result = await executeScheduledRefresh({
       env,
       store: options?.worklistStore ?? store,

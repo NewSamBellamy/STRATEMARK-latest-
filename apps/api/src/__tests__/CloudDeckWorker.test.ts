@@ -20,10 +20,11 @@ const mockEnv: ServiceEnv = {
   geminiApiKey: 'mock-key',
   vertex: undefined,
   allowedOrigins: [],
-  schedulerToken: 'token',
-  appToken: 'app',
+  schedulerToken: 'secret',
+  schedulerServiceAccountEmail: 'scheduler@example.com',
+  appToken: 'app-secret',
   dailyCapUsd: 10,
-  captureBlocklist: [],
+  captureBlocklist: []
 };
 
 describe('CloudDeckWorker', () => {
@@ -173,7 +174,7 @@ describe('CloudDeckWorker', () => {
   describe('Deck Refresh processing', () => {
     it('sets error and leaves deck ready if refresh fails', async () => {
       // Simulate entitlement lost during refresh
-      await service.saveDeck('user_free', 'deck_3', { deck: { id: 'deck_3' }, cards: [] });
+      await service.saveDeck('user_free', 'deck_3', { deck: { id: 'deck_3' }, market: {}, cards: [] });
       const worker = new CloudDeckWorker(mockEnv, service);
       await worker.processDeckRefresh({
         deckId: 'deck_3',

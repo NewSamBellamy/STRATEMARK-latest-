@@ -14,8 +14,9 @@ const mockEnv: ServiceEnv = {
   geminiApiKey: 'k',
   vertex: undefined,
   allowedOrigins: [],
-  schedulerToken: 'token',
-  appToken: 'app',
+  schedulerToken: 'secret',
+  schedulerServiceAccountEmail: 'scheduler@example.com',
+  appToken: 'secret',
   dailyCapUsd: 10,
   captureBlocklist: [],
 };

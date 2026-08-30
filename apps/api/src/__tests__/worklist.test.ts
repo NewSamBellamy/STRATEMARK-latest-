@@ -14,6 +14,7 @@ const mockEnv: ServiceEnv = {
   vertex: undefined,
   allowedOrigins: [],
   schedulerToken: 'secret',
+  schedulerServiceAccountEmail: 'scheduler@example.com',
   appToken: undefined,
   dailyCapUsd: 10,
   captureBlocklist: [],
