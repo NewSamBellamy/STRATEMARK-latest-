@@ -432,6 +432,7 @@ export default function NewDeckPage() {
         const market =
           res.market ||
           res.result?.market ||
+          (res.deckId ? { id: res.deckId } : null) ||
           (res.deck?.marketId ? { id: res.deck.marketId as string } : null) ||
           (res.deck?.id ? { id: res.deck.id as string } : null);
         if (res.ok && market && (market as { id?: string }).id) {
@@ -439,10 +440,11 @@ export default function NewDeckPage() {
           if ('cacheCloudDeckResponse' in repo && typeof repo.cacheCloudDeckResponse === 'function') {
             (repo as { cacheCloudDeckResponse: (r: typeof res) => void }).cacheCloudDeckResponse(res);
           }
-          const cardCount = res.cards?.length || res.candidates?.length || res.result?.cards?.length || 12;
+          const cardCount = res.cards?.length || res.candidates?.length || res.result?.cards?.length || 0;
           finish(`/markets/${m.id}/deck`, cardCount);
           // The deck exists NOW — every deck list refetches immediately.
           void qc.invalidateQueries({ queryKey: qk.markets });
+          navigate(`/markets/${m.id}/deck`);
           return;
         } else {
           const errMsg = res.error || 'Sentinel Cloud Agent failed to create deck.';

@@ -621,6 +621,13 @@ export function createApp(
   app.onError((err, c) => {
     // Never leak internals to the caller; the detail goes to Cloud Logging.
     console.error(JSON.stringify({ severity: 'ERROR', message: err.message, stack: err.stack }));
+    const status = (err as Error & { status?: unknown }).status;
+    if (status === 429) {
+      return c.json({ error: 'Cloud model quota is exhausted. Try again later or provide your own Gemini key.' }, 429);
+    }
+    if (status === 404) {
+      return c.json({ error: 'The configured cloud model is unavailable in this region.' }, 503);
+    }
     return c.json({ error: 'Internal error' }, 500);
   });
 

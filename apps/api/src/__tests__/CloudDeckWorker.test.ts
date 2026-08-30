@@ -171,6 +171,26 @@ describe('CloudDeckWorker', () => {
     expect(d?.cards.length).toBe(2);
   });
 
+  it('persists a failed state when the research engine throws', async () => {
+    await service.saveDeck('user_pro', 'deck_failed', {
+      deck: { id: 'deck_failed' },
+      market: { id: 'deck_failed' },
+      cards: [],
+      state: { status: 'running' },
+    });
+    vi.mocked(runLivingDeckEngine).mockRejectedValueOnce(new Error('model unavailable'));
+
+    await worker.processDeckCreation({
+      deckId: 'deck_failed',
+      userId: 'user_pro',
+      plan: { marketName: 'Test', vertical: 'Test', geography: null, notes: null, searchThemes: [] },
+      query: 'Test',
+    });
+
+    const d = await service.getDeck('user_pro', 'deck_failed');
+    expect(d?.state).toEqual({ status: 'failed', error: 'model unavailable' });
+  });
+
   describe('Deck Refresh processing', () => {
     it('sets error and leaves deck ready if refresh fails', async () => {
       // Simulate entitlement lost during refresh

@@ -36,15 +36,16 @@ export interface GeminiClientConfig {
 export const DEFAULT_GROUNDED_RPM = 15;
 export const DEFAULT_STRUCTURE_RPM = 30;
 
-// Current Google Gemini frontier models (verified August 2026).
-//   grounded  — 3.7 Flash: newest Flash, carries Google Search grounding.
-//   reasoning — 3.1 Pro: the frontier reasoning tier.
-//   structure — 3.5 Flash-Lite: fastest + cheapest GA model (replaces the
-//               3.1 Flash-Lite *preview*), used for the high-volume JSON
-//               extraction half of every two-call pass.
+// Current Gemini API defaults. Vertex AI has a separate model line below because
+// the newest Developer API IDs are not necessarily published in every Vertex
+// region.
 export const DEFAULT_GROUNDED_MODEL = 'gemini-3.7-flash';
 export const DEFAULT_REASONING_MODEL = 'gemini-3.1-pro-preview';
 export const DEFAULT_STRUCTURE_MODEL = 'gemini-3.5-flash-lite';
+
+// Vertex AI model IDs verified in us-central1.
+export const DEFAULT_VERTEX_GROUNDED_MODEL = 'gemini-2.5-flash';
+export const DEFAULT_VERTEX_STRUCTURE_MODEL = 'gemini-2.5-flash-lite';
 
 interface GeminiPart {
   text?: string;

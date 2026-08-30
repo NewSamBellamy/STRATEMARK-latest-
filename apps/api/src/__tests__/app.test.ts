@@ -3,12 +3,18 @@ import { createApp } from '../app';
 import { readEnv } from '../env';
 import { CloudDeckService, MockFirebaseAdapter } from '../lib/CloudDeckService';
 import { MemoryDataStore } from '../lib/firestoreStore';
+import { MockTasksAdapter } from '../lib/CloudTasksAdapter';
 
-function app(over: NodeJS.ProcessEnv = {}) {
+function app(over: NodeJS.ProcessEnv = {}, tasksAdapter?: MockTasksAdapter) {
   const store = new MemoryDataStore();
   const mockAuth = new MockFirebaseAdapter();
-  const cloudDeckService = new CloudDeckService(store, mockAuth, mockAuth);
-  return createApp(readEnv({ PORT: '8080', ...over }), { store, cloudDeckService, forceMemoryStore: true });
+  const cloudDeckService = new CloudDeckService(store, mockAuth, mockAuth, tasksAdapter);
+  return createApp(readEnv({ PORT: '8080', ...over }), {
+    store,
+    cloudDeckService,
+    forceMemoryStore: true,
+    ...(tasksAdapter ? { tasksAdapter } : {}),
+  });
 }
 
 /** `Response.json()` is `unknown` under strict typing; tests state the shape. */
@@ -169,6 +175,29 @@ describe('POST /v1/research', () => {
     expect(res.status).toBe(429);
     expect((await asJson<ErrorBody>(res)).error).toMatch(/Too many requests/);
   });
+
+  it('persists and returns the exact cloud deck identity for a supplied plan', async () => {
+    const a = app({ GEMINI_API_KEY: 'k', APP_TOKEN: 't' }, new MockTasksAdapter());
+    const res = await post(
+      a,
+      '/api/research/deck',
+      {
+        deckId: 'deck_exact_identity',
+        plan: { marketName: 'Test', vertical: 'Test', geography: null, notes: null, searchThemes: [] },
+      },
+      { Authorization: 'Bearer valid_token', 'X-Stratemark-Token': 't' },
+    );
+
+    expect(res.status).toBe(202);
+    expect((await asJson<{ deckId: string; state: { status: string } }>(res))).toMatchObject({
+      deckId: 'deck_exact_identity',
+      state: { status: 'running' },
+    });
+    const deck = await a.request('/api/decks/deck_exact_identity', {
+      headers: { Authorization: 'Bearer valid_token' },
+    });
+    expect(deck.status).toBe(200);
+  });
 });
 
 describe('POST /v1/capture', () => {
@@ -293,4 +322,3 @@ describe('REST Persistence API Endpoints', () => {
     expect(decksRes.status).toBe(200);
   });
 });
-

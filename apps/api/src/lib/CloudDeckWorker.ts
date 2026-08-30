@@ -53,8 +53,6 @@ export class CloudDeckWorker {
       return;
     }
 
-    const resolved = resolveClient({ env: this.env });
-    
     let currentCards = existing.cards ?? [];
     let savePromise = Promise.resolve();
     const abortController = new AbortController();
@@ -63,55 +61,74 @@ export class CloudDeckWorker {
     const onAbort = () => abortController.abort();
     timeoutSignal.addEventListener('abort', onAbort);
 
-    const run = await runLivingDeckEngine({
-      client: resolved.client,
-      plan,
-      deckId,
-      watch: watch ?? false,
-      ...(maxCandidates === undefined ? {} : { maxCandidates }),
-      signal: abortController.signal, 
-      onEvent: (event) => {
-        if (event.type === 'card' || event.type === 'growth') {
-          const result = event.type === 'card' ? event.result : event.card;
-          
-          // event.result is HydrateCompanyCardResult, which has multiple cards in result.cards
-          // event.card from 'growth' is a CardWithCompany
-          const newCards = event.type === 'card' 
-            ? (result as HydrateCompanyCardResult).cards 
-            : [result as CardWithCompany];
+    let run: Awaited<ReturnType<typeof runLivingDeckEngine>>;
+    try {
+      const resolved = resolveClient({ env: this.env });
+      run = await runLivingDeckEngine({
+        client: resolved.client,
+        plan,
+        deckId,
+        watch: watch ?? false,
+        ...(maxCandidates === undefined ? {} : { maxCandidates }),
+        signal: abortController.signal,
+        onEvent: (event) => {
+          if (event.type === 'card' || event.type === 'growth') {
+            const result = event.type === 'card' ? event.result : event.card;
 
-          let updated = false;
-          for (const card of newCards) {
-            const isDuplicate = currentCards.some(c => c.card.id === card.card.id);
-            if (!isDuplicate) {
-              currentCards = [...currentCards, card];
-              updated = true;
+            // event.result is HydrateCompanyCardResult, which has multiple cards in result.cards
+            // event.card from 'growth' is a CardWithCompany
+            const newCards = event.type === 'card'
+              ? (result as HydrateCompanyCardResult).cards
+              : [result as CardWithCompany];
+
+            let updated = false;
+            for (const card of newCards) {
+              const isDuplicate = currentCards.some(c => c.card.id === card.card.id);
+              if (!isDuplicate) {
+                currentCards = [...currentCards, card];
+                updated = true;
+              }
+            }
+
+            if (updated) {
+              // Serialize intermediate checkpoints to avoid 409s/conflicts
+              savePromise = savePromise.then(async () => {
+                const stillEntitled = await this.service.checkEntitlement(userId);
+                if (!stillEntitled) {
+                  abortController.abort(new Error('Entitlement lost'));
+                  throw new Error('Entitlement lost during run');
+                }
+                await this.updateDeckState(id, () => ({
+                  cards: currentCards,
+                  state: { status: 'partial' }
+                }));
+              }).catch(err => {
+                console.error('Checkpoint failed:', err);
+                if (err instanceof Error && err.message.includes('Entitlement lost')) {
+                  abortController.abort(err);
+                  throw err;
+                }
+              });
             }
           }
-
-          if (updated) {
-            // Serialize intermediate checkpoints to avoid 409s/conflicts
-            savePromise = savePromise.then(async () => {
-              const stillEntitled = await this.service.checkEntitlement(userId);
-              if (!stillEntitled) {
-                 abortController.abort(new Error('Entitlement lost'));
-                 throw new Error('Entitlement lost during run');
-              }
-              await this.updateDeckState(id, () => ({
-                cards: currentCards,
-                state: { status: 'partial' }
-              }));
-            }).catch(err => {
-              console.error('Checkpoint failed:', err);
-              if (err.message.includes('Entitlement lost')) {
-                 abortController.abort(err);
-                 throw err;
-              }
-            });
-          }
         }
-      }
-    });
+      });
+    } catch (err: unknown) {
+      timeoutSignal.removeEventListener('abort', onAbort);
+      const message = err instanceof Error ? err.message : String(err);
+      await this.updateDeckState(id, () => ({
+        cards: currentCards,
+        state: { status: 'failed', error: message.slice(0, 500) }
+      }));
+      // A terminal model/configuration failure should not be retried forever.
+      console.error(JSON.stringify({
+        severity: 'ERROR',
+        message: 'Cloud deck creation failed',
+        deckId,
+        error: message,
+      }));
+      return;
+    }
 
     timeoutSignal.removeEventListener('abort', onAbort);
 

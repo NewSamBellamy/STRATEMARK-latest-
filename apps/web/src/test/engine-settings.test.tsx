@@ -84,4 +84,27 @@ describe('Research Engine Settings & Strict Execution', () => {
       await screen.findByText(/Sentinel Cloud Agent error: Sentinel Cloud Run service temporary 503 error/i)
     ).toBeInTheDocument();
   });
+
+  it('uses the asynchronous cloud deckId and opens the running deck', async () => {
+    useEngineChoice.setState({ engine: 'cloud' });
+    vi.spyOn(sentinelApi, 'runCloudResearchDeck').mockResolvedValueOnce({
+      ok: true,
+      deckId: 'deck_cloud_123',
+    });
+
+    const user = userEvent.setup();
+    render(
+      <TestWrapper>
+        <Routes>
+          <Route path="/" element={<NewDeckPage />} />
+          <Route path="/markets/:marketId/deck" element={<div>running cloud deck</div>} />
+        </Routes>
+      </TestWrapper>,
+    );
+
+    await user.type(screen.getByPlaceholderText(/describe a market/i), 'Autonomous drone delivery');
+    await user.click(screen.getByRole('button', { name: /research this market/i }));
+
+    expect(await screen.findByText('running cloud deck')).toBeInTheDocument();
+  });
 });
