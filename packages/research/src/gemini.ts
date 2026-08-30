@@ -148,6 +148,16 @@ export function createGeminiClient(config: GeminiClientConfig): LlmClient {
     },
 
     async structure<T>(prompt: string, schema: ZodType<T, ZodTypeDef, unknown>, opts?: { system?: string; signal?: AbortSignal }): Promise<T> {
+      // No `responseSchema` here, deliberately (issue #48). The SDK client
+      // (`genai.ts`) sends one, because it can derive it without cost. Doing the
+      // same here would mean pulling the schema converter — and with it the
+      // Node-oriented SDK it imports `Type` from — into the browser/Electron
+      // bundle, which is the one thing this client exists to avoid.
+      //
+      // The strict Zod contract below is still enforced on the way out, so the
+      // BYOK path cannot ACCEPT a malformed or forged value; it just isn't
+      // constrained at generation time, so a non-conforming model costs a
+      // reparse retry instead of being prevented up front.
       const body: Record<string, unknown> = {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { responseMimeType: 'application/json', temperature: 0 },

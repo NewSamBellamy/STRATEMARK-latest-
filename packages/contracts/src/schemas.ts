@@ -10,6 +10,7 @@ import {
   CONFIDENCE_LEVELS,
   DASHBOARD_TABS,
   METRIC_TYPES,
+  MODEL_PROPOSABLE_CONFIDENCE,
   REFRESH_CADENCES,
   SUBSCRIPTION_STATUSES,
   SUBSCRIPTION_TIERS,
@@ -19,6 +20,30 @@ import {
 export const cardTypeSchema = z.enum(CARD_TYPES);
 export const metricTypeSchema = z.enum(METRIC_TYPES);
 export const confidenceSchema = z.enum(CONFIDENCE_LEVELS);
+
+/**
+ * Confidence as a MODEL may state it (issue #48). Use this — never
+ * `confidenceSchema` — on any structured-output schema handed to a model.
+ *
+ * Two jobs. Declaring the narrow enum makes the generated native
+ * `responseSchema` exclude `user_verified`, so a conforming model cannot emit a
+ * forged human sign-off at all. Normalising first stops a NON-conforming model
+ * from costing us an entire enrichment payload: the human-only value is demoted
+ * to `verified` (which must then be earned from a citation downstream), and
+ * anything unrecognisable becomes `unknown` rather than being trusted.
+ * `enforceModelMetricProvenance` applies the same demotion for callers that
+ * bypass this schema, so both entry points agree.
+ */
+export const modelConfidenceSchema = z
+  .preprocess((raw) => {
+    if (raw === undefined || raw === null) return undefined; // let .default() apply
+    if (raw === 'user_verified') return 'verified'; // human-only: never asserted
+    return (MODEL_PROPOSABLE_CONFIDENCE as readonly string[]).includes(raw as string)
+      ? raw
+      : 'unknown'; // malformed is a gap, not a figure to trust
+  }, z.enum(MODEL_PROPOSABLE_CONFIDENCE))
+  .default('unknown');
+
 export const refreshCadenceSchema = z.enum(REFRESH_CADENCES);
 export const dashboardTabSchema = z.enum(DASHBOARD_TABS);
 export const subscriptionTierSchema = z.enum(SUBSCRIPTION_TIERS);

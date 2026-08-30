@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { z } from 'zod';
 import type { GenerateContentResponse } from '@google/genai';
-import { createGenAiClient, type GenAiLike } from '../genai';
+import { createGenAiClient, zodToGenAiSchema, type GenAiLike } from '../genai';
+import { enrichmentOutSchema, metricOutSchema } from '../schemas';
 import type { LlmClient } from '../types';
 
 /**
@@ -211,5 +212,31 @@ describe('createGenAiClient', () => {
     const out = await client.ground('q');
     expect(out.text).toBe('recovered');
     expect(calls).toBe(2);
+  });
+});
+
+describe('zodToGenAiSchema — the native responseSchema handed to Gemini (issue #48)', () => {
+  it('emits a real enum for a constrained field, not a free string', () => {
+    const schema = zodToGenAiSchema(z.object({ verdict: z.enum(['supported', 'contradicted']) }));
+    const verdict = (schema.properties as Record<string, Record<string, unknown>>).verdict!;
+    expect(verdict.enum).toEqual(['supported', 'contradicted']);
+  });
+
+  it('excludes user_verified from the confidence a model can even emit', () => {
+    // The gate is cheapest at generation time: if the enum never offers
+    // `user_verified`, a conforming model cannot forge a human sign-off.
+    const schema = zodToGenAiSchema(metricOutSchema);
+    const confidence = (schema.properties as Record<string, Record<string, unknown>>).confidence!;
+    expect(confidence.enum).toEqual(['verified', 'estimated', 'unknown']);
+    expect(confidence.enum).not.toContain('user_verified');
+  });
+
+  it('constrains the funding round type a model may report', () => {
+    const schema = zodToGenAiSchema(enrichmentOutSchema);
+    const props = schema.properties as Record<string, Record<string, unknown>>;
+    const facts = props.facts!.properties as Record<string, Record<string, unknown>>;
+    const round = facts.lastFundingRound!.properties as Record<string, Record<string, unknown>>;
+    expect(round.roundType!.enum).toContain('series_a');
+    expect(round.roundType!.type).toBe('STRING');
   });
 });

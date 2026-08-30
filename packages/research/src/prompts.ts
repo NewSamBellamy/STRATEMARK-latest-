@@ -5,6 +5,7 @@
  * text into JSON and must mark anything unsupported as Unknown/Estimated.
  */
 import { CARD_TYPE_LABELS, TIER_LABELS, type CardType } from '@mi/contracts';
+import { FUNDING_ROUND_TYPES } from './proxy-estimator';
 import type { CompanyCandidate, MarketPlan } from './types';
 import type { Citation } from './types';
 
@@ -165,7 +166,7 @@ export function structureEnrichPrompt(
     `     { "value": number|null (raw number — dollars for money, count for users/employees, percent for share), "confidence": "verified"|"estimated"|"unknown", "sourceIndex": number|null (index into SOURCES), "method": string|null },`,
     `  "facts": {`,
     `     "headcount": number|null (disclosed employee/team count from LinkedIn or About page),`,
-    `     "lastFundingRound": { "amount": number, "roundType": string }|null (latest venture funding round size in USD and type e.g. "Series A", "Series B", "Seed"),`,
+    `     "lastFundingRound": { "amount": number, "roundType": ${FUNDING_ROUND_TYPES.map((r) => `"${r}"`).join('|')} }|null (latest venture funding round size in USD and its type — use exactly one of those values, not prose),`,
     `     "scrapedPricing": { "monthlyPrice": number|null, "annualPrice": number|null }|null (scraped pricing tier amounts in USD),`,
     `     "publicUserFootprint": number|null (installs, active users, GitHub stars, or customer count),`,
     `     "footprintLabel": string|null (label for footprint metric e.g. "active users", "GitHub stars", "customers")`,

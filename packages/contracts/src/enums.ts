@@ -109,6 +109,19 @@ export const METRIC_TYPE_LABELS: Record<MetricType, string> = {
 export const CONFIDENCE_LEVELS = ['verified', 'estimated', 'unknown', 'user_verified'] as const;
 export type Confidence = (typeof CONFIDENCE_LEVELS)[number];
 
+/**
+ * The confidence vocabulary a MODEL is allowed to propose (issue #48).
+ *
+ * `user_verified` is deliberately absent: it asserts that a person checked this
+ * figure, and no model output can make that true. Because this tuple backs the
+ * model-facing Zod schema, it is also what becomes the native `@google/genai`
+ * `responseSchema` enum — so a conforming model cannot even emit the value.
+ *
+ * `verified` IS proposable but is not thereby granted: provenance enforcement
+ * demotes it unless a usable, verification-grade citation stands behind it.
+ */
+export const MODEL_PROPOSABLE_CONFIDENCE = ['verified', 'estimated', 'unknown'] as const;
+
 export const CONFIDENCE_LABELS: Record<Confidence, string> = {
   verified: 'Verified',
   estimated: 'Estimated',
