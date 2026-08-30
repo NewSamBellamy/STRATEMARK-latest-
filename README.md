@@ -32,7 +32,9 @@ pnpm check
 SINGLEFILE=1 pnpm --filter @mi/web build   # → apps/web/dist/index.html
 
 # Open Judging Build (Google Cloud Hackathon)
-# Removes the private preview access-code gate and subscription paywall
+# Removes the private preview access-code gate and subscription paywall.
+# Connects to the live Google Cloud Run environment.
+# Judges can log in using the Email/Password provided in the submission details.
 VITE_OPEN_ACCESS=true pnpm --filter @mi/web build
 
 # Electron desktop app

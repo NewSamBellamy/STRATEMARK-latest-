@@ -216,7 +216,8 @@ export class SentinelRepository implements MarketIntelRepository {
     }
 
     try {
-      const cloudPayload = await getCloudDeck(marketId);
+      const targetDeckId = marketId.startsWith('dck_') ? marketId : `dck_${marketId.replace(/^mkt_/, '')}`;
+      const cloudPayload = await getCloudDeck(targetDeckId);
       if (cloudPayload && cloudPayload.deck) {
         const d: CloudRecord = cloudPayload.deck;
         const deck: CloudDeck = {
@@ -284,7 +285,7 @@ export class SentinelRepository implements MarketIntelRepository {
     };
 
     const deckRecord: CloudRecord = (res.deck as CloudRecord | undefined) ?? {};
-    const deckId = String(deckRecord.id || res.result?.deck?.id || `dck_${marketId}`);
+    const deckId = String(deckRecord.id || res.result?.deck?.id || `dck_${marketId.replace(/^mkt_/, '')}`);
     const deck: CloudDeck = {
       id: deckId,
       marketId,
@@ -512,7 +513,7 @@ export class SentinelRepository implements MarketIntelRepository {
     };
 
     const deckRecord: CloudRecord = (res.deck as CloudRecord | undefined) ?? {};
-    const deckId = String(deckRecord.id || res.result?.deck?.id || `dck_${marketId}`);
+    const deckId = String(deckRecord.id || res.result?.deck?.id || `dck_${marketId.replace(/^mkt_/, '')}`);
     const deck: CloudDeck = {
       id: deckId,
       marketId,

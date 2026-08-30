@@ -116,7 +116,17 @@ function getSentinelUrl(path: string): string {
   return `${cleanBase}/${subPath}`;
 }
 
-function getStoredAuthToken(): string {
+async function getStoredAuthToken(): Promise<string> {
+  try {
+    const { getAuth } = await import('firebase/auth');
+    const auth = getAuth();
+    if (auth && auth.currentUser) {
+      return await auth.currentUser.getIdToken();
+    }
+  } catch {
+    /* ignore - Firebase might not be initialized */
+  }
+
   try {
     if (typeof localStorage !== 'undefined') {
       const raw = localStorage.getItem('stratemark_auth_user');
@@ -143,7 +153,7 @@ async function fetchSentinel<T>(
     ...(customHeaders as Record<string, string>),
   };
 
-  const authToken = token || getStoredAuthToken();
+  const authToken = token || await getStoredAuthToken();
   headers['Authorization'] = `Bearer ${authToken}`;
 
   const res = await fetch(url, { ...rest, headers });

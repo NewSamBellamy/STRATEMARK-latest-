@@ -17,6 +17,7 @@ import {
   GoogleAuthProvider as FirebaseGoogleAuthProvider,
   signInWithPopup,
   signInWithRedirect,
+  signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   browserPopupRedirectResolver,
@@ -43,6 +44,7 @@ export interface AuthState {
   error: string | null;
   signIn: () => Promise<AuthUser | null>;
   signInWithGoogle: () => Promise<AuthUser | null>;
+  signInWithEmail: (email: string, pass: string) => Promise<AuthUser | null>;
   signOut: () => Promise<void>;
   clearError: () => void;
   getToken: () => Promise<string | null>;
@@ -308,6 +310,59 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
     }
   }, [authInstance]);
 
+  const signInWithEmail = useCallback(async (email: string, pass: string): Promise<AuthUser | null> => {
+    setError(null);
+    setIsLoading(true);
+    let signedInUser: AuthUser | null = null;
+    try {
+      if (isElectron()) {
+         throw new Error('Email sign-in is not supported in the desktop application.');
+      } else if (authInstance) {
+        try {
+          const cred = await signInWithEmailAndPassword(authInstance, email, pass);
+          if (cred?.user) {
+            signedInUser = enrichUserSubscription({
+              id: cred.user.uid,
+              name: cred.user.displayName || cred.user.email || 'Email User',
+              email: cred.user.email,
+              photoURL: cred.user.photoURL,
+            });
+          }
+        } catch (authErr: unknown) {
+          const e = authErr as Error & { code?: string };
+          console.warn('Firebase email auth error:', e.code, e.message);
+          throw new Error('Invalid email or password.');
+        }
+      } else if (import.meta.env.MODE === 'test' || import.meta.env.VITEST) {
+        signedInUser = {
+          id: 'email-user-' + Date.now(),
+          name: 'Email Analyst',
+          email,
+          photoURL: null,
+        };
+      } else {
+        throw new Error('Authentication is not configured.');
+      }
+      
+      if (signedInUser) {
+        setUser(signedInUser);
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(signedInUser));
+        } catch (err) {
+          console.warn('Failed to save user to localStorage:', err);
+        }
+      }
+      return signedInUser;
+    } catch (err: unknown) {
+      console.error('Email Sign In error:', err);
+      const msg = (err as { message?: string })?.message;
+      setError(msg || 'Sign-in failed');
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [authInstance]);
+
   const signOut = useCallback(async () => {
     setError(null);
     setIsLoading(true);
@@ -357,11 +412,12 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
       error,
       signIn: signInWithGoogle,
       signInWithGoogle,
+      signInWithEmail,
       signOut,
       clearError,
       getToken,
     }),
-    [user, isLoading, error, signInWithGoogle, signOut, clearError, getToken],
+    [user, isLoading, error, signInWithGoogle, signInWithEmail, signOut, clearError, getToken],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
