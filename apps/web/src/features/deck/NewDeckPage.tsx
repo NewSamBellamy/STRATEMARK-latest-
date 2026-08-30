@@ -327,7 +327,7 @@ function InputPill({
           <div className="flex items-center gap-2">
             <img src={wordmark} alt="" className="h-3.5 opacity-40" />
             <RegionPicker value={region} onChange={setRegion} disabled={disabled} />
-            <EnginePicker value={engine} onChange={setEngine} isPro={isPro} disabled={disabled} />
+            <EnginePicker value={engine} onChange={setEngine} isPro={isPro || !!user} disabled={disabled} />
           </div>
           <div className="flex items-center gap-1.5">
             <MicButton
@@ -379,10 +379,10 @@ export default function NewDeckPage() {
   const [logsOpen, setLogsOpen] = useState(false);
 
   useEffect(() => {
-    if (isPro && !localStorage.getItem('mi.researchEngine')) {
+    if (user && !localStorage.getItem('mi.researchEngine')) {
       setEngine('cloud');
     }
-  }, [isPro, setEngine]);
+  }, [user, setEngine]);
 
   // Session from the store — survives navigation
   const session = useResearchSession((s) => s.session);
