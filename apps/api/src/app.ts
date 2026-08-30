@@ -136,7 +136,12 @@ export function createApp(
   app.use(
     '*',
     cors({
-      origin: env.allowedOrigins.length > 0 ? env.allowedOrigins : '*',
+      origin: (origin) => {
+        if (env.allowedOrigins.length > 0 && origin) {
+          return env.allowedOrigins.includes(origin) ? origin : env.allowedOrigins[0];
+        }
+        return origin || '*';
+      },
       allowHeaders: [
         'Content-Type',
         'X-Gemini-Key',
@@ -144,8 +149,10 @@ export function createApp(
         'x-scheduler-token',
         'Authorization',
         'authorization',
+        'Accept',
       ],
-      allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+      allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS', 'PUT', 'PATCH'],
+      credentials: true,
     }),
   );
 

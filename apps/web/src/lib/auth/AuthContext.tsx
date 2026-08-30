@@ -20,7 +20,7 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
   browserPopupRedirectResolver,
-  indexedDBLocalPersistence,
+  browserLocalPersistence,
   initializeAuth,
   type Auth,
 } from 'firebase/auth';
@@ -83,12 +83,12 @@ function initFirebaseAuth(): Auth | null {
     if (!config) return null;
     const app: FirebaseApp = getApps().length === 0 ? initializeApp(config) : getApp();
     
-    // Explicitly initialize auth using IndexedDB first.
-    // If we use getAuth(), it might randomly drop back to memory or cause the "Database is closing/hidden" error
-    // in strict environments. By initializing it explicitly, we ensure the persistence cache mechanism 
-    // is correctly tracked by the Firebase internals rather than fighting with the browser.
+    // Switch to browserLocalPersistence (localStorage) instead of IndexedDB.
+    // IndexedDB is prone to "Database is closing/hidden" errors during Vite HMR reloads
+    // or when multiple tabs fight for the same IndexedDB lock. LocalStorage is synchronous
+    // and immune to this specific locking issue.
     const auth = initializeAuth(app, {
-      persistence: indexedDBLocalPersistence,
+      persistence: browserLocalPersistence,
       popupRedirectResolver: browserPopupRedirectResolver,
     });
     return auth;
