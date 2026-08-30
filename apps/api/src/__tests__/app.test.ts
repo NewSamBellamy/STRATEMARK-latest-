@@ -177,7 +177,8 @@ describe('POST /v1/research', () => {
   });
 
   it('persists and returns the exact cloud deck identity for a supplied plan', async () => {
-    const a = app({ GEMINI_API_KEY: 'k', APP_TOKEN: 't' }, new MockTasksAdapter());
+    const tasks = new MockTasksAdapter();
+    const a = app({ GEMINI_API_KEY: 'k', APP_TOKEN: 't' }, tasks);
     const res = await post(
       a,
       '/api/research/deck',
@@ -193,6 +194,7 @@ describe('POST /v1/research', () => {
       deckId: 'deck_exact_identity',
       state: { status: 'running' },
     });
+    expect(tasks.queuedTasks[0]?.maxCandidates).toBe(2);
     const deck = await a.request('/api/decks/deck_exact_identity', {
       headers: { Authorization: 'Bearer valid_token' },
     });

@@ -88,6 +88,8 @@ async function planFromQuery(
 const DECK_ESTIMATE_USD = 0.65;
 /** Estimated cost of one capture with a vision adjudication. */
 const CAPTURE_ESTIMATE_USD = 0.002;
+/** Keep the asynchronous judging path inside the Cloud Run worker budget. */
+const CLOUD_DEFAULT_MAX_CANDIDATES = 2;
 
 export function createApp(
   env: ServiceEnv,
@@ -357,11 +359,11 @@ export function createApp(
       await cloudDeckService.enqueueCreation({
         deckId,
         userId,
-        plan,
-        query: body.data.query ?? '',
-        maxCandidates: body.data.maxCandidates,
-        watch: body.data.watch,
-      });
+         plan,
+         query: body.data.query ?? '',
+         maxCandidates: body.data.maxCandidates ?? CLOUD_DEFAULT_MAX_CANDIDATES,
+         watch: body.data.watch,
+       });
 
       return c.json({
         ok: true,

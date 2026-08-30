@@ -137,10 +137,13 @@ export class CloudDeckWorker {
     // Determine final status
     const isFailed = run.aborted || run.state.status === 'failed';
     const finalStatus = isFailed ? 'failed' : 'ready';
+    const failedReason = run.aborted
+      ? 'Research timed out or was aborted'
+      : run.statuses.find((status) => status.state === 'failed')?.error ?? 'Research failed';
 
     await this.updateDeckState(id, () => ({
       cards: run.hydrated.flatMap(h => h.cards),
-      state: { status: finalStatus, ...(isFailed ? { error: 'Research aborted or failed' } : {}) }
+      state: { status: finalStatus, ...(isFailed ? { error: failedReason } : {}) }
     }));
   }
 

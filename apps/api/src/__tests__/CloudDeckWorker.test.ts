@@ -191,6 +191,38 @@ describe('CloudDeckWorker', () => {
     expect(d?.state).toEqual({ status: 'failed', error: 'model unavailable' });
   });
 
+  it('labels an aborted engine run as timed out', async () => {
+    await service.saveDeck('user_pro', 'deck_aborted', {
+      deck: { id: 'deck_aborted' },
+      market: { id: 'deck_aborted' },
+      cards: [],
+      state: { status: 'running' },
+    });
+    vi.mocked(runLivingDeckEngine).mockResolvedValueOnce({
+      aborted: true,
+      state: { status: 'failed' } as unknown as LivingDeckRun['state'],
+      hydrated: [],
+      topology: null,
+      enrichmentFailures: [],
+      watch: null,
+      statuses: [{ state: 'failed', error: 'All discovery vectors failed' }] as unknown as LivingDeckRun['statuses'],
+      trace: [],
+      summary: {} as unknown as LivingDeckRun['summary'],
+      bootMs: null,
+      totalMs: 540_000,
+    });
+
+    await worker.processDeckCreation({
+      deckId: 'deck_aborted',
+      userId: 'user_pro',
+      plan: { marketName: 'Test', vertical: 'Test', geography: null, notes: null, searchThemes: [] },
+      query: 'Test',
+    });
+
+    const d = await service.getDeck('user_pro', 'deck_aborted');
+    expect(d?.state).toEqual({ status: 'failed', error: 'Research timed out or was aborted' });
+  });
+
   describe('Deck Refresh processing', () => {
     it('sets error and leaves deck ready if refresh fails', async () => {
       // Simulate entitlement lost during refresh

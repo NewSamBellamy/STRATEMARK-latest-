@@ -58,12 +58,34 @@ fi
 PROJECT_NUM="$(gcloud projects describe "${PROJECT}" --format='value(projectNumber)')"
 WORKER_SA="${PROJECT_NUM}-compute@developer.gserviceaccount.com"
 
+add_project_iam_binding() {
+  local member="$1"
+  local role="$2"
+  local delay=2
+  local attempt
+
+  for attempt in 1 2 3 4 5; do
+    if gcloud projects add-iam-policy-binding "${PROJECT}" \
+      --member="${member}" \
+      --role="${role}" \
+      --condition=None \
+      --quiet; then
+      return 0
+    fi
+
+    if [[ "${attempt}" -lt 5 ]]; then
+      echo "  IAM policy changed concurrently; retrying in ${delay}s (attempt ${attempt}/5)" >&2
+      sleep "${delay}"
+      delay=$((delay * 2))
+    fi
+  done
+
+  echo "IAM policy update failed after 5 attempts: ${role} -> ${member}" >&2
+  return 1
+}
+
 echo "▸ Granting Cloud Tasks Enqueuer role to default compute SA"
-gcloud projects add-iam-policy-binding "${PROJECT}" \
-  --member="serviceAccount:${WORKER_SA}" \
-  --role="roles/cloudtasks.enqueuer" \
-  --condition=None \
-  --quiet >/dev/null 2>&1 || true
+add_project_iam_binding "serviceAccount:${WORKER_SA}" "roles/cloudtasks.enqueuer"
 
 EXISTING_URL="$(gcloud run services describe "${SERVICE}" --project "${PROJECT}" --region "${REGION}" --format='value(status.url)' 2>/dev/null || echo '')"
 if [[ -z "${EXISTING_URL}" ]]; then
