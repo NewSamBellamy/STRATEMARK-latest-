@@ -105,7 +105,7 @@ export function createApp(
     forceMemory: options?.forceMemoryStore,
   });
 
-  const tasksAdapter = options?.tasksAdapter ?? (env.tasks ? new CloudTasksAdapter(env) : new MockTasksAdapter());
+  const tasksAdapter = options?.tasksAdapter ?? (env.tasks ? new CloudTasksAdapter(env) : new MockTasksAdapter(env.port));
   const cloudDeckService = options?.cloudDeckService ?? new CloudDeckService(store, new FirebaseAdapter(), new FirebaseAdapter(), tasksAdapter);
   const cloudDeckWorker = new CloudDeckWorker(env, cloudDeckService);
 

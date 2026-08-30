@@ -109,12 +109,33 @@ export class CloudTasksAdapter implements TasksAdapter {
 export class MockTasksAdapter implements TasksAdapter {
   public queuedTasks: TaskPayload[] = [];
   public queuedRefreshes: RefreshTaskPayload[] = [];
+
+  constructor(private readonly localPort?: number) {}
   
   async enqueueDeckCreation(payload: TaskPayload): Promise<void> {
     this.queuedTasks.push(payload);
+    if (this.localPort) {
+      // Simulate Cloud Tasks by calling the worker endpoint asynchronously
+      setTimeout(() => {
+        fetch(`http://127.0.0.1:${this.localPort}/tasks/worker/research`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).catch(e => console.error('Local worker simulation failed:', e));
+      }, 500);
+    }
   }
 
   async enqueueDeckRefresh(payload: RefreshTaskPayload): Promise<void> {
     this.queuedRefreshes.push(payload);
+    if (this.localPort) {
+      setTimeout(() => {
+        fetch(`http://127.0.0.1:${this.localPort}/tasks/worker/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).catch(e => console.error('Local refresh worker simulation failed:', e));
+      }, 500);
+    }
   }
 }
