@@ -216,7 +216,12 @@ export class SentinelRepository implements MarketIntelRepository {
     }
 
     try {
-      const targetDeckId = marketId.startsWith('dck_') ? marketId : `dck_${marketId.replace(/^mkt_/, '')}`;
+      let targetDeckId = marketId;
+      if (marketId.startsWith('mkt_')) {
+        targetDeckId = `dck_${marketId.slice(4)}`;
+      } else if (!marketId.startsWith('dck_') && !marketId.startsWith('deck_')) {
+        targetDeckId = `dck_${marketId}`;
+      }
       const cloudPayload = await getCloudDeck(targetDeckId);
       if (cloudPayload && cloudPayload.deck) {
         const d: CloudRecord = cloudPayload.deck;
@@ -267,7 +272,10 @@ export class SentinelRepository implements MarketIntelRepository {
 
     const rawM = res.market ?? res.result?.market ?? res.deck;
     const m: CloudRecord = (rawM as CloudRecord | undefined) ?? {};
-    const marketId = String(m.id || m.marketId || `mkt_${Date.now().toString(36)}`);
+    
+    // Cloud enqueued decks return deckId directly. Synchronous runs return market/deck objects.
+    const returnedDeckId = res.deckId as string | undefined;
+    const marketId = String(m.id || m.marketId || returnedDeckId || `mkt_${Date.now().toString(36)}`);
     const marketName = String(m.name || brief.prompt);
     const scopeDef = m.scopeDefinition as CloudRecord | undefined;
 
@@ -285,7 +293,7 @@ export class SentinelRepository implements MarketIntelRepository {
     };
 
     const deckRecord: CloudRecord = (res.deck as CloudRecord | undefined) ?? {};
-    const deckId = String(deckRecord.id || res.result?.deck?.id || `dck_${marketId.replace(/^mkt_/, '')}`);
+    const deckId = String(returnedDeckId || deckRecord.id || res.result?.deck?.id || `dck_${marketId.replace(/^mkt_/, '')}`);
     const deck: CloudDeck = {
       id: deckId,
       marketId,
@@ -495,7 +503,8 @@ export class SentinelRepository implements MarketIntelRepository {
   cacheCloudDeckResponse(res: CloudResearchDeckResponse): void {
     const rawM = res.market ?? res.result?.market ?? res.deck;
     const m: CloudRecord = (rawM as CloudRecord | undefined) ?? {};
-    const marketId = String(m.id || m.marketId || `mkt_${Date.now().toString(36)}`);
+    const returnedDeckId = res.deckId as string | undefined;
+    const marketId = String(m.id || m.marketId || returnedDeckId || `mkt_${Date.now().toString(36)}`);
     const marketName = String(m.name || 'Sentinel Cloud Market');
     const scopeDef = m.scopeDefinition as CloudRecord | undefined;
 
@@ -513,7 +522,7 @@ export class SentinelRepository implements MarketIntelRepository {
     };
 
     const deckRecord: CloudRecord = (res.deck as CloudRecord | undefined) ?? {};
-    const deckId = String(deckRecord.id || res.result?.deck?.id || `dck_${marketId.replace(/^mkt_/, '')}`);
+    const deckId = String(returnedDeckId || deckRecord.id || res.result?.deck?.id || `dck_${marketId.replace(/^mkt_/, '')}`);
     const deck: CloudDeck = {
       id: deckId,
       marketId,

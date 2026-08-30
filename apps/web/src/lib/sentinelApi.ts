@@ -57,6 +57,7 @@ export async function fetchUserProfile(token?: string | null): Promise<SentinelU
 export interface CloudResearchDeckResponse {
   ok: boolean;
   stage?: string;
+  deckId?: string;
   market?: Record<string, unknown>;
   deck?: Record<string, unknown>;
   cards?: Array<Record<string, unknown>>;
