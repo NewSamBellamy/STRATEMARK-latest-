@@ -1,10 +1,16 @@
-import { runLivingDeckEngine, expandDeckWithDeltaAgent } from '@mi/research';
+import { runLivingDeckEngine, expandDeckWithDeltaAgent, type MarketPlan } from '@mi/research';
 import type { TaskPayload, RefreshTaskPayload } from './CloudTasksAdapter';
 import type { ServiceEnv } from '../env';
 import { resolveClient } from './client';
 import type { CloudDeckService } from './CloudDeckService';
 import type { CardWithCompany } from '@mi/contracts';
 import type { HydrateCompanyCardResult } from '@mi/research';
+import type { StoredDeckRecord } from './firestoreStore';
+
+export interface DeckIdentity {
+  userId: string;
+  deckId: string;
+}
 
 export class CloudDeckWorker {
   constructor(
@@ -12,8 +18,23 @@ export class CloudDeckWorker {
     private readonly service: CloudDeckService
   ) {}
 
+  private async updateDeckState(
+    id: DeckIdentity, 
+    mutator: (deck: StoredDeckRecord) => Partial<StoredDeckRecord>
+  ): Promise<void> {
+    const fresh = await this.service.getDeck(id.userId, id.deckId);
+    if (fresh) {
+      const updates = mutator(fresh);
+      await this.service.saveDeck(id.userId, id.deckId, {
+        ...fresh,
+        ...updates
+      }, fresh.revision);
+    }
+  }
+
   async processDeckCreation(payload: TaskPayload): Promise<void> {
     const { deckId, userId, plan, watch, maxCandidates } = payload;
+    const id: DeckIdentity = { userId, deckId };
     
     // Check if deck exists
     const existing = await this.service.getDeck(userId, deckId);
@@ -26,10 +47,9 @@ export class CloudDeckWorker {
     const isEntitled = await this.service.checkEntitlement(userId);
     if (!isEntitled) {
       console.warn(`User ${userId} lost entitlement during processing`);
-      await this.service.saveDeck(userId, deckId, {
-        ...existing,
+      await this.updateDeckState(id, () => ({
         state: { status: 'failed', error: 'Entitlement lost' }
-      });
+      }));
       return;
     }
 
@@ -77,14 +97,10 @@ export class CloudDeckWorker {
                  abortController.abort(new Error('Entitlement lost'));
                  throw new Error('Entitlement lost during run');
               }
-              const fresh = await this.service.getDeck(userId, deckId);
-              if (fresh) {
-                 await this.service.saveDeck(userId, deckId, {
-                   ...fresh,
-                   cards: currentCards,
-                   state: { status: 'partial' }
-                 }, fresh.revision);
-              }
+              await this.updateDeckState(id, () => ({
+                cards: currentCards,
+                state: { status: 'partial' }
+              }));
             }).catch(err => {
               console.error('Checkpoint failed:', err);
               if (err.message.includes('Entitlement lost')) {
@@ -105,18 +121,16 @@ export class CloudDeckWorker {
     const isFailed = run.aborted || run.state.status === 'failed';
     const finalStatus = isFailed ? 'failed' : 'ready';
 
-    const fresh = await this.service.getDeck(userId, deckId);
-    if (fresh) {
-      await this.service.saveDeck(userId, deckId, {
-        ...fresh,
-        cards: run.hydrated.flatMap(h => h.cards),
-        state: { status: finalStatus, ...(isFailed ? { error: 'Research aborted or failed' } : {}) }
-      }, fresh.revision);
-    }
+    await this.updateDeckState(id, () => ({
+      cards: run.hydrated.flatMap(h => h.cards),
+      state: { status: finalStatus, ...(isFailed ? { error: 'Research aborted or failed' } : {}) }
+    }));
   }
 
   async processDeckRefresh(payload: RefreshTaskPayload): Promise<void> {
     const { deckId, userId, query } = payload;
+    const id: DeckIdentity = { userId, deckId };
+    
     const existing = await this.service.getDeck(userId, deckId);
     if (!existing) {
       console.warn(`Deck ${deckId} not found for refresh`);
@@ -126,40 +140,34 @@ export class CloudDeckWorker {
     const isEntitled = await this.service.checkEntitlement(userId);
     if (!isEntitled) {
       console.warn(`User ${userId} lost entitlement before refresh`);
-      await this.service.saveDeck(userId, deckId, {
-        ...existing,
-        state: { status: 'failed', error: 'Entitlement lost' }
-      }, existing.revision);
+      await this.updateDeckState(id, () => ({
+        state: { status: 'ready', error: 'Entitlement lost' }
+      }));
       return;
     }
 
     const resolved = resolveClient({ env: this.env });
     
     try {
+      const plan = existing.plan as MarketPlan | undefined;
+      const vertical = plan?.vertical ?? 'market-intel';
+
       const updatedCards = await expandDeckWithDeltaAgent({
         client: resolved.client,
         marketName: query,
-        vertical: existing.plan && (existing.plan as any).vertical ? (existing.plan as any).vertical : 'market-intel',
+        vertical: vertical,
         existingCards: existing.cards ?? [],
       });
       
-      const fresh = await this.service.getDeck(userId, deckId);
-      if (fresh) {
-        await this.service.saveDeck(userId, deckId, {
-          ...fresh,
-          cards: updatedCards,
-          refreshedAt: new Date().toISOString(),
-          state: { status: 'ready' }
-        }, fresh.revision);
-      }
+      await this.updateDeckState(id, () => ({
+        cards: updatedCards,
+        refreshedAt: new Date().toISOString(),
+        state: { status: 'ready' }
+      }));
     } catch (err: unknown) {
-      const fresh = await this.service.getDeck(userId, deckId);
-      if (fresh) {
-        await this.service.saveDeck(userId, deckId, {
-          ...fresh,
-          state: { status: 'ready', error: err instanceof Error ? err.message : String(err) }
-        }, fresh.revision);
-      }
+      await this.updateDeckState(id, () => ({
+        state: { status: 'ready', error: err instanceof Error ? err.message : String(err) }
+      }));
     }
   }
 }

@@ -169,4 +169,20 @@ describe('CloudDeckWorker', () => {
     expect(d?.state?.status).toBe('ready');
     expect(d?.cards.length).toBe(2);
   });
+
+  describe('Deck Refresh processing', () => {
+    it('sets error and leaves deck ready if refresh fails', async () => {
+      // Simulate entitlement lost during refresh
+      await service.saveDeck('user_free', 'deck_3', { deck: { id: 'deck_3' }, cards: [] });
+      const worker = new CloudDeckWorker(mockEnv, service);
+      await worker.processDeckRefresh({
+        deckId: 'deck_3',
+        userId: 'user_free',
+        query: 'Testing Refresh'
+      });
+      const d = await service.getDeck('user_free', 'deck_3');
+      expect(d?.state?.status).toBe('ready');
+      expect(d?.state?.error).toBe('Entitlement lost');
+    });
+  });
 });

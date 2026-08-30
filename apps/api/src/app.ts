@@ -566,16 +566,32 @@ export function createApp(
   });
 
   /**
-   * Cloud Scheduler target. Guarded by a shared secret: without it this is an
-   * open endpoint that spends money on demand for anyone who finds the URL.
+   * Cloud Scheduler target. Guarded by OIDC: Cloud Run IAM validates the signature,
+   * we just decode the JWT to verify the service account email.
    */
   app.post('/tasks/refresh', async (c) => {
-    if (!env.schedulerToken) {
-      return c.json({ error: 'Scheduled refresh is not configured.' }, 503);
+    if (!env.schedulerServiceAccountEmail) {
+      return c.json({ error: 'Scheduled refresh is not configured with an OIDC service account.' }, 503);
     }
-    if (c.req.header('x-scheduler-token') !== env.schedulerToken) {
-      return c.json({ error: 'Unauthorized' }, 401);
+    
+    const authHeader = c.req.header('authorization');
+    if (!authHeader || !authHeader.toLowerCase().startsWith('bearer ')) {
+      return c.json({ error: 'Unauthorized: Missing or invalid Bearer token' }, 401);
     }
+
+    try {
+      const token = authHeader.split(' ')[1];
+      const payloadBase64 = token.split('.')[1];
+      const payloadJson = Buffer.from(payloadBase64, 'base64').toString('utf8');
+      const payload = JSON.parse(payloadJson);
+      
+      if (payload.email !== env.schedulerServiceAccountEmail) {
+         return c.json({ error: 'Unauthorized: Invalid service account' }, 401);
+      }
+    } catch {
+      return c.json({ error: 'Unauthorized: Malformed token' }, 401);
+    }
+
     if (!hasServerCredentials(env)) {
       return c.json({ error: 'No server credentials; nothing to refresh with.' }, 503);
     }

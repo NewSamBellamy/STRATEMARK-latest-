@@ -17,11 +17,12 @@ export interface ServiceEnv {
   allowedOrigins: string[];
   /** Shared secret proving a request came from Cloud Scheduler. */
   schedulerToken: string | undefined;
-  /**
-   * Shared secret authorising use of the service's OWN credentials. Absent
+  /** Shared secret authorising use of the service's OWN credentials. Absent
    * means nobody may spend our money — callers must bring their own key.
    */
   appToken: string | undefined;
+  /** Service account email used by Cloud Scheduler for OIDC authentication. */
+  schedulerServiceAccountEmail: string | undefined;
   /** Daily ceiling on spend from server credentials, in USD. */
   dailyCapUsd: number;
   /** Hosts that may never be captured — SSRF guard. */
@@ -58,6 +59,7 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): ServiceEnv {
     vertex: useVertex && project ? { project, location: location || 'us-central1' } : undefined,
     allowedOrigins: list(source.ALLOWED_ORIGINS),
     schedulerToken: source.SCHEDULER_TOKEN?.trim() || undefined,
+    schedulerServiceAccountEmail: source.SCHEDULER_SERVICE_ACCOUNT_EMAIL?.trim() || undefined,
     appToken: source.APP_TOKEN?.trim() || undefined,
     dailyCapUsd: (() => {
       const raw = Number(source.DAILY_CAP_USD);

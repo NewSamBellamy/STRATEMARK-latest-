@@ -202,9 +202,12 @@ describe('POST /tasks/refresh', () => {
     expect((await post(app({ GEMINI_API_KEY: 'k' }), '/tasks/refresh', {})).status).toBe(503);
   });
 
+  const MOCK_TOKEN = `header.${Buffer.from(JSON.stringify({ email: 'scheduler@example.com' })).toString('base64')}.sig`;
+  const MOCK_WRONG_TOKEN = `header.${Buffer.from(JSON.stringify({ email: 'hacker@example.com' })).toString('base64')}.sig`;
+
   it('rejects a caller without the token — this endpoint spends money', async () => {
     const res = await post(
-      app({ GEMINI_API_KEY: 'k', SCHEDULER_TOKEN: 'secret' }),
+      app({ GEMINI_API_KEY: 'k', SCHEDULER_SERVICE_ACCOUNT_EMAIL: 'scheduler@example.com' }),
       '/tasks/refresh',
       {},
     );
@@ -213,20 +216,20 @@ describe('POST /tasks/refresh', () => {
 
   it('rejects a wrong token', async () => {
     const res = await post(
-      app({ GEMINI_API_KEY: 'k', SCHEDULER_TOKEN: 'secret' }),
+      app({ GEMINI_API_KEY: 'k', SCHEDULER_SERVICE_ACCOUNT_EMAIL: 'scheduler@example.com' }),
       '/tasks/refresh',
       {},
-      { 'x-scheduler-token': 'guess' },
+      { 'authorization': `Bearer ${MOCK_WRONG_TOKEN}` },
     );
     expect(res.status).toBe(401);
   });
 
   it('accepts the configured token', async () => {
     const res = await post(
-      app({ GEMINI_API_KEY: 'k', SCHEDULER_TOKEN: 'secret' }),
+      app({ GEMINI_API_KEY: 'k', SCHEDULER_SERVICE_ACCOUNT_EMAIL: 'scheduler@example.com' }),
       '/tasks/refresh',
       {},
-      { 'x-scheduler-token': 'secret' },
+      { 'authorization': `Bearer ${MOCK_TOKEN}` },
     );
     expect(res.status).toBe(200);
     expect((await asJson<RefreshBody>(res)).ok).toBe(true);
@@ -234,10 +237,10 @@ describe('POST /tasks/refresh', () => {
 
   it('will not run a refresh with no credentials even when the token is right', async () => {
     const res = await post(
-      app({ SCHEDULER_TOKEN: 'secret' }),
+      app({ SCHEDULER_SERVICE_ACCOUNT_EMAIL: 'scheduler@example.com' }),
       '/tasks/refresh',
       {},
-      { 'x-scheduler-token': 'secret' },
+      { 'authorization': `Bearer ${MOCK_TOKEN}` },
     );
     expect(res.status).toBe(503);
   });

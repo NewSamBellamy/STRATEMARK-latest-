@@ -31,6 +31,10 @@ pnpm check
 # Production build (single self-contained HTML file — the preview deploy)
 SINGLEFILE=1 pnpm --filter @mi/web build   # → apps/web/dist/index.html
 
+# Open Judging Build (Google Cloud Hackathon)
+# Removes the private preview access-code gate and subscription paywall
+VITE_OPEN_ACCESS=true pnpm --filter @mi/web build
+
 # Electron desktop app
 pnpm --filter @mi/desktop dev
 ```
