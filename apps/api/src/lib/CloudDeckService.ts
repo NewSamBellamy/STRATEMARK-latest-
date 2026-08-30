@@ -1,4 +1,5 @@
 import type { StratemarkDataStore, StoredDeckRecord } from './firestoreStore';
+import type { TasksAdapter, TaskPayload } from './CloudTasksAdapter';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { initializeApp, getApps } from 'firebase-admin/app';
@@ -60,7 +61,8 @@ export class CloudDeckService {
   constructor(
     private readonly store: StratemarkDataStore,
     private readonly auth: AuthAdapter,
-    private readonly entitlement: EntitlementAdapter
+    private readonly entitlement: EntitlementAdapter,
+    private readonly tasks?: TasksAdapter
   ) {}
 
   async authenticate(token?: string): Promise<string | null> {
@@ -105,6 +107,42 @@ export class CloudDeckService {
     return deck;
   }
 
+  async enqueueCreation(payload: TaskPayload) {
+    if (!this.tasks) {
+      throw new Error('Cloud Tasks is not configured');
+    }
+    
+    // Save initial running state
+    const now = new Date().toISOString();
+    const marketObj = {
+      id: payload.deckId,
+      marketId: payload.deckId,
+      name: payload.plan.marketName,
+      scopeDefinition: { vertical: payload.plan.vertical, geography: payload.plan.geography, notes: payload.plan.notes },
+      refreshCadence: 'weekly',
+      createdAt: now,
+      engine: 'cloud',
+    };
+    const deckObj = {
+      id: payload.deckId,
+      marketId: payload.deckId,
+      createdAt: now,
+      lastRefreshedAt: now,
+      engine: 'cloud',
+    };
+    
+    await this.store.saveDeck(payload.deckId, {
+      deck: deckObj,
+      market: marketObj,
+      cards: [],
+      plan: payload.plan,
+      state: { status: 'running' },
+      userId: payload.userId,
+      query: payload.plan.marketName,
+    });
+
+    await this.tasks.enqueueDeckCreation(payload);
+  }
   async deleteDeck(uid: string, deckId: string) {
     const deck = await this.getDeck(uid, deckId);
     if (!deck) return false;

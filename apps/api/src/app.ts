@@ -38,6 +38,8 @@ import { renderPdf } from './lib/pdf';
 import { executeScheduledRefresh, type WorklistStore } from './lib/worklist';
 import { createDataStore, type StratemarkDataStore } from './lib/firestoreStore';
 import { CloudDeckService, FirebaseAdapter } from './lib/CloudDeckService';
+import { CloudDeckWorker } from './lib/CloudDeckWorker';
+import { CloudTasksAdapter, MockTasksAdapter, type TasksAdapter } from './lib/CloudTasksAdapter';
 
 const planSchema = z.object({
   marketName: z.string().min(1),
@@ -94,6 +96,7 @@ export function createApp(
     worklistStore?: WorklistStore;
     forceMemoryStore?: boolean;
     cloudDeckService?: CloudDeckService;
+    tasksAdapter?: TasksAdapter;
   },
 ): Hono {
   const app = new Hono();
@@ -102,7 +105,9 @@ export function createApp(
     forceMemory: options?.forceMemoryStore,
   });
 
-  const cloudDeckService = options?.cloudDeckService ?? new CloudDeckService(store, new FirebaseAdapter(), new FirebaseAdapter());
+  const tasksAdapter = options?.tasksAdapter ?? (env.tasks ? new CloudTasksAdapter(env) : new MockTasksAdapter());
+  const cloudDeckService = options?.cloudDeckService ?? new CloudDeckService(store, new FirebaseAdapter(), new FirebaseAdapter(), tasksAdapter);
+  const cloudDeckWorker = new CloudDeckWorker(env, cloudDeckService);
 
   // Per-instance guards. See lib/budget.ts and lib/authz.ts for why these are
   // in memory and what that does and does not protect.
@@ -340,6 +345,26 @@ export function createApp(
     const plan = body.data.plan ?? (await planFromQuery(resolved.client, body.data.query ?? ''));
     const deckId = body.data.deckId ?? `deck_${Date.now().toString(36)}`;
 
+    // If it's a cloud generation request, enqueue it asynchronously
+    if (!callerKey && userId) {
+      await cloudDeckService.enqueueCreation({
+        deckId,
+        userId,
+        plan,
+        query: body.data.query ?? '',
+        maxCandidates: body.data.maxCandidates,
+        watch: body.data.watch,
+      });
+
+      return c.json({
+        ok: true,
+        deckId,
+        plan,
+        state: { status: 'running' },
+      }, 202);
+    }
+
+    // BYOK users execute synchronously without cloud persistence
     const run = await runLivingDeckEngine({
       client: resolved.client,
       plan,
@@ -365,17 +390,7 @@ export function createApp(
       lastRefreshedAt: new Date().toISOString(),
       engine: 'cloud',
     };
-    if (!callerKey && userId) {
-      await cloudDeckService.saveDeck(userId, deckId, {
-        deck: deckObj,
-        market: marketObj,
-        cards: run.hydrated,
-        plan,
-        state: run.state,
-        userId,
-        query: plan.marketName,
-      });
-    }
+    // Removed cloudDeckService.saveDeck here because it's only synchronous BYOK runs now.
 
     return c.json({
       ok: true,
@@ -508,6 +523,30 @@ export function createApp(
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${name}.pdf"`,
     });
+  });
+
+  /**
+   * Cloud Tasks worker endpoint for async deck creation.
+   * Assumes OIDC validation is handled by Cloud Run IAM proxy in production.
+   * We do basic sanity checks here.
+   */
+  app.post('/tasks/worker/research', async (c) => {
+    // Cloud Tasks sets specific headers we can verify to ensure it was routed by the task queue
+    // In local development or testing, these might be absent depending on adapter, so we just log.
+    const queueName = c.req.header('X-CloudTasks-QueueName');
+    if (env.tasks && !queueName) {
+       console.warn('Worker invoked without X-CloudTasks-QueueName header - ensure IAM proxy is securing this endpoint.');
+    }
+    
+    const payload = await c.req.json().catch(() => null);
+    if (!payload || !payload.deckId || !payload.userId || !payload.plan) {
+      return c.json({ error: 'Invalid task payload' }, 400);
+    }
+    
+    // Process deck creation
+    await cloudDeckWorker.processDeckCreation(payload);
+    
+    return c.json({ ok: true });
   });
 
   /**

@@ -26,6 +26,14 @@ export interface ServiceEnv {
   dailyCapUsd: number;
   /** Hosts that may never be captured — SSRF guard. */
   captureBlocklist: string[];
+  /** Configuration for Cloud Tasks to dispatch async worker operations. */
+  tasks?: {
+    projectId: string;
+    location: string;
+    queue: string;
+    workerUrl: string;
+    serviceAccountEmail: string;
+  };
 }
 
 import { DEFAULT_DAILY_CAP_USD } from './lib/budget';
@@ -57,6 +65,13 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): ServiceEnv {
       return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_DAILY_CAP_USD;
     })(),
     captureBlocklist: list(source.CAPTURE_BLOCKLIST),
+    tasks: source.TASKS_QUEUE && source.WORKER_URL && source.WORKER_SERVICE_ACCOUNT_EMAIL && project ? {
+      projectId: project,
+      location: location || 'us-central1',
+      queue: source.TASKS_QUEUE.trim(),
+      workerUrl: source.WORKER_URL.trim(),
+      serviceAccountEmail: source.WORKER_SERVICE_ACCOUNT_EMAIL.trim()
+    } : undefined
   };
 }
 
