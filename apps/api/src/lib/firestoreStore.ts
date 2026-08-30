@@ -22,6 +22,7 @@ export interface StoredDeckRecord {
   updatedAt?: string;
   refreshedAt?: string;
   query?: string;
+  watch?: boolean;
   revision?: number;
   schemaVersion?: number;
 }

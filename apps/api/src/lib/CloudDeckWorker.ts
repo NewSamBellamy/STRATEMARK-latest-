@@ -1,5 +1,5 @@
-import { runLivingDeckEngine } from '@mi/research';
-import type { TaskPayload } from './CloudTasksAdapter';
+import { runLivingDeckEngine, expandDeckWithDeltaAgent } from '@mi/research';
+import type { TaskPayload, RefreshTaskPayload } from './CloudTasksAdapter';
 import type { ServiceEnv } from '../env';
 import { resolveClient } from './client';
 import type { CloudDeckService } from './CloudDeckService';
@@ -112,6 +112,54 @@ export class CloudDeckWorker {
         cards: run.hydrated.flatMap(h => h.cards),
         state: { status: finalStatus, ...(isFailed ? { error: 'Research aborted or failed' } : {}) }
       }, fresh.revision);
+    }
+  }
+
+  async processDeckRefresh(payload: RefreshTaskPayload): Promise<void> {
+    const { deckId, userId, query } = payload;
+    const existing = await this.service.getDeck(userId, deckId);
+    if (!existing) {
+      console.warn(`Deck ${deckId} not found for refresh`);
+      return;
+    }
+
+    const isEntitled = await this.service.checkEntitlement(userId);
+    if (!isEntitled) {
+      console.warn(`User ${userId} lost entitlement before refresh`);
+      await this.service.saveDeck(userId, deckId, {
+        ...existing,
+        state: { status: 'failed', error: 'Entitlement lost' }
+      }, existing.revision);
+      return;
+    }
+
+    const resolved = resolveClient({ env: this.env });
+    
+    try {
+      const updatedCards = await expandDeckWithDeltaAgent({
+        client: resolved.client,
+        marketName: query,
+        vertical: existing.plan && (existing.plan as any).vertical ? (existing.plan as any).vertical : 'market-intel',
+        existingCards: existing.cards ?? [],
+      });
+      
+      const fresh = await this.service.getDeck(userId, deckId);
+      if (fresh) {
+        await this.service.saveDeck(userId, deckId, {
+          ...fresh,
+          cards: updatedCards,
+          refreshedAt: new Date().toISOString(),
+          state: { status: 'ready' }
+        }, fresh.revision);
+      }
+    } catch (err: unknown) {
+      const fresh = await this.service.getDeck(userId, deckId);
+      if (fresh) {
+        await this.service.saveDeck(userId, deckId, {
+          ...fresh,
+          state: { status: 'ready', error: err instanceof Error ? err.message : String(err) }
+        }, fresh.revision);
+      }
     }
   }
 }

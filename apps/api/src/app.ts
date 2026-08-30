@@ -549,6 +549,22 @@ export function createApp(
     return c.json({ ok: true });
   });
 
+  app.post('/tasks/worker/refresh', async (c) => {
+    const queueName = c.req.header('X-CloudTasks-QueueName');
+    if (env.tasks && !queueName) {
+       console.warn('Worker invoked without X-CloudTasks-QueueName header - ensure IAM proxy is securing this endpoint.');
+    }
+    
+    const payload = await c.req.json().catch(() => null);
+    if (!payload || !payload.deckId || !payload.userId || !payload.query) {
+      return c.json({ error: 'Invalid task payload for refresh' }, 400);
+    }
+    
+    await cloudDeckWorker.processDeckRefresh(payload);
+    
+    return c.json({ ok: true });
+  });
+
   /**
    * Cloud Scheduler target. Guarded by a shared secret: without it this is an
    * open endpoint that spends money on demand for anyone who finds the URL.
@@ -572,9 +588,10 @@ export function createApp(
     }
 
     const result = await executeScheduledRefresh({
-      client: resolved.client,
       env,
       store: options?.worklistStore ?? store,
+      cloudDeckService,
+      tasksAdapter,
     });
 
     return c.json(result);

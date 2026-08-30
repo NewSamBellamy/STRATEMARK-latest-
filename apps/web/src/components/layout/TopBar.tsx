@@ -30,7 +30,7 @@ function GoogleIcon({ className = 'h-3.5 w-3.5' }: { className?: string }) {
 
 /** Right-side controls — rendered inside AppShell's header. */
 export function TopBar() {
-  const { user, isAuthenticated, isLoading, error, signOut, clearError } = useAuth();
+  const { user, isAuthenticated, isLoading, error, signInWithGoogle, signOut, clearError } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   // Private-preview identity: whose access code opened this browser.
@@ -144,7 +144,21 @@ export function TopBar() {
           </span>
           <span className="hidden max-w-[140px] truncate sm:inline">{access.name}</span>
         </span>
-      ) : null}
+      ) : (
+        <button
+          type="button"
+          onClick={() => void signInWithGoogle()}
+          disabled={isLoading}
+          className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1 text-[13px] font-medium text-primary-fg transition-opacity hover:opacity-90 disabled:opacity-50"
+        >
+          {isLoading ? (
+            <span className="h-3 w-3 animate-pulse rounded-full bg-primary-fg/50" />
+          ) : (
+            <GoogleIcon className="h-3.5 w-3.5" />
+          )}
+          Sign in
+        </button>
+      )}
     </div>
   );
 }

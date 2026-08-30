@@ -139,6 +139,7 @@ export class CloudDeckService {
       state: { status: 'running' },
       userId: payload.userId,
       query: payload.plan.marketName,
+      watch: payload.watch,
     });
 
     await this.tasks.enqueueDeckCreation(payload);

@@ -84,12 +84,8 @@ describe('Google Auth System', () => {
       const signOutBtn = screen.getByRole('button', { name: /sign out/i });
       await user.click(signOutBtn);
 
-      // The dead "Already purchased? Sign in" Google button is GONE — Google
-      // auth arrives with the Firebase round. Unauthenticated TopBar shows
-      // no auth affordance (or the access-code chip when one is unlocked).
-      expect(
-        screen.queryByRole('button', { name: /already purchased\? sign in/i }),
-      ).not.toBeInTheDocument();
+      // TopBar now shows the Sign in button when unauthenticated
+      expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /user profile menu/i })).not.toBeInTheDocument();
     });
 

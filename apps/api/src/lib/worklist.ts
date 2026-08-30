@@ -9,9 +9,12 @@ import { Firestore } from '@google-cloud/firestore';
 import type { CardWithCompany } from '@mi/contracts';
 import { expandDeckWithDeltaAgent, type LlmClient } from '@mi/research';
 import type { ServiceEnv } from '../env';
+import type { CloudDeckService } from './CloudDeckService';
+import type { TasksAdapter } from './CloudTasksAdapter';
 
 export interface RefreshWorklistDeck {
   deckId: string;
+  userId: string;
   query: string;
   updatedAt?: string;
   cards?: CardWithCompany[];
@@ -34,13 +37,18 @@ export class FirestoreWorklistStore implements WorklistStore {
   }
 
   async getDecks(): Promise<RefreshWorklistDeck[]> {
-    const snapshot = await this.firestore.collection(this.collectionName).limit(50).get();
+    const snapshot = await this.firestore.collection(this.collectionName)
+      .where('watch', '==', true)
+      .where('state.status', '==', 'ready')
+      .limit(50)
+      .get();
     const decks: RefreshWorklistDeck[] = [];
     snapshot.forEach((doc) => {
       const data = doc.data();
       if (data && (data.query || data.title || data.deckId)) {
         decks.push({
           deckId: doc.id,
+          userId: data.userId || 'unknown',
           query: data.query ?? data.title ?? '',
           updatedAt: data.updatedAt ?? data.refreshedAt,
           cards: Array.isArray(data.cards) ? data.cards : [],
@@ -63,9 +71,10 @@ export class FirestoreWorklistStore implements WorklistStore {
 }
 
 export interface RefreshExecutionOptions {
-  client: LlmClient;
   env: ServiceEnv;
   store?: WorklistStore;
+  cloudDeckService?: CloudDeckService;
+  tasksAdapter?: TasksAdapter;
 }
 
 export interface RefreshExecutionResult {
@@ -122,21 +131,39 @@ export async function executeScheduledRefresh(
     };
   }
 
-  let refreshedCount = 0;
+  const { cloudDeckService, tasksAdapter } = options;
+  if (!cloudDeckService || !tasksAdapter) {
+    return {
+      ok: false,
+      ranAt,
+      refreshed: 0,
+      totalDecks: decks.length,
+      note: 'Refresh fan-out failed: CloudDeckService or TasksAdapter not provided.',
+    };
+  }
+
+  let enqueuedCount = 0;
   for (const deck of decks) {
     if (!deck.query) continue;
     try {
-      const updatedCards = await expandDeckWithDeltaAgent({
-        client: options.client,
-        marketName: deck.query,
-        vertical: 'market-intel',
-        existingCards: deck.cards ?? [],
-      });
-      await store.saveRefreshedDeck(deck.deckId, {
-        cards: updatedCards,
-        refreshedAt: ranAt,
-      });
-      refreshedCount += 1;
+      const isEntitled = await cloudDeckService.checkEntitlement(deck.userId);
+      if (!isEntitled) {
+        continue;
+      }
+      
+      const fullDeck = await cloudDeckService.getDeck(deck.userId, deck.deckId);
+      if (fullDeck) {
+         await cloudDeckService.saveDeck(deck.userId, deck.deckId, {
+           ...fullDeck,
+           state: { status: 'refreshing' }
+         });
+         await tasksAdapter.enqueueDeckRefresh({
+           deckId: deck.deckId,
+           userId: deck.userId,
+           query: deck.query
+         });
+         enqueuedCount += 1;
+      }
     } catch {
       /* isolate single deck failure */
     }
@@ -145,7 +172,8 @@ export async function executeScheduledRefresh(
   return {
     ok: true,
     ranAt,
-    refreshed: refreshedCount,
+    refreshed: enqueuedCount,
     totalDecks: decks.length,
+    note: enqueuedCount > 0 ? `Enqueued ${enqueuedCount} decks for refresh.` : 'No decks eligible for refresh.',
   };
 }
