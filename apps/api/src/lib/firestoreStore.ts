@@ -6,7 +6,12 @@
  * Seamlessly integrates with the Cloud Scheduler autonomous delta refresh worklist.
  */
 import { Firestore, FieldValue } from '@google-cloud/firestore';
-import type { CardWithCompany } from '@mi/contracts';
+import type {
+  AdkTraceEvent,
+  AdkTraceSummary,
+  CardWithCompany,
+  LivingDeckNodeStatus,
+} from '@mi/contracts';
 import type { MarketPlan } from '@mi/research';
 import type { RefreshWorklistDeck, WorklistStore } from './worklist';
 import type { ServiceEnv } from '../env';
@@ -25,6 +30,11 @@ export interface StoredDeckRecord {
   watch?: boolean;
   revision?: number;
   schemaVersion?: number;
+  researchTrace?: {
+    events: readonly AdkTraceEvent[];
+    statuses: readonly LivingDeckNodeStatus[];
+    summary: AdkTraceSummary;
+  };
 }
 
 export const FIRESTORE_MAX_DOCUMENT_BYTES = 1048576;

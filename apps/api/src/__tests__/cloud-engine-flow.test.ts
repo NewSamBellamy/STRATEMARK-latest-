@@ -67,7 +67,26 @@ describe('Cloud Engine creation-to-worker flow', () => {
       enrichmentFailures: [],
       watch: null,
       statuses: [],
-      trace: [],
+      trace: [
+        {
+          id: 'trace_1',
+          invocationId: 'invocation_1',
+          spanId: 'span_1',
+          parentSpanId: null,
+          branch: 'root',
+          author: 'living_deck_engine',
+          agentKind: 'sequential',
+          phase: 'invocation_start',
+          severity: 'info',
+          timestamp: 0,
+          durationMs: null,
+          message: 'run started',
+          attributes: {},
+          stateDelta: null,
+          error: null,
+          escalate: false,
+        },
+      ],
       summary: {},
       bootMs: 25,
       totalMs: 100,
@@ -97,6 +116,7 @@ describe('Cloud Engine creation-to-worker flow', () => {
     const deck = await json<{
       state: { status: string };
       cards: Array<{ metrics: Array<{ metricType: string; value: number | null }> }>;
+      researchTrace: { events: Array<{ id: string }> };
     }>(deckResponse);
 
     expect(deckResponse.status).toBe(200);
@@ -104,6 +124,7 @@ describe('Cloud Engine creation-to-worker flow', () => {
     expect(deck.cards[0]?.metrics).toEqual([
       expect.objectContaining({ metricType: 'arr', value: 123 }),
     ]);
+    expect(deck.researchTrace.events).toEqual([expect.objectContaining({ id: 'trace_1' })]);
   });
 
   it('returns the VerifyMetricResult shape consumed by the living deck', async () => {

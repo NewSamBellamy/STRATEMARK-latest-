@@ -185,6 +185,11 @@ export class CloudDeckWorker {
 
     await this.updateDeckState(id, () => ({
       cards: finalCards,
+      researchTrace: {
+        events: run.trace.slice(-500),
+        statuses: run.statuses,
+        summary: run.summary,
+      },
       state: { status: finalStatus, ...(isFailed ? { error: failedReason } : {}) }
     }));
 
