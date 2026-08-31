@@ -614,7 +614,6 @@ export function createApp(
       const question = input.question || '';
       const uid = await getUserId(c);
       
-      const env = c.env as ServiceEnv;
       const db = getFirestore();
       
       let resolved;
@@ -706,7 +705,10 @@ export function createApp(
       const uid = await getUserId(c);
       if (!uid) return c.json({ error: 'Unauthorized' }, 401);
 
-      const deckRec = await store.getDeck(deckId);
+      let deckRec = await store.getDeck(deckId);
+      if (!deckRec && deckId.startsWith('mkt_')) {
+        deckRec = (await store.getDeck(`deck_${deckId.slice(4)}`)) || (await store.getDeck(`dck_${deckId.slice(4)}`));
+      }
       if (!deckRec || (deckRec.userId && deckRec.userId !== uid)) {
         return c.json({ error: 'Deck not found' }, 404);
       }
@@ -714,7 +716,6 @@ export function createApp(
       const card = deckRec.cards?.find((c: CardWithCompany) => c.company?.id === companyId);
       if (!card || !card.company) return c.json({ error: 'Company not found in deck' }, 404);
 
-      const env = c.env as ServiceEnv;
       const resolved = resolveClient({
         env,
         callerKey: c.req.header('X-Gemini-Key') || undefined,

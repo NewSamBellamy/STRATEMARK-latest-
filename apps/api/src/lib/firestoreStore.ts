@@ -467,6 +467,7 @@ export class FirestoreDataStore implements StratemarkDataStore {
       options?.firestore ??
       new Firestore({
         ...(options?.projectId ? { projectId: options.projectId } : {}),
+        ignoreUndefinedProperties: true,
       });
     this.decksCol = options?.decksCollection ?? 'decks';
     this.marketsCol = options?.marketsCollection ?? 'markets';
