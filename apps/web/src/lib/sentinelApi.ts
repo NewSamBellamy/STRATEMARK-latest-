@@ -58,6 +58,7 @@ export interface CloudResearchDeckResponse {
   ok: boolean;
   stage?: string;
   deckId?: string;
+  state?: { status?: string; error?: string };
   market?: Record<string, unknown>;
   deck?: Record<string, unknown>;
   cards?: Array<Record<string, unknown>>;

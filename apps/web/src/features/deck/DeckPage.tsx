@@ -1,13 +1,16 @@
 import { useMemo, useEffect, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
+  AlertCircle,
   ArrowLeft,
   ChevronRight,
   FileText,
   Layers,
+  Loader2,
   MessagesSquare,
   MoreHorizontal,
   Newspaper,
+  Radar,
   RefreshCw,
   Search,
   Settings,
@@ -95,6 +98,11 @@ export default function DeckPage() {
   const cards = useCards(deckId);
   const refreshDeck = useRefreshDeck();
   const { chat } = useDeepDive();
+
+  const deckStatus = (deck.data as { status?: string } | null)?.status;
+  const isRunning = deckStatus === 'running';
+  const isFailed = deckStatus === 'failed';
+  const deckError = (deck.data as { error?: string } | null)?.error;
 
   // Compare mode: select cards, then ask a grounded question about exactly
   // that set. Selection is deck-page state — leaving the page clears it.
@@ -288,22 +296,63 @@ export default function DeckPage() {
         loading={<CardGridSkeleton />}
         isEmpty={(list) => list.length === 0}
         empty={
-          <EmptyState
-            title="No cards yet"
-            description="Run the research pass to populate this deck with competitive-intelligence cards."
-            icon={<Layers className="h-6 w-6" />}
-            action={
-              <button
-                type="button"
-                className="btn-primary mt-2"
-                disabled={refreshDeck.isPending || !marketId}
-                onClick={() => marketId && refreshDeck.mutate(marketId)}
-              >
-                <RefreshCw className={`h-4 w-4 ${refreshDeck.isPending ? 'animate-spin' : ''}`} />
-                {refreshDeck.isPending ? 'Researching…' : 'Run research'}
-              </button>
-            }
-          />
+          isRunning ? (
+            <div className="panel mx-auto max-w-xl p-8 text-center glow-border my-6">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Radar className="h-6 w-6 animate-pulse text-primary" />
+              </div>
+              <h2 className="mt-4 font-display text-xl font-semibold text-content">
+                Sentinel Cloud Agent is researching this market
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted">
+                Running multi-vector discovery, 24/7 web scraping, and CourtListener legal monitors. Verified company cards and proxy estimates will appear automatically as they are built.
+              </p>
+              <div className="mt-6 flex items-center justify-center gap-2 text-xs text-primary font-medium">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Streaming live updates…</span>
+              </div>
+            </div>
+          ) : isFailed ? (
+            <div className="panel mx-auto max-w-xl p-8 text-center border-negative/30 bg-negative/5 my-6">
+              <AlertCircle className="mx-auto h-8 w-8 text-negative" />
+              <h2 className="mt-3 font-display text-xl font-semibold text-negative">
+                Research failed
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted">
+                {deckError || 'The research run failed or timed out.'}
+              </p>
+              <div className="mt-5 flex justify-center gap-2">
+                {marketId && (
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    disabled={refreshDeck.isPending}
+                    onClick={() => refreshDeck.mutate(marketId)}
+                  >
+                    <RefreshCw className={`h-4 w-4 ${refreshDeck.isPending ? 'animate-spin' : ''}`} />
+                    Retry research
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <EmptyState
+              title="No cards yet"
+              description="Run the research pass to populate this deck with competitive-intelligence cards."
+              icon={<Layers className="h-6 w-6" />}
+              action={
+                <button
+                  type="button"
+                  className="btn-primary mt-2"
+                  disabled={refreshDeck.isPending || !marketId}
+                  onClick={() => marketId && refreshDeck.mutate(marketId)}
+                >
+                  <RefreshCw className={`h-4 w-4 ${refreshDeck.isPending ? 'animate-spin' : ''}`} />
+                  {refreshDeck.isPending ? 'Researching…' : 'Run research'}
+                </button>
+              }
+            />
+          )
         }
       >
         {(list) => {

@@ -44,6 +44,13 @@ export function useDeckByMarket(marketId: string | undefined): UseQueryResult<De
     queryKey: qk.deck(marketId ?? ''),
     queryFn: () => repo.getDeckByMarket(marketId as string),
     enabled: !!marketId,
+    refetchInterval: (query) => {
+      const deck = query.state.data as { status?: string } | null;
+      if (deck?.status === 'running') {
+        return 3000;
+      }
+      return false;
+    },
   });
 }
 
@@ -52,6 +59,7 @@ export function useCards(
   filter?: CardFilter,
 ): UseQueryResult<CardWithCompany[]> {
   const repo = useRepository();
+  const qc = useQueryClient();
   return useQuery({
     queryKey: qk.cards(deckId ?? '', filter),
     queryFn: () => repo.listCards(deckId as string, filter),
@@ -65,6 +73,10 @@ export function useCards(
     refetchInterval: (query) => {
       const cards = query.state.data;
       if (cards && cards.some((c) => c.card.tier === null)) {
+        return 3000;
+      }
+      const cachedDeck = qc.getQueryData<Deck & { status?: string }>(qk.deck(deckId ?? ''));
+      if (cachedDeck?.status === 'running' || (cards && cards.length === 0 && cachedDeck?.status !== 'ready' && cachedDeck?.status !== 'failed')) {
         return 3000;
       }
       return false;

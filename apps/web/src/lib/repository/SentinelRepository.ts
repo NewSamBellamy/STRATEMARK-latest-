@@ -97,7 +97,8 @@ export class SentinelRepository implements MarketIntelRepository {
       if (marketList && marketList.length > 0) {
         const remoteMarkets: Market[] = marketList.map((d: CloudRecord) => {
           const marketId = String(d.marketId || d.id || `mkt_${String(d.id)}`);
-          const market: CloudMarket = {
+          const status = (d.status as string) || (d.state as { status?: string } | undefined)?.status;
+          const market: CloudMarket & { status?: string } = {
             id: marketId,
             name: String(d.marketName || d.name || d.title || d.prompt || 'Sentinel Cloud Market'),
             scopeDefinition: {
@@ -108,6 +109,7 @@ export class SentinelRepository implements MarketIntelRepository {
             refreshCadence: 'weekly',
             createdAt: String(d.createdAt || new Date().toISOString()),
             engine: 'cloud',
+            ...(status ? { status } : {}),
           };
           this.memoryMarkets.set(marketId, market);
           return market;
@@ -211,8 +213,12 @@ export class SentinelRepository implements MarketIntelRepository {
   }
 
   async getDeckByMarket(marketId: string): Promise<Deck | null> {
-    if (this.memoryDecks.has(marketId)) {
-      return this.memoryDecks.get(marketId)!;
+    const cached = this.memoryDecks.get(marketId);
+    const isRunning = (cached as { status?: string } | undefined)?.status === 'running' ||
+                      (cached as { state?: { status?: string } } | undefined)?.state?.status === 'running';
+
+    if (cached && !isRunning) {
+      return cached;
     }
 
     try {
@@ -225,14 +231,19 @@ export class SentinelRepository implements MarketIntelRepository {
       const cloudPayload = await getCloudDeck(targetDeckId);
       if (cloudPayload && cloudPayload.deck) {
         const d: CloudRecord = cloudPayload.deck;
-        const deck: CloudDeck = {
+        const stateRecord = (cloudPayload as CloudRecord).state as CloudRecord | undefined;
+        const status = (stateRecord?.status as string) || (d.status as string) || 'ready';
+        const deck: CloudDeck & { status?: string; error?: string } = {
           id: String(d.id || `dck_${marketId}`),
           marketId: String(d.marketId || marketId),
           createdAt: String(d.createdAt || new Date().toISOString()),
           lastRefreshedAt: String(d.lastRefreshedAt || new Date().toISOString()),
           engine: 'cloud',
+          status,
+          ...(stateRecord?.error ? { error: String(stateRecord.error) } : {}),
         };
         this.memoryDecks.set(marketId, deck);
+        this.memoryDecks.set(deck.id, deck);
 
         // Process cards if returned in payload
         if (cloudPayload.cards && cloudPayload.cards.length > 0) {
@@ -246,6 +257,7 @@ export class SentinelRepository implements MarketIntelRepository {
       console.warn(`Failed to fetch cloud deck for market ${marketId}:`, err);
     }
 
+    if (cached) return cached;
     return this.fallbackRepo.getDeckByMarket(marketId);
   }
 
@@ -293,13 +305,17 @@ export class SentinelRepository implements MarketIntelRepository {
     };
 
     const deckRecord: CloudRecord = (res.deck as CloudRecord | undefined) ?? {};
+    const stateRecord = res.state as CloudRecord | undefined;
     const deckId = String(returnedDeckId || deckRecord.id || res.result?.deck?.id || `dck_${marketId.replace(/^mkt_/, '')}`);
-    const deck: CloudDeck = {
+    const status = (stateRecord?.status as string) || (deckRecord.status as string) || (res.deckId ? 'running' : 'ready');
+    const deck: CloudDeck & { status?: string; error?: string } = {
       id: deckId,
       marketId,
       createdAt: new Date().toISOString(),
       lastRefreshedAt: new Date().toISOString(),
       engine: 'cloud',
+      status,
+      ...(stateRecord?.error ? { error: String(stateRecord.error) } : {}),
     };
 
     this.memoryMarkets.set(market.id, market);
@@ -323,8 +339,12 @@ export class SentinelRepository implements MarketIntelRepository {
   }
 
   async listCards(deckId: string, filter?: CardFilter): Promise<CardWithCompany[]> {
-    if (this.memoryCards.has(deckId)) {
-      let list = this.memoryCards.get(deckId)!;
+    const cachedCards = this.memoryCards.get(deckId);
+    const cachedDeck = this.memoryDecks.get(deckId);
+    const isRunning = (cachedDeck as { status?: string } | undefined)?.status === 'running';
+
+    if (cachedCards && cachedCards.length > 0 && !isRunning) {
+      let list = cachedCards;
       if (filter?.cardType) {
         list = list.filter((c) => c.card.cardType === filter.cardType);
       }
@@ -333,7 +353,7 @@ export class SentinelRepository implements MarketIntelRepository {
 
     try {
       const cloudPayload = await getCloudDeck(deckId);
-      if (cloudPayload && cloudPayload.cards) {
+      if (cloudPayload && cloudPayload.cards && cloudPayload.cards.length > 0) {
         const cardsWithCompany = this.mapCloudCards(cloudPayload);
         this.memoryCards.set(deckId, cardsWithCompany);
         if (filter?.cardType) {
@@ -343,6 +363,10 @@ export class SentinelRepository implements MarketIntelRepository {
       }
     } catch (err) {
       console.warn(`Failed to fetch cloud cards for deck ${deckId}:`, err);
+    }
+
+    if (cachedCards && cachedCards.length > 0) {
+      return cachedCards;
     }
 
     return this.fallbackRepo.listCards(deckId, filter);
@@ -522,13 +546,17 @@ export class SentinelRepository implements MarketIntelRepository {
     };
 
     const deckRecord: CloudRecord = (res.deck as CloudRecord | undefined) ?? {};
+    const stateRecord = res.state as CloudRecord | undefined;
     const deckId = String(returnedDeckId || deckRecord.id || res.result?.deck?.id || `dck_${marketId.replace(/^mkt_/, '')}`);
-    const deck: CloudDeck = {
+    const status = (stateRecord?.status as string) || (deckRecord.status as string) || (res.deckId ? 'running' : 'ready');
+    const deck: CloudDeck & { status?: string; error?: string } = {
       id: deckId,
       marketId,
       createdAt: new Date().toISOString(),
       lastRefreshedAt: new Date().toISOString(),
       engine: 'cloud',
+      status,
+      ...(stateRecord?.error ? { error: String(stateRecord.error) } : {}),
     };
 
     this.memoryMarkets.set(market.id, market);
