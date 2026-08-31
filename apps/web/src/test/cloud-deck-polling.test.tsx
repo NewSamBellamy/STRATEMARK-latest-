@@ -85,6 +85,16 @@ describe('Cloud Deck Polling & UI State', () => {
       state: { status: 'running' },
     });
 
+    vi.spyOn(sentinelApi, 'getCloudDeck').mockResolvedValue({
+      deck: { id: 'deck_test_cloud', marketId: 'deck_test_cloud', status: 'running' },
+      market: { id: 'deck_test_cloud', name: 'Frontier AI Research' },
+      cards: [],
+      companies: [],
+      metrics: [],
+      viceClaims: [],
+      state: { status: 'running' },
+    });
+
     render(
       <TestWrapper repo={repo}>
         <Routes>
@@ -106,6 +116,16 @@ describe('Cloud Deck Polling & UI State', () => {
       ok: true,
       deckId: 'deck_test_cloud',
       market: { id: 'deck_test_cloud', name: 'Frontier AI Research' },
+      state: { status: 'failed', error: 'Research timed out or was aborted' },
+    });
+
+    vi.spyOn(sentinelApi, 'getCloudDeck').mockResolvedValue({
+      deck: { id: 'deck_test_cloud', marketId: 'deck_test_cloud', status: 'failed' },
+      market: { id: 'deck_test_cloud', name: 'Frontier AI Research' },
+      cards: [],
+      companies: [],
+      metrics: [],
+      viceClaims: [],
       state: { status: 'failed', error: 'Research timed out or was aborted' },
     });
 
