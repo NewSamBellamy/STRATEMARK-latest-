@@ -176,6 +176,35 @@ describe('CloudDeckService', () => {
     expect(deck?.state).toEqual({ status: 'failed', error: 'queue unavailable' });
   });
 
+  it('preserves partial cards when a Cloud Deck creation is retried', async () => {
+    const store = new MemoryDataStore();
+    const tasks: TasksAdapter = {
+      enqueueDeckCreation: vi.fn(),
+      enqueueDeckRefresh: vi.fn(),
+    };
+    const service = new CloudDeckService(store, mockAuth, mockEntitlement, tasks);
+    const plan = { marketName: 'Robotics', vertical: 'Hardware', geography: null, notes: null, searchThemes: [] };
+    await service.saveDeck('user_pro', 'deck_partial_retry', {
+      deck: { id: 'deck_partial_retry' },
+      market: { id: 'deck_partial_retry' },
+      cards: [{ card: { id: 'card_existing' } } as never],
+      plan,
+      state: { status: 'partial' },
+      userId: 'user_pro',
+    });
+
+    await service.enqueueCreation({
+      deckId: 'deck_partial_retry',
+      userId: 'user_pro',
+      plan,
+      query: 'Robotics',
+    });
+
+    const deck = await service.getDeck('user_pro', 'deck_partial_retry');
+    expect(deck?.cards.map((card) => card.card.id)).toEqual(['card_existing']);
+    expect(deck?.state).toEqual({ status: 'running' });
+  });
+
   it('creates a new deck identity when a changed market plan is provided for an existing deckId', async () => {
     const store = new MemoryDataStore();
     const mockTasks: TasksAdapter = {

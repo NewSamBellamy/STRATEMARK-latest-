@@ -507,6 +507,7 @@ export class FirestoreDataStore implements StratemarkDataStore {
           cards: record.cards,
           plan: record.plan ?? null,
           state: record.state ?? null,
+          ...(record.researchTrace ? { researchTrace: record.researchTrace } : {}),
           query:
             record.query ??
             (typeof record.plan?.marketName === 'string' ? record.plan.marketName : '') ??
@@ -576,6 +577,7 @@ export class FirestoreDataStore implements StratemarkDataStore {
       cards: Array.isArray(data.cards) ? (data.cards as CardWithCompany[]) : [],
       plan: data.plan as Record<string, unknown> | undefined,
       state: data.state as Record<string, unknown> | undefined,
+      researchTrace: data.researchTrace as StoredDeckRecord['researchTrace'] | undefined,
       userId: typeof data.userId === 'string' ? data.userId : undefined,
       createdAt: tsToStr(data.createdAt),
       updatedAt: tsToStr(data.updatedAt),

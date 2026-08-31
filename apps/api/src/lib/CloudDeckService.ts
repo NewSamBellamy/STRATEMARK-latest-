@@ -66,7 +66,7 @@ export class FirebaseAdapter implements AuthAdapter, EntitlementAdapter {
       if (!uid || typeof uid !== 'string') return false;
       const db = getFirestore();
       const doc = await db.collection('entitlements').doc(uid).get();
-      if (!doc.exists) return true; // Default to allowed for authenticated users unless explicitly revoked
+       if (!doc.exists) return false; // Cloud work requires an explicit entitlement record.
       const data = doc.data();
       const status = data?.status;
       const tier = data?.tier;
@@ -218,6 +218,7 @@ export class CloudDeckService {
       throw new Error('Cloud Tasks is not configured');
     }
     
+    const requestedDeckId = payload.deckId;
     // A changed plan or Market Scope creates a new deck rather than mutating the old operation
     const existing = await this.getDeck(payload.userId, payload.deckId);
     if (existing) {
@@ -234,6 +235,13 @@ export class CloudDeckService {
         }
       }
     }
+
+    const resumeCards =
+      existing &&
+      payload.deckId === requestedDeckId &&
+      existing.state?.status === 'partial'
+        ? existing.cards
+        : [];
 
     // Save initial running state
     const now = new Date().toISOString();
@@ -257,7 +265,7 @@ export class CloudDeckService {
     await this.saveDeck(payload.userId, payload.deckId, {
       deck: deckObj,
       market: marketObj,
-      cards: [],
+      cards: resumeCards,
       plan: payload.plan,
       state: { status: 'running' },
       userId: payload.userId,

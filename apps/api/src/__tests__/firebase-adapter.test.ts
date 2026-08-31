@@ -23,6 +23,7 @@ import { FirebaseAdapter } from '../lib/CloudDeckService';
 describe('FirebaseAdapter', () => {
   beforeEach(() => {
     verifyIdToken.mockReset();
+    getFirestore.mockReset();
   });
 
   it('rejects raw bearer strings when Firebase rejects token verification', async () => {
@@ -43,6 +44,17 @@ describe('FirebaseAdapter', () => {
     getFirestore.mockReturnValue({
       collection: () => ({
         doc: () => ({ get: vi.fn().mockRejectedValue(new Error('Firestore unavailable')) }),
+      }),
+    });
+    const adapter = new FirebaseAdapter();
+
+    await expect(adapter.hasActiveEntitlement('firebase_uid')).resolves.toBe(false);
+  });
+
+  it('requires an explicit entitlement record', async () => {
+    getFirestore.mockReturnValue({
+      collection: () => ({
+        doc: () => ({ get: vi.fn().mockResolvedValue({ exists: false }) }),
       }),
     });
     const adapter = new FirebaseAdapter();

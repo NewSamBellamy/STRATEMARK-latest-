@@ -167,10 +167,12 @@ export class CloudDeckWorker {
 
     // Determine final status
     const isFailed = run.aborted || run.state.status === 'failed';
-    const finalStatus = isFailed ? 'failed' : 'ready';
+    const isPartial = !isFailed && run.enrichmentFailures.length > 0;
+    const finalStatus = isFailed ? 'failed' : isPartial ? 'partial' : 'ready';
     const failedReason = run.aborted
       ? 'Research timed out or was aborted'
-      : run.statuses.find((status) => status.state === 'failed')?.error ?? 'Research failed';
+      : run.statuses.find((status) => status.state === 'failed')?.error ??
+        (isPartial ? 'Some research units failed; coverage is incomplete' : 'Research failed');
 
     const cardMap = new Map<string, CardWithCompany>();
     for (const c of currentCards) {
@@ -190,11 +192,11 @@ export class CloudDeckWorker {
         statuses: run.statuses,
         summary: run.summary,
       },
-      state: { status: finalStatus, ...(isFailed ? { error: failedReason } : {}) }
+      state: { status: finalStatus, ...(isFailed || isPartial ? { error: failedReason } : {}) }
     }));
 
-    if (isFailed) {
-      logger.logWarn(`Cloud Deck research ended in failed status: ${failedReason}`, {
+    if (isFailed || isPartial) {
+      logger.logWarn(`Cloud Deck research ended in ${finalStatus} status: ${failedReason}`, {
         deckId,
         totalMs: run.totalMs,
       });

@@ -116,6 +116,41 @@ describe('CloudDeckWorker', () => {
     expect(d?.cards?.[0]?.card?.id).toBe('c1');
   });
 
+  it('keeps incomplete hydration in partial state instead of claiming ready', async () => {
+    await service.saveDeck('user_pro', 'deck_partial_result', {
+      deck: { id: 'deck_partial_result' },
+      market: { id: 'deck_partial_result' },
+      cards: [],
+      plan: { marketName: 'Test', vertical: 'Test', geography: null, notes: null, searchThemes: [] },
+      state: { status: 'running' },
+    });
+
+    vi.mocked(runLivingDeckEngine).mockResolvedValueOnce({
+      aborted: false,
+      state: { status: 'settled' } as unknown as LivingDeckRun['state'],
+      hydrated: [{ cards: [{ card: { id: 'c1' }, company: null, metrics: [], viceClaims: [] }] }],
+      topology: null,
+      enrichmentFailures: [{ companyName: 'Missing Co', error: 'source unavailable' }],
+      watch: null,
+      statuses: [],
+      trace: [],
+      summary: {} as unknown as LivingDeckRun['summary'],
+      bootMs: 100,
+      totalMs: 500,
+    } as unknown as LivingDeckRun);
+
+    await worker.processDeckCreation({
+      deckId: 'deck_partial_result',
+      userId: 'user_pro',
+      plan: { marketName: 'Test', vertical: 'Test', geography: null, notes: null, searchThemes: [] },
+      query: 'Test',
+    });
+
+    const d = await service.getDeck('user_pro', 'deck_partial_result');
+    expect(d?.state?.status).toBe('partial');
+    expect(d?.cards).toHaveLength(1);
+  });
+
   it('saves partial checkpoints on card events', async () => {
     await service.saveDeck('user_pro', 'deck_2', {
       deck: { id: 'deck_2' },

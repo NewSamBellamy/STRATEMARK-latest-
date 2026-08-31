@@ -260,13 +260,8 @@ export class SentinelRepository implements MarketIntelRepository {
   }
 
   async updateMarketCadence(id: string, cadence: RefreshCadence): Promise<Market> {
-    const market = await this.getMarket(id);
-    if (market) {
-      market.refreshCadence = cadence;
-      this.memoryMarkets.set(id, market);
-      return market;
-    }
-    return this.fallbackRepo.updateMarketCadence(id, cadence);
+    void cadence;
+    throw new Error(`Cloud market cadence updates are not available through Sentinel yet: ${id}`);
   }
 
   async deleteMarket(id: string): Promise<boolean> {
@@ -616,21 +611,12 @@ export class SentinelRepository implements MarketIntelRepository {
   }
 
   async saveCard(cardId: string): Promise<SavedCard> {
-    try {
-      await saveCloudCard(cardId);
-    } catch {
-      /* ignore */
-    }
-    return this.fallbackRepo.saveCard(cardId);
+    await saveCloudCard(cardId);
+    return { cardId, savedAt: new Date().toISOString() };
   }
 
   async unsaveCard(cardId: string): Promise<void> {
-    try {
-      await unsaveCloudCard(cardId);
-    } catch {
-      /* ignore */
-    }
-    return this.fallbackRepo.unsaveCard(cardId);
+    await unsaveCloudCard(cardId);
   }
 
   async getCompany(companyId: string): Promise<Company | null> {
@@ -669,11 +655,13 @@ export class SentinelRepository implements MarketIntelRepository {
   }
 
   async deepDive(input: DeepDiveInput): Promise<DeepDiveResult> {
-    return this.fallbackRepo.deepDive(input);
+    void input;
+    throw new Error('Cloud deep-dive research is not available through Sentinel yet.');
   }
 
   async factCheck(input: FactCheckInput): Promise<FactCheckResult> {
-    return this.fallbackRepo.factCheck(input);
+    void input;
+    throw new Error('Cloud fact-check research is not available through Sentinel yet.');
   }
 
 
@@ -750,55 +738,60 @@ export class SentinelRepository implements MarketIntelRepository {
   }
 
   async askResearch(input: AskResearchInput): Promise<ResearchThread> {
-    try {
-      const res = await askCloudResearch(input);
-      if (res && res.id && Array.isArray(res.messages)) {
-        return res as unknown as ResearchThread;
-      }
-    } catch {
-      /* fallback to local mock repository */
+    const res = await askCloudResearch(input);
+    if (res && res.id && Array.isArray(res.messages)) {
+      return res as unknown as ResearchThread;
     }
-    return (this.fallbackRepo as MarketIntelRepository).askResearch!(input);
+    throw new Error('Sentinel returned an invalid research thread.');
   }
 
   async listResearchThreads(filter?: { deckId?: string; companyId?: string }): Promise<ResearchThread[]> {
-    return (this.fallbackRepo as MarketIntelRepository).listResearchThreads!(filter);
+    void filter;
+    return [];
   }
 
   async getResearchThread(id: string): Promise<ResearchThread | null> {
-    return (this.fallbackRepo as MarketIntelRepository).getResearchThread!(id);
+    void id;
+    return null;
   }
 
   async saveThreadAsReport(threadId: string, focus?: string | null): Promise<Report> {
-    return (this.fallbackRepo as MarketIntelRepository).saveThreadAsReport!(threadId, focus);
+    void threadId;
+    void focus;
+    throw new Error('Cloud report creation from research threads is not available through Sentinel yet.');
   }
 
   async listResearchJobs(): Promise<ResearchJob[]> {
-    return (this.fallbackRepo as MarketIntelRepository).listResearchJobs!();
+    return [];
   }
 
   async getResearchJob(id: string): Promise<ResearchJob | null> {
-    return (this.fallbackRepo as MarketIntelRepository).getResearchJob!(id);
+    void id;
+    return null;
   }
 
   async cancelResearchJob(id: string): Promise<ResearchJob | null> {
-    return (this.fallbackRepo as MarketIntelRepository).cancelResearchJob!(id);
+    void id;
+    return null;
   }
 
   async resumeResearchJob(id: string): Promise<ResearchJob | null> {
-    return (this.fallbackRepo as MarketIntelRepository).resumeResearchJob!(id);
+    void id;
+    return null;
   }
 
   async generateReport(request: ReportRequest): Promise<Report> {
-    return this.fallbackRepo.generateReport(request);
+    void request;
+    throw new Error('Cloud report generation is not available through Sentinel yet.');
   }
 
   async listReports(): Promise<Report[]> {
-    return this.fallbackRepo.listReports();
+    return [];
   }
 
   async getReport(id: string): Promise<Report | null> {
-    return this.fallbackRepo.getReport(id);
+    void id;
+    return null;
   }
 
   subscribeDeckRefresh(_listener: DeckRefreshListener): Unsubscribe {

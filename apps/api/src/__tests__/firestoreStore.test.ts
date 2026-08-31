@@ -129,6 +129,19 @@ describe('MemoryDataStore', () => {
 
 describe('FirestoreDataStore', () => {
   it('interacts with Firestore API collections for decks and markets', async () => {
+    const researchTrace = {
+      events: [],
+      statuses: [],
+      summary: {
+        invocationIds: [],
+        totalEvents: 0,
+        eventsByPhase: {},
+        errorCount: 0,
+        escalated: false,
+        wallClockMs: 0,
+        authors: [],
+      },
+    } as unknown as StoredDeckRecord['researchTrace'];
     const mockDocSet = vi.fn(async () => undefined);
     const mockDocDelete = vi.fn(async () => undefined);
     const mockDocGet = vi.fn(async () => ({
@@ -138,6 +151,7 @@ describe('FirestoreDataStore', () => {
         deck: { id: 'deck_f1', title: 'Frontier AI' },
         market: { id: 'deck_f1', name: 'Frontier AI' },
         cards: [],
+        researchTrace,
         query: 'Frontier AI',
         userId: 'user_99',
         revision: 1
@@ -193,16 +207,20 @@ describe('FirestoreDataStore', () => {
       market: { id: 'deck_f1', name: 'Frontier AI' },
       cards: [],
       userId: 'user_99',
+      researchTrace,
     }, 1);
 
     expect(mockRunTransaction).toHaveBeenCalled();
     expect(mockDocSet).toHaveBeenCalledTimes(2); // one for deck, one for market
+    const firstSetCall = mockDocSet.mock.calls[0] as unknown as [unknown, Record<string, unknown>];
+    expect(firstSetCall[1]).toEqual(expect.objectContaining({ researchTrace }));
 
     // Rejection on revision mismatch
     await expect(store.saveDeck('deck_f1', { deck: {}, market: {}, cards: [], userId: 'user_99' }, 2)).rejects.toThrow(/Revision mismatch/);
 
     const deck = await store.getDeck('deck_f1');
     expect(deck?.deck.title).toBe('Frontier AI');
+    expect(deck?.researchTrace).toEqual(researchTrace);
 
     const decks = await store.listDecks('user_99');
     expect(decks.length).toBe(1);
