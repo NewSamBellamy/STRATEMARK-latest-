@@ -59,6 +59,46 @@ interface CloudCardPayload {
   metrics?: CloudRecord[];
   viceClaims?: CloudRecord[];
 }
+
+export interface CachedCloudEntry {
+  deck?: CloudDeck & { revision?: number; lastSyncedAt?: string; stale?: boolean; isOffline?: boolean };
+  market?: CloudMarket & { revision?: number; lastSyncedAt?: string; stale?: boolean; isOffline?: boolean };
+  cards?: CardWithCompany[];
+  lastSyncedAt: string;
+  revision: number;
+  pendingDeletion?: boolean;
+}
+
+const CLOUD_CACHE_KEY = 'mi.cloud.cache.v1';
+
+function readCloudCache(): Map<string, CachedCloudEntry> {
+  const map = new Map<string, CachedCloudEntry>();
+  try {
+    if (typeof localStorage === 'undefined') return map;
+    const raw = localStorage.getItem(CLOUD_CACHE_KEY);
+    if (!raw) return map;
+    const entries = JSON.parse(raw) as Record<string, CachedCloudEntry>;
+    for (const [k, v] of Object.entries(entries)) {
+      map.set(k, v);
+    }
+  } catch {
+    /* ignore parse errors */
+  }
+  return map;
+}
+
+function writeCloudCache(map: Map<string, CachedCloudEntry>): void {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    const obj: Record<string, CachedCloudEntry> = {};
+    for (const [k, v] of map.entries()) {
+      obj[k] = v;
+    }
+    localStorage.setItem(CLOUD_CACHE_KEY, JSON.stringify(obj));
+  } catch {
+    /* quota/error handling */
+  }
+}
 import {
   deleteCloudDeck,
   getCloudDeck,
@@ -95,10 +135,13 @@ export class SentinelRepository implements MarketIntelRepository {
       ]);
       const marketList = cloudMarkets.length > 0 ? cloudMarkets : cloudDecks;
       if (marketList && marketList.length > 0) {
+        const cache = readCloudCache();
+        const now = new Date().toISOString();
         const remoteMarkets: Market[] = marketList.map((d: CloudRecord) => {
           const marketId = String(d.marketId || d.id || `mkt_${String(d.id)}`);
           const status = (d.status as string) || (d.state as { status?: string } | undefined)?.status;
-          const market: CloudMarket & { status?: string } = {
+          const revision = typeof d.revision === 'number' ? d.revision : 1;
+          const market: CloudMarket & { status?: string; revision?: number; lastSyncedAt?: string; stale?: boolean; isOffline?: boolean } = {
             id: marketId,
             name: String(d.marketName || d.name || d.title || d.prompt || 'Sentinel Cloud Market'),
             scopeDefinition: {
@@ -107,13 +150,27 @@ export class SentinelRepository implements MarketIntelRepository {
               notes: (d.notes || null) as string | null,
             },
             refreshCadence: 'weekly',
-            createdAt: String(d.createdAt || new Date().toISOString()),
+            createdAt: String(d.createdAt || now),
             engine: 'cloud',
+            revision,
+            lastSyncedAt: now,
             ...(status ? { status } : {}),
           };
           this.memoryMarkets.set(marketId, market);
+
+          const existingCache = cache.get(marketId) || cache.get(`dck_${marketId}`) || cache.get(`deck_${marketId}`);
+          cache.set(marketId, {
+            ...existingCache,
+            market,
+            lastSyncedAt: now,
+            revision,
+            pendingDeletion: false,
+          });
+
           return market;
         });
+
+        writeCloudCache(cache);
 
         // Combine with any locally created memory markets
         for (const localM of this.memoryMarkets.values()) {
@@ -125,6 +182,27 @@ export class SentinelRepository implements MarketIntelRepository {
       }
     } catch (err) {
       console.warn('Failed to fetch remote markets from Sentinel Cloud:', err);
+    }
+
+    // Check local persistent cloud cache first for offline/outage state
+    const cache = readCloudCache();
+    const cachedMarkets: Market[] = [];
+    for (const [id, entry] of cache.entries()) {
+      if (entry.pendingDeletion) continue;
+      if (entry.market && !cachedMarkets.some(m => m.id === id || m.id === entry.market?.id)) {
+        const staleMarket: Market = {
+          ...entry.market,
+          stale: true,
+          isOffline: true,
+          lastSyncedAt: entry.lastSyncedAt,
+          revision: entry.revision,
+        } as unknown as Market;
+        cachedMarkets.push(staleMarket);
+        this.memoryMarkets.set(id, staleMarket);
+      }
+    }
+    if (cachedMarkets.length > 0) {
+      return cachedMarkets;
     }
 
     // Fallback to memory markets or local mock repository
@@ -186,30 +264,83 @@ export class SentinelRepository implements MarketIntelRepository {
   }
 
   async deleteMarket(id: string): Promise<boolean> {
+    const existingMarket = this.memoryMarkets.get(id);
+    const isCloud = (existingMarket as CloudMarket)?.engine === 'cloud';
+
     this.memoryMarkets.delete(id);
     const deck = this.memoryDecks.get(id);
+    const targetDeckId = deck?.id || id;
     if (deck) {
       this.memoryDecks.delete(id);
       this.memoryDecks.delete(deck.id);
       this.memoryCards.delete(deck.id);
       this.memoryCards.delete(id);
-      await deleteCloudDeck(deck.id);
-    } else {
-      await deleteCloudDeck(id);
     }
-    await this.fallbackRepo.deleteMarket?.(id);
+    
+    const cache = readCloudCache();
+    try {
+      const res = await deleteCloudDeck(targetDeckId);
+      if (res) {
+        cache.delete(id);
+        cache.delete(targetDeckId);
+        writeCloudCache(cache);
+      }
+    } catch {
+      const entry1 = cache.get(id);
+      if (entry1) {
+        entry1.pendingDeletion = true;
+        cache.set(id, entry1);
+      }
+      const entry2 = cache.get(targetDeckId);
+      if (entry2) {
+        entry2.pendingDeletion = true;
+        cache.set(targetDeckId, entry2);
+      }
+      writeCloudCache(cache);
+    }
+
+    if (!isCloud) {
+      await this.fallbackRepo.deleteMarket?.(id);
+    }
     return true;
   }
 
   async deleteDeck(deckId: string): Promise<boolean> {
+    const existingDeck = this.memoryDecks.get(deckId);
+    const isCloud = (existingDeck as CloudDeck)?.engine === 'cloud';
+
     this.memoryDecks.delete(deckId);
     this.memoryCards.delete(deckId);
+    let matchedMarketId: string | undefined;
     for (const [mktId, m] of this.memoryMarkets.entries()) {
-      if (m.id === deckId) this.memoryMarkets.delete(mktId);
+      if (m.id === deckId) {
+        matchedMarketId = mktId;
+        this.memoryMarkets.delete(mktId);
+      }
     }
-    const res = await deleteCloudDeck(deckId);
-    await this.fallbackRepo.deleteDeck?.(deckId);
-    return res;
+
+    const cache = readCloudCache();
+    try {
+      const res = await deleteCloudDeck(deckId);
+      if (res) {
+        cache.delete(deckId);
+        if (matchedMarketId) cache.delete(matchedMarketId);
+        writeCloudCache(cache);
+      }
+      if (!isCloud) {
+        await this.fallbackRepo.deleteDeck?.(deckId);
+      }
+      return res;
+    } catch {
+      const entry = cache.get(deckId) || (matchedMarketId ? cache.get(matchedMarketId) : undefined);
+      if (entry) {
+        entry.pendingDeletion = true;
+        cache.set(deckId, entry);
+        if (matchedMarketId) cache.set(matchedMarketId, entry);
+        writeCloudCache(cache);
+      }
+      return true;
+    }
   }
 
   async getDeckByMarket(marketId: string): Promise<Deck | null> {
@@ -217,7 +348,7 @@ export class SentinelRepository implements MarketIntelRepository {
     const isRunning = (cached as { status?: string } | undefined)?.status === 'running' ||
                       (cached as { state?: { status?: string } } | undefined)?.state?.status === 'running';
 
-    if (cached && !isRunning) {
+    if (cached && !isRunning && !(cached as { stale?: boolean }).stale) {
       return cached;
     }
 
@@ -233,28 +364,74 @@ export class SentinelRepository implements MarketIntelRepository {
         const d: CloudRecord = cloudPayload.deck;
         const stateRecord = (cloudPayload as CloudRecord).state as CloudRecord | undefined;
         const status = (stateRecord?.status as string) || (d.status as string) || 'ready';
-        const deck: CloudDeck & { status?: string; error?: string } = {
+        const revision = typeof d.revision === 'number' ? d.revision : 1;
+        const now = new Date().toISOString();
+        const deck: CloudDeck & { status?: string; error?: string; revision?: number; lastSyncedAt?: string; stale?: boolean; isOffline?: boolean } = {
           id: String(d.id || `dck_${marketId}`),
           marketId: String(d.marketId || marketId),
-          createdAt: String(d.createdAt || new Date().toISOString()),
-          lastRefreshedAt: String(d.lastRefreshedAt || new Date().toISOString()),
+          createdAt: String(d.createdAt || now),
+          lastRefreshedAt: String(d.lastRefreshedAt || now),
           engine: 'cloud',
           status,
+          revision,
+          lastSyncedAt: now,
           ...(stateRecord?.error ? { error: String(stateRecord.error) } : {}),
         };
         this.memoryDecks.set(marketId, deck);
         this.memoryDecks.set(deck.id, deck);
 
         // Process cards if returned in payload
+        let cardsWithCompany: CardWithCompany[] = [];
         if (cloudPayload.cards && cloudPayload.cards.length > 0) {
-          const cardsWithCompany = this.mapCloudCards(cloudPayload);
+          cardsWithCompany = this.mapCloudCards(cloudPayload);
           this.memoryCards.set(deck.id, cardsWithCompany);
           this.memoryCards.set(marketId, cardsWithCompany);
         }
+
+        const cache = readCloudCache();
+        const existing = cache.get(marketId) || cache.get(deck.id);
+        cache.set(deck.id, {
+          ...existing,
+          deck,
+          cards: cardsWithCompany.length > 0 ? cardsWithCompany : existing?.cards,
+          lastSyncedAt: now,
+          revision,
+          pendingDeletion: false,
+        });
+        cache.set(marketId, {
+          ...existing,
+          deck,
+          cards: cardsWithCompany.length > 0 ? cardsWithCompany : existing?.cards,
+          lastSyncedAt: now,
+          revision,
+          pendingDeletion: false,
+        });
+        writeCloudCache(cache);
+
         return deck;
       }
     } catch (err) {
       console.warn(`Failed to fetch cloud deck for market ${marketId}:`, err);
+    }
+
+    // Offline / outage cache recovery
+    const cache = readCloudCache();
+    const cachedEntry = cache.get(marketId) || cache.get(`dck_${marketId}`) || cache.get(`deck_${marketId}`);
+    if (cachedEntry && !cachedEntry.pendingDeletion && cachedEntry.deck) {
+      const staleDeck: Deck = {
+        ...cachedEntry.deck,
+        stale: true,
+        isOffline: true,
+        lastSyncedAt: cachedEntry.lastSyncedAt,
+        revision: cachedEntry.revision,
+      } as unknown as Deck;
+      this.memoryDecks.set(marketId, staleDeck);
+      this.memoryDecks.set(staleDeck.id, staleDeck);
+      if (cachedEntry.cards && cachedEntry.cards.length > 0) {
+        this.memoryCards.set(staleDeck.id, cachedEntry.cards);
+        this.memoryCards.set(marketId, cachedEntry.cards);
+      }
+      return staleDeck;
     }
 
     if (cached) return cached;
@@ -322,11 +499,33 @@ export class SentinelRepository implements MarketIntelRepository {
     this.memoryDecks.set(market.id, deck);
     this.memoryDecks.set(deck.id, deck);
 
+    let cardsWithCompany: CardWithCompany[] = [];
     if (res.cards && res.cards.length > 0) {
-      const cardsWithCompany = this.mapCloudCards(res);
+      cardsWithCompany = this.mapCloudCards(res);
       this.memoryCards.set(deck.id, cardsWithCompany);
       this.memoryCards.set(market.id, cardsWithCompany);
     }
+
+    const cache = readCloudCache();
+    const now = new Date().toISOString();
+    const revision = (deck as { revision?: number }).revision ?? 1;
+    cache.set(deck.id, {
+      deck,
+      market,
+      cards: cardsWithCompany,
+      lastSyncedAt: now,
+      revision,
+      pendingDeletion: false,
+    });
+    cache.set(market.id, {
+      deck,
+      market,
+      cards: cardsWithCompany,
+      lastSyncedAt: now,
+      revision,
+      pendingDeletion: false,
+    });
+    writeCloudCache(cache);
 
     handlers?.onProgress?.({
       message: 'Sentinel Cloud Agent deck created successfully.',
@@ -339,7 +538,15 @@ export class SentinelRepository implements MarketIntelRepository {
   }
 
   async listCards(deckId: string, filter?: CardFilter): Promise<CardWithCompany[]> {
-    const cachedCards = this.memoryCards.get(deckId);
+    let cachedCards = this.memoryCards.get(deckId);
+    if (!cachedCards || cachedCards.length === 0) {
+      const cache = readCloudCache();
+      const entry = cache.get(deckId) || cache.get(`mkt_${deckId.replace(/^dck_/, '')}`);
+      if (entry && !entry.pendingDeletion && entry.cards && entry.cards.length > 0) {
+        cachedCards = entry.cards;
+        this.memoryCards.set(deckId, cachedCards);
+      }
+    }
     const cachedDeck = this.memoryDecks.get(deckId);
     const isRunning = (cachedDeck as { status?: string } | undefined)?.status === 'running';
 
@@ -568,6 +775,31 @@ export class SentinelRepository implements MarketIntelRepository {
       this.memoryCards.set(deck.id, cardsWithCompany);
       this.memoryCards.set(market.id, cardsWithCompany);
     }
+
+    const cache = readCloudCache();
+    const now = new Date().toISOString();
+    const revision = (res.deck as { revision?: number } | undefined)?.revision ?? 1;
+    let cardsWithCompany: CardWithCompany[] = [];
+    if (res.cards && res.cards.length > 0) {
+      cardsWithCompany = this.mapCloudCards(res);
+    }
+    cache.set(deck.id, {
+      deck,
+      market,
+      cards: cardsWithCompany,
+      lastSyncedAt: now,
+      revision,
+      pendingDeletion: false,
+    });
+    cache.set(market.id, {
+      deck,
+      market,
+      cards: cardsWithCompany,
+      lastSyncedAt: now,
+      revision,
+      pendingDeletion: false,
+    });
+    writeCloudCache(cache);
   }
 
   private mapCloudCards(payload: CloudCardPayload): CardWithCompany[] {

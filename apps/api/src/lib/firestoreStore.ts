@@ -207,6 +207,9 @@ export class MemoryDataStore implements StratemarkDataStore {
   async getDecks(): Promise<RefreshWorklistDeck[]> {
     const results: RefreshWorklistDeck[] = [];
     for (const [id, record] of this.decks.entries()) {
+      if (record.watch !== true) continue;
+      const status = (record.state as { status?: string })?.status;
+      if (status !== 'ready') continue;
       const planName = typeof record.plan?.marketName === 'string' ? record.plan.marketName : '';
       const marketName = typeof record.market?.name === 'string' ? record.market.name : '';
       const query = record.query || planName || marketName || id;
@@ -533,7 +536,11 @@ export class FirestoreDataStore implements StratemarkDataStore {
 
   // WorklistStore implementation
   async getDecks(): Promise<RefreshWorklistDeck[]> {
-    const snap = await this.firestore.collection(this.decksCol).limit(50).get();
+    const snap = await this.firestore
+      .collection(this.decksCol)
+      .where('watch', '==', true)
+      .limit(50)
+      .get();
     const decks: RefreshWorklistDeck[] = [];
     const tsToStr = (val: unknown) => {
       if (val && typeof val === 'object' && 'toDate' in val && typeof (val as { toDate: () => Date }).toDate === 'function') {
@@ -544,14 +551,16 @@ export class FirestoreDataStore implements StratemarkDataStore {
 
     snap.forEach((doc) => {
       const data = doc.data();
+      const status = (data?.state as { status?: string } | undefined)?.status ?? (data?.deck as { status?: string } | undefined)?.status;
+      if (status !== 'ready') return;
       if (data && (data.query || data.title || data.deckId || data.id)) {
-          decks.push({
-            deckId: String(data.deckId || doc.id),
-            userId: String(data.userId || 'unknown'),
-            query: String(data.query || data.title || doc.id),
-            updatedAt: tsToStr(data.updatedAt) ?? tsToStr(data.refreshedAt),
-            cards: Array.isArray(data.cards) ? data.cards : [],
-          });
+        decks.push({
+          deckId: String(data.deckId || doc.id),
+          userId: String(data.userId || 'unknown'),
+          query: String(data.query || data.title || doc.id),
+          updatedAt: tsToStr(data.updatedAt) ?? tsToStr(data.refreshedAt),
+          cards: Array.isArray(data.cards) ? data.cards : [],
+        });
       }
     });
     return decks;

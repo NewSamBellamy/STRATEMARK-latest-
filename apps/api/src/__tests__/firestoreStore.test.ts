@@ -30,6 +30,8 @@ describe('MemoryDataStore', () => {
       cards: [],
       plan: { marketName: 'AI Infrastructure', vertical: 'tech' },
       userId: 'user_123',
+      watch: true,
+      state: { status: 'ready' },
     };
 
     await store.saveDeck('deck_1', record);
@@ -151,6 +153,8 @@ describe('FirestoreDataStore', () => {
             deck: { id: 'deck_f1', title: 'Frontier AI' },
             query: 'Frontier AI',
             cards: [],
+            watch: true,
+            state: { status: 'ready' },
           }),
         });
       },

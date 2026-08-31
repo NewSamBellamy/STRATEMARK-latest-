@@ -142,4 +142,46 @@ describe('executeScheduledRefresh', () => {
     expect(res.refreshed).toBe(1);
     expect(mockTasksAdapter.enqueueDeckRefresh).toHaveBeenCalledWith(expect.objectContaining({ deckId: 'd2' }));
   });
+
+  it('filters out unwatched or non-ready decks in MemoryDataStore', async () => {
+    const { MemoryDataStore } = await import('../lib/firestoreStore');
+    const store = new MemoryDataStore();
+
+    // 1. Watched and ready -> ELIGIBLE
+    await store.saveDeck('d_eligible', {
+      deck: { id: 'd_eligible', title: 'Eligible Deck' },
+      market: { id: 'd_eligible' },
+      cards: [],
+      query: 'Eligible Deck',
+      watch: true,
+      state: { status: 'ready' },
+      userId: 'u1',
+    });
+
+    // 2. Not watched, but ready -> INELIGIBLE
+    await store.saveDeck('d_unwatched', {
+      deck: { id: 'd_unwatched', title: 'Unwatched Deck' },
+      market: { id: 'd_unwatched' },
+      cards: [],
+      query: 'Unwatched Deck',
+      watch: false,
+      state: { status: 'ready' },
+      userId: 'u1',
+    });
+
+    // 3. Watched, but still running -> INELIGIBLE
+    await store.saveDeck('d_running', {
+      deck: { id: 'd_running', title: 'Running Deck' },
+      market: { id: 'd_running' },
+      cards: [],
+      query: 'Running Deck',
+      watch: true,
+      state: { status: 'running' },
+      userId: 'u1',
+    });
+
+    const worklist = await store.getDecks();
+    expect(worklist.length).toBe(1);
+    expect(worklist[0]?.deckId).toBe('d_eligible');
+  });
 });
