@@ -444,9 +444,44 @@ export class SentinelRepository implements MarketIntelRepository {
   }
 
   async refreshDeck(marketId: string): Promise<Deck> {
-    const deck = await this.getDeckByMarket(marketId);
-    if (!deck) throw new Error(`Cloud Deck not found: ${marketId}`);
-    return deck;
+    const existing = await this.getDeckByMarket(marketId);
+    if (!existing) throw new Error(`Cloud Deck not found: ${marketId}`);
+
+    let targetCompanies = 10;
+    try {
+      const raw = Number(localStorage.getItem('mi.targetCompanies'));
+      if (Number.isFinite(raw) && raw >= 2 && raw <= 30) targetCompanies = raw;
+    } catch {
+      /* opaque origin */
+    }
+
+    const market = await this.getMarket(marketId);
+    const query = market?.name || existing.id;
+    const region = market?.scopeDefinition?.geography || null;
+
+    try {
+      await runCloudResearchDeck(query, region, targetCompanies, undefined, existing.id);
+    } catch (err) {
+      console.warn(`Failed to re-enqueue research for deck ${existing.id}:`, err);
+    }
+
+    const runningDeck: Deck & { status?: string } = {
+      ...existing,
+      status: 'running',
+    };
+
+    this.memoryDecks.set(marketId, runningDeck);
+    this.memoryDecks.set(existing.id, runningDeck);
+
+    const cache = readCloudCache();
+    const current = cache.get(existing.id) || cache.get(marketId);
+    if (current) {
+      cache.set(existing.id, { ...current, deck: runningDeck });
+      cache.set(marketId, { ...current, deck: runningDeck });
+      writeCloudCache(cache);
+    }
+
+    return runningDeck;
   }
 
   async createResearchedDeck(

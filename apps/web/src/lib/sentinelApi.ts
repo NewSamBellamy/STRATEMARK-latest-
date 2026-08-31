@@ -207,10 +207,17 @@ export async function runCloudResearchDeck(
   region?: string | null,
   targetCompanies?: number,
   token?: string | null,
+  deckId?: string,
 ): Promise<CloudResearchDeckResponse> {
   return fetchSentinel<CloudResearchDeckResponse>('/api/research/deck', {
     method: 'POST',
-    body: JSON.stringify({ prompt, region, targetCompanies }),
+    body: JSON.stringify({
+      prompt,
+      query: prompt,
+      region,
+      targetCompanies,
+      ...(deckId ? { deckId } : {}),
+    }),
     token,
   });
 }

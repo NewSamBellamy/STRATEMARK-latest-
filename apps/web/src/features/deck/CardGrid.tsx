@@ -23,6 +23,7 @@ export function CardGrid({
   cards,
   deckUserValues,
   marketId,
+  deckStatus,
   selectable = false,
   selected,
   onToggle,
@@ -31,6 +32,7 @@ export function CardGrid({
   deckUserValues: number[];
   /** Lets the reader hand the dashboard a real way back to this deck. */
   marketId?: string;
+  deckStatus?: 'running' | 'refreshing' | 'partial' | 'failed' | 'ready' | 'ready_stale';
   selectable?: boolean;
   selected?: Set<string>;
   onToggle?: (cardId: string) => void;
@@ -56,6 +58,7 @@ export function CardGrid({
               <GameCard
                 data={c}
                 deckUserValues={deckUserValues}
+                deckStatus={deckStatus}
                 onOpen={() => (selectable ? onToggle?.(c.card.id) : setActiveId(c.card.id))}
                 onShare={() => setShareTarget(c)}
                 className={cn(

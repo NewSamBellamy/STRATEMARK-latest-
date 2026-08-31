@@ -125,6 +125,8 @@ export interface LivingDeckEngineOptions {
   /** Enable the growth loop. Defaults to true. */
   watch?: boolean;
   watchIterations?: number;
+  /** Wall-clock budget for the whole run in ms. */
+  budgetMs?: number;
   /**
    * Proactive pacing, in requests per minute.
    *
@@ -324,7 +326,14 @@ export class LivingDeckEngine {
       onDelta: (delta) => this.applyDelta(delta),
     });
 
-    const nodes: AdkTaskNode[] = [instrumentedDiscovery, enrichmentNode];
+    const budgetMs = this.options.budgetMs ?? 540_000;
+    const discoveryBudgetMs = Math.min(120_000, budgetMs);
+    const enrichmentBudgetMs = Math.max(0, budgetMs - discoveryBudgetMs);
+
+    const nodes: AdkTaskNode[] = [
+      { ...instrumentedDiscovery, timeoutMs: discoveryBudgetMs },
+      { ...enrichmentNode, timeoutMs: enrichmentBudgetMs },
+    ];
 
     if (watchEnabled) {
       nodes.push(

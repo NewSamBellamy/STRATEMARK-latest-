@@ -99,7 +99,7 @@ export default function DeckPage() {
   const refreshDeck = useRefreshDeck();
   const { chat } = useDeepDive();
 
-  const deckStatus = (deck.data as { status?: string } | null)?.status;
+  const deckStatus = (deck.data as { status?: 'running' | 'refreshing' | 'partial' | 'failed' | 'ready' | 'ready_stale' } | null)?.status;
   const isRunning = deckStatus === 'running';
   const isPartial = deckStatus === 'partial';
   const isRefreshing = deckStatus === 'refreshing';
@@ -430,7 +430,7 @@ export default function DeckPage() {
                   Companies grouped by maturity tier — T8 giants down to T1 seeds.
                   <span className="text-faint"> {CARD_TYPE_DESCRIPTIONS.company}</span>
                 </p>
-                <TierSplit cards={list} deckUserValues={userValues} marketId={marketId} />
+                <TierSplit cards={list} deckUserValues={userValues} marketId={marketId} deckStatus={deckStatus} />
                 {/* The deck never hard-stops in this view either. */}
                 <div className="mt-8">
                   <ExpandPrompt
@@ -461,7 +461,7 @@ export default function DeckPage() {
                 </h2>
                 <p className="mb-3 text-[12px] text-faint">{CARD_TYPE_DESCRIPTIONS[typeParam]}</p>
                 {filtered.length > 0 ? (
-                  <CardGrid cards={filtered} deckUserValues={userValues} marketId={marketId} />
+                  <CardGrid cards={filtered} deckUserValues={userValues} marketId={marketId} deckStatus={deckStatus} />
                 ) : (
                   <ExpandPrompt marketId={marketId} focus={{ cardType: typeParam }} label={`Hunt for ${CARD_TYPE_LABELS[typeParam].toLowerCase()} players in this market`} />
                 )}
@@ -510,6 +510,7 @@ export default function DeckPage() {
                     cards={filtered}
                     deckUserValues={userValues}
                     marketId={marketId}
+                    deckStatus={deckStatus}
                     selectable={compare}
                     selected={selected}
                     onToggle={toggleSelected}
@@ -846,10 +847,12 @@ function TierSplit({
   cards,
   deckUserValues,
   marketId,
+  deckStatus,
 }: {
   cards: CardWithCompany[];
   deckUserValues: number[];
   marketId: string | undefined;
+  deckStatus?: 'running' | 'refreshing' | 'partial' | 'failed' | 'ready' | 'ready_stale';
 }) {
   const companyCards = cards.filter((c) => c.card.cardType === 'company');
   const byTier = new Map<MaturityTier, CardWithCompany[]>();
@@ -870,7 +873,7 @@ function TierSplit({
               <span className="ml-auto chip border-border text-muted">{group.length}</span>
             </div>
             {group.length > 0 ? (
-              <CardGrid cards={group} deckUserValues={deckUserValues} />
+              <CardGrid cards={group} deckUserValues={deckUserValues} marketId={marketId} deckStatus={deckStatus} />
             ) : (
               <ExpandPrompt
                 marketId={marketId}

@@ -87,6 +87,7 @@ export class CloudDeckWorker {
         plan,
         deckId,
         watch: watch ?? false,
+        budgetMs: 550_000,
         ...(maxCandidates === undefined ? {} : { maxCandidates }),
         signal: abortController.signal,
         onTrace: (traceEvent) => {

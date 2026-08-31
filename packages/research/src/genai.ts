@@ -75,9 +75,22 @@ export interface GenAiLike {
   };
 }
 
+/** A DOMException's legacy numeric `.code` is not an HTTP status (ABORT_ERR === 20). */
+export function isAbortError(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false;
+  const rec = err as { name?: unknown; code?: unknown; message?: unknown };
+  return (
+    rec.name === 'AbortError' ||
+    rec.code === 'ABORT_ERR' ||
+    rec.code === 20 ||
+    (typeof rec.message === 'string' && rec.message.includes('This operation was aborted'))
+  );
+}
+
 /** HTTP status carried on SDK errors, when it can be recovered. */
 function statusOf(err: unknown): number | undefined {
   if (typeof err !== 'object' || err === null) return undefined;
+  if (isAbortError(err)) return undefined;
   const rec = err as Record<string, unknown>;
   if (typeof rec.status === 'number') return rec.status;
   if (typeof rec.code === 'number') return rec.code;
@@ -200,6 +213,9 @@ export function createGenAiClient(config: GenAiClientConfig): LlmClient {
             config: { ...cfg, abortSignal: reqSignal },
           });
         } catch (err) {
+          if (isAbortError(err) && signal?.aborted) {
+            throw err;
+          }
           if (timeoutSignal.aborted && (!signal || !signal.aborted)) {
             const wrapped = new Error('Gemini API request timed out after 60s') as RetryableError;
             wrapped.status = 504;
