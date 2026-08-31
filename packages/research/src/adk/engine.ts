@@ -81,14 +81,14 @@ import {
  * Raise it when running on a paid tier — check your project's real limit in AI
  * Studio rather than guessing, since Google no longer publishes per-model RPM.
  */
-export const DEFAULT_REQUESTS_PER_MINUTE = 12;
+export const DEFAULT_REQUESTS_PER_MINUTE = 0; // Disabled for the hackathon
 
 /**
  * Default nodes in flight in the top-level DAG. Matches `runAdkTaskGraph`'s own
  * default — these were 2 and 4 respectively, so the engine silently serialized
  * graph nodes that the executor was willing to run in parallel.
  */
-export const DEFAULT_GRAPH_CONCURRENCY = 4;
+export const DEFAULT_GRAPH_CONCURRENCY = 32;
 
 // ============================================================================
 // 1. Events
@@ -116,7 +116,7 @@ export interface LivingDeckEngineOptions {
   signal?: AbortSignal;
   /** Nodes in flight in the top-level DAG. Defaults to DEFAULT_GRAPH_CONCURRENCY. */
   graphConcurrency?: number;
-  /** Hydration workers. Defaults to 3. */
+  /** Hydration workers. Defaults to 32. */
   enrichmentConcurrency?: number;
   /** Cap on candidates hydrated in the first pass. */
   maxCandidates?: number;
@@ -125,6 +125,8 @@ export interface LivingDeckEngineOptions {
   /** Enable the growth loop. Defaults to true. */
   watch?: boolean;
   watchIterations?: number;
+  /** Wall-clock budget for the whole run in ms. */
+  budgetMs?: number;
   /**
    * Proactive pacing, in requests per minute.
    *
@@ -310,7 +312,7 @@ export class LivingDeckEngine {
       telemetry,
       deckId,
       ...(this.options.enrichmentConcurrency === undefined
-        ? {}
+        ? { concurrency: 32 }
         : { concurrency: this.options.enrichmentConcurrency }),
       ...(this.options.maxCandidates === undefined
         ? {}
@@ -324,7 +326,14 @@ export class LivingDeckEngine {
       onDelta: (delta) => this.applyDelta(delta),
     });
 
-    const nodes: AdkTaskNode[] = [instrumentedDiscovery, enrichmentNode];
+    const budgetMs = this.options.budgetMs ?? 540_000;
+    const discoveryBudgetMs = Math.min(120_000, budgetMs);
+    const enrichmentBudgetMs = Math.max(0, budgetMs - discoveryBudgetMs);
+
+    const nodes: AdkTaskNode[] = [
+      { ...instrumentedDiscovery, timeoutMs: discoveryBudgetMs },
+      { ...enrichmentNode, timeoutMs: enrichmentBudgetMs },
+    ];
 
     if (watchEnabled) {
       nodes.push(

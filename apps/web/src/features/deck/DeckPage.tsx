@@ -1,13 +1,16 @@
 import { useMemo, useEffect, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
+  AlertCircle,
   ArrowLeft,
   ChevronRight,
   FileText,
   Layers,
+  Loader2,
   MessagesSquare,
   MoreHorizontal,
   Newspaper,
+  Radar,
   RefreshCw,
   Search,
   Settings,
@@ -95,6 +98,16 @@ export default function DeckPage() {
   const cards = useCards(deckId);
   const refreshDeck = useRefreshDeck();
   const { chat } = useDeepDive();
+
+  const deckStatus = (deck.data as { status?: 'running' | 'refreshing' | 'partial' | 'failed' | 'ready' | 'ready_stale' } | null)?.status;
+  const isRunning = deckStatus === 'running';
+  const isPartial = deckStatus === 'partial';
+  const isRefreshing = deckStatus === 'refreshing';
+  const isFailed = deckStatus === 'failed';
+  const isStale = deckStatus === 'ready_stale';
+  const deckError = (deck.data as { error?: string } | null)?.error;
+  const lastSyncedAt = (deck.data as { lastSyncedAt?: string } | null)?.lastSyncedAt;
+  const deckRevision = (deck.data as { revision?: number } | null)?.revision;
 
   // Compare mode: select cards, then ask a grounded question about exactly
   // that set. Selection is deck-page state — leaving the page clears it.
@@ -288,22 +301,117 @@ export default function DeckPage() {
         loading={<CardGridSkeleton />}
         isEmpty={(list) => list.length === 0}
         empty={
-          <EmptyState
-            title="No cards yet"
-            description="Run the research pass to populate this deck with competitive-intelligence cards."
-            icon={<Layers className="h-6 w-6" />}
-            action={
-              <button
-                type="button"
-                className="btn-primary mt-2"
-                disabled={refreshDeck.isPending || !marketId}
-                onClick={() => marketId && refreshDeck.mutate(marketId)}
-              >
-                <RefreshCw className={`h-4 w-4 ${refreshDeck.isPending ? 'animate-spin' : ''}`} />
-                {refreshDeck.isPending ? 'Researching…' : 'Run research'}
-              </button>
-            }
-          />
+          isRunning ? (
+            <div className="panel mx-auto max-w-xl p-8 text-center glow-border my-6">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Radar className="h-6 w-6 animate-pulse text-primary" />
+              </div>
+              <h2 className="mt-4 font-display text-xl font-semibold text-content">
+                Sentinel Cloud Agent is researching this market
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted">
+                Running multi-vector discovery, 24/7 web scraping, and CourtListener legal monitors. Verified company cards and proxy estimates will appear automatically as they are built.
+              </p>
+              <div className="mt-6 flex items-center justify-center gap-2 text-xs text-primary font-medium">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Streaming live updates…</span>
+              </div>
+            </div>
+          ) : isPartial ? (
+            <div className="panel mx-auto max-w-xl p-8 text-center glow-border my-6">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Radar className="h-6 w-6 animate-pulse text-primary" />
+              </div>
+              <h2 className="mt-4 font-display text-xl font-semibold text-content">
+                Research in progress — partial results below
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted">
+                More cards are being added as they are discovered. Partial cards are marked incomplete.
+              </p>
+              <div className="mt-6 flex items-center justify-center gap-2 text-xs text-primary font-medium">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Streaming live updates…</span>
+              </div>
+            </div>
+          ) : isRefreshing ? (
+            <div className="panel mx-auto max-w-xl p-8 text-center border-teal-200 bg-teal-50 my-6 dark:border-teal-800 dark:bg-teal-950/50">
+              <RefreshCw className="mx-auto h-8 w-8 text-teal-600 animate-spin" />
+              <h2 className="mt-3 font-display text-xl font-semibold text-teal-800 dark:text-teal-200">
+                Refreshing deck…
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted">
+                Delta research is running. Your existing cards remain visible while new discoveries are added.
+              </p>
+            </div>
+          ) : isStale ? (
+            <div className="panel mx-auto max-w-xl p-8 text-center border-amber-200 bg-amber-50 my-6 dark:border-amber-800 dark:bg-amber-950/50">
+              <AlertCircle className="mx-auto h-8 w-8 text-amber-600" />
+              <h2 className="mt-3 font-display text-xl font-semibold text-amber-800 dark:text-amber-200">
+                Last refresh failed — showing previous results
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted">
+                {deckError || 'The refresh did not complete. The deck below is the last successful snapshot.'}
+                {lastSyncedAt && (
+                  <span className="block mt-1 text-xs text-faint">
+                    Last synced: {new Date(lastSyncedAt).toLocaleString()}{deckRevision ? ` · Revision ${deckRevision}` : ''}
+                  </span>
+                )}
+              </p>
+              <div className="mt-5 flex justify-center gap-2">
+                {marketId && (
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    disabled={refreshDeck.isPending}
+                    onClick={() => refreshDeck.mutate(marketId)}
+                  >
+                    <RefreshCw className={`h-4 w-4 ${refreshDeck.isPending ? 'animate-spin' : ''}`} />
+                    Retry refresh
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : isFailed ? (
+            <div className="panel mx-auto max-w-xl p-8 text-center border-negative/30 bg-negative/5 my-6">
+              <AlertCircle className="mx-auto h-8 w-8 text-negative" />
+              <h2 className="mt-3 font-display text-xl font-semibold text-negative">
+                Research failed
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted">
+                {deckError || 'The research run failed or timed out.'}
+              </p>
+              <div className="mt-5 flex justify-center gap-2">
+                {marketId && (
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    disabled={refreshDeck.isPending}
+                    onClick={() => refreshDeck.mutate(marketId)}
+                  >
+                    <RefreshCw className={`h-4 w-4 ${refreshDeck.isPending ? 'animate-spin' : ''}`} />
+                    Retry research
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <EmptyState
+              title="No cards yet"
+              description="Run the research pass to populate this deck with competitive-intelligence cards."
+              icon={<Layers className="h-6 w-6" />}
+              action={
+                <button
+                  type="button"
+                  className="btn-primary mt-2"
+                  disabled={refreshDeck.isPending || !marketId}
+                  onClick={() => marketId && refreshDeck.mutate(marketId)}
+                >
+                  <RefreshCw className={`h-4 w-4 ${refreshDeck.isPending ? 'animate-spin' : ''}`} />
+                  {refreshDeck.isPending ? 'Researching…' : 'Run research'}
+                </button>
+              }
+            />
+          )
         }
       >
         {(list) => {
@@ -322,7 +430,7 @@ export default function DeckPage() {
                   Companies grouped by maturity tier — T8 giants down to T1 seeds.
                   <span className="text-faint"> {CARD_TYPE_DESCRIPTIONS.company}</span>
                 </p>
-                <TierSplit cards={list} deckUserValues={userValues} marketId={marketId} />
+                <TierSplit cards={list} deckUserValues={userValues} marketId={marketId} deckStatus={deckStatus} />
                 {/* The deck never hard-stops in this view either. */}
                 <div className="mt-8">
                   <ExpandPrompt
@@ -353,7 +461,7 @@ export default function DeckPage() {
                 </h2>
                 <p className="mb-3 text-[12px] text-faint">{CARD_TYPE_DESCRIPTIONS[typeParam]}</p>
                 {filtered.length > 0 ? (
-                  <CardGrid cards={filtered} deckUserValues={userValues} marketId={marketId} />
+                  <CardGrid cards={filtered} deckUserValues={userValues} marketId={marketId} deckStatus={deckStatus} />
                 ) : (
                   <ExpandPrompt marketId={marketId} focus={{ cardType: typeParam }} label={`Hunt for ${CARD_TYPE_LABELS[typeParam].toLowerCase()} players in this market`} />
                 )}
@@ -402,6 +510,7 @@ export default function DeckPage() {
                     cards={filtered}
                     deckUserValues={userValues}
                     marketId={marketId}
+                    deckStatus={deckStatus}
                     selectable={compare}
                     selected={selected}
                     onToggle={toggleSelected}
@@ -738,10 +847,12 @@ function TierSplit({
   cards,
   deckUserValues,
   marketId,
+  deckStatus,
 }: {
   cards: CardWithCompany[];
   deckUserValues: number[];
   marketId: string | undefined;
+  deckStatus?: 'running' | 'refreshing' | 'partial' | 'failed' | 'ready' | 'ready_stale';
 }) {
   const companyCards = cards.filter((c) => c.card.cardType === 'company');
   const byTier = new Map<MaturityTier, CardWithCompany[]>();
@@ -762,7 +873,7 @@ function TierSplit({
               <span className="ml-auto chip border-border text-muted">{group.length}</span>
             </div>
             {group.length > 0 ? (
-              <CardGrid cards={group} deckUserValues={deckUserValues} />
+              <CardGrid cards={group} deckUserValues={deckUserValues} marketId={marketId} deckStatus={deckStatus} />
             ) : (
               <ExpandPrompt
                 marketId={marketId}

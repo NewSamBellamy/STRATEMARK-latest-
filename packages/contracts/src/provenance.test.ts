@@ -4,6 +4,9 @@ import {
   UNSOURCED_DOWNGRADE_NOTE,
   classifySource,
   enforceMetricProvenance,
+  enforceModelMetricProvenance,
+  HUMAN_ONLY_CONFIDENCE_NOTE,
+  isModelAssertable,
   reconcileMetric,
   reconcileMetrics,
   isRedirectCitation,
@@ -199,5 +202,86 @@ describe('source credibility gate — junk domains can never verify a metric', (
       citations: [{ title: 'reddit.com', url: 'https://reddit.com/r/stocks/comments/x' }],
     };
     expect(enforceMetricProvenance(metric).confidence).toBe('estimated');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The Provenance Gate — issue #48
+// ---------------------------------------------------------------------------
+
+describe('the human-only confidence gate (automation may never claim a human)', () => {
+  it('strips a model-asserted user_verified: automation cannot forge a human sign-off', () => {
+    // A model returning `user_verified` is asserting that a PERSON checked this
+    // figure. Nobody did. Left standing it would also outrank a genuinely
+    // verified observation in reconcileMetric's evidence weighting.
+    const out = enforceModelMetricProvenance({
+      ...base,
+      confidence: 'user_verified',
+      citations: [cite('https://reuters.com/report', 'reuters.com')],
+    });
+    expect(out.confidence).toBe('verified'); // earned by the citation, not claimed
+    expect(out.methodNote).toContain(HUMAN_ONLY_CONFIDENCE_NOTE);
+  });
+
+  it('a forged user_verified with no evidence lands on estimated, not verified', () => {
+    const out = enforceModelMetricProvenance({ ...base, confidence: 'user_verified' });
+    expect(out.confidence).toBe('estimated');
+    expect(out.value).toBe(base.value); // the figure survives; only the claim drops
+  });
+
+  it('leaves confidences a model is allowed to assert untouched', () => {
+    expect(
+      enforceModelMetricProvenance({ ...base, confidence: 'estimated', value: 5 }).confidence,
+    ).toBe('estimated');
+    expect(enforceModelMetricProvenance({ ...base, confidence: 'unknown' }).confidence).toBe(
+      'unknown',
+    );
+  });
+
+  it('still applies the ordinary provenance rules on top of the gate', () => {
+    // Unsourced "verified" is demoted by the same rules as the canonical path.
+    const out = enforceModelMetricProvenance({ ...base, confidence: 'verified' });
+    expect(out.confidence).toBe('estimated');
+    expect(out.methodNote).toContain(UNSOURCED_DOWNGRADE_NOTE);
+  });
+
+  it('does NOT strip user_verified on the canonical path, where a human really did set it', () => {
+    // The gate is for model input only. enforceMetricProvenance stays the
+    // preserve-the-human path, so a refresh can never erase a real override.
+    const out = enforceMetricProvenance({ ...base, confidence: 'user_verified' });
+    expect(out.confidence).toBe('user_verified');
+  });
+
+  it('cannot smuggle a forged user_verified through a reconcile, once gated at ingestion', () => {
+    // reconcileMetrics uses the PRESERVING path on both sides by design: it is a
+    // merge primitive, and `existing` is the stored snapshot that legitimately
+    // holds human overrides. The gate therefore belongs at ingestion. This test
+    // pins that layering: gated model output cannot carry the forgery in, and a
+    // real human override on the existing side survives the merge untouched.
+    const forged = enforceModelMetricProvenance({
+      ...base,
+      metricType: 'users',
+      value: 1_000,
+      confidence: 'user_verified',
+    });
+    const humanOwned: CompanyMetric = {
+      ...base,
+      metricType: 'arr',
+      confidence: 'user_verified',
+      source: 'Confirmed by the CFO',
+    };
+
+    const merged = reconcileMetrics([humanOwned], [forged]);
+
+    expect(merged.find((m) => m.metricType === 'users')!.confidence).not.toBe('user_verified');
+    // The genuine human row is untouched by the same merge.
+    expect(merged.find((m) => m.metricType === 'arr')!.confidence).toBe('user_verified');
+  });
+
+  it('reports which confidences a model may assert', () => {
+    expect(isModelAssertable('estimated')).toBe(true);
+    expect(isModelAssertable('unknown')).toBe(true);
+    expect(isModelAssertable('verified')).toBe(false); // must be earned via citation
+    expect(isModelAssertable('user_verified')).toBe(false); // human-only
   });
 });

@@ -105,22 +105,31 @@ export function Sidebar() {
                     </NavLink>
                   </li>
                 )}
-                {recentDecks.map((m) => (
-                  <li key={m.id}>
-                    <NavLink
-                      to={`/markets/${m.id}/deck`}
-                      title={m.name}
-                      className={({ isActive }) => cn(
-                        'block truncate rounded-lg px-3 py-1.5 text-[13px] transition-colors',
-                        isActive
-                          ? 'bg-primary/8 font-medium text-primary'
-                          : 'text-muted hover:bg-surface-2 hover:text-content',
-                      )}
-                    >
-                      {m.name}
-                    </NavLink>
-                  </li>
-                ))}
+                {recentDecks.map((m) => {
+                  const isRunning = (m as { status?: string }).status === 'running';
+                  return (
+                    <li key={m.id}>
+                      <NavLink
+                        to={`/markets/${m.id}/deck`}
+                        title={isRunning ? `Researching: ${m.name}` : m.name}
+                        className={({ isActive }) => cn(
+                          'flex items-center justify-between truncate rounded-lg px-3 py-1.5 text-[13px] transition-colors',
+                          isActive
+                            ? 'bg-primary/8 font-medium text-primary'
+                            : 'text-muted hover:bg-surface-2 hover:text-content',
+                        )}
+                      >
+                        <span className="truncate">{m.name}</span>
+                        {isRunning && (
+                          <span
+                            className="ml-1.5 h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-primary"
+                            title="Research in progress"
+                          />
+                        )}
+                      </NavLink>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

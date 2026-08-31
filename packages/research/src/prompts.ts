@@ -5,6 +5,7 @@
  * text into JSON and must mark anything unsupported as Unknown/Estimated.
  */
 import { CARD_TYPE_LABELS, TIER_LABELS, type CardType } from '@mi/contracts';
+import { FUNDING_ROUND_TYPES } from './proxy-estimator';
 import type { CompanyCandidate, MarketPlan } from './types';
 import type { Citation } from './types';
 
@@ -161,18 +162,18 @@ export function structureEnrichPrompt(
   return [
     `Convert the research notes on "${candidate.name}" into JSON with this shape:`,
     `{ "oneLiner", "hqLocation"|null, "website"|null, "brand": {"primary","secondary","accent"}|null,`,
-    `  "metrics": { "market_share"?, "valuation"?, "market_cap"?, "arr"?, "users"?, "employees"? } where each is`,
+    `  "metrics": { "market_share": metricObj|null, "valuation": metricObj|null, "market_cap": metricObj|null, "arr": metricObj|null, "users": metricObj|null, "employees": metricObj|null } where metricObj is`,
     `     { "value": number|null (raw number — dollars for money, count for users/employees, percent for share), "confidence": "verified"|"estimated"|"unknown", "sourceIndex": number|null (index into SOURCES), "method": string|null },`,
     `  "facts": {`,
     `     "headcount": number|null (disclosed employee/team count from LinkedIn or About page),`,
-    `     "lastFundingRound": { "amount": number, "roundType": string }|null (latest venture funding round size in USD and type e.g. "Series A", "Series B", "Seed"),`,
+    `     "lastFundingRound": { "amount": number, "roundType": ${FUNDING_ROUND_TYPES.map((r) => `"${r}"`).join('|')} }|null (latest venture funding round size in USD and its type — use exactly one of those values, not prose),`,
     `     "scrapedPricing": { "monthlyPrice": number|null, "annualPrice": number|null }|null (scraped pricing tier amounts in USD),`,
     `     "publicUserFootprint": number|null (installs, active users, GitHub stars, or customer count),`,
     `     "footprintLabel": string|null (label for footprint metric e.g. "active users", "GitHub stars", "customers")`,
     `  },`,
     `  "viceClaims": [ { "text", "sourceIndex": number|null } ], "cultureNote": string|null }`,
     ``,
-    `Rules: all money/headcount figures are WHOLE-COMPANY figures, never a division's (note division context in "method" instead). FIGURES MUST BE EXACT AND CURRENT: copy the precise number a source states (7832, not 8000; 23.6, not 25) and when sources disagree prefer the MOST RECENTLY PUBLISHED figure — a stale or rounded number will fail verification later. Use "verified" only if a SOURCE states the figure; "estimated" with a "method" note if derived; else "unknown" with value null. ALWAYS extract disclosed employee/team count, latest venture funding round (amount & type), scraped pricing tiers, and public user footprint into "facts" whenever available. Every viceClaim MUST have a sourceIndex. Provide only valuation OR market_cap, not both.`,
+    `Rules: all money/headcount figures are WHOLE-COMPANY figures, never a division's (note division context in "method" instead). FIGURES MUST BE EXACT AND CURRENT: copy the precise number a source states (7832, not 8000; 23.6, not 25) and when sources disagree prefer the MOST RECENTLY PUBLISHED figure — a stale or rounded number will fail verification later. Always include keys for market_share, valuation (or market_cap), arr, users, and employees in "metrics" — use "verified" only if a SOURCE states the figure; "estimated" with a "method" note if derived; else "unknown" with value null. ALWAYS extract disclosed employee/team count, latest venture funding round (amount & type), scraped pricing tiers, and public user footprint into "facts" whenever available. Every viceClaim MUST have a sourceIndex. Provide only valuation OR market_cap, not both.`,
     ``,
     `SOURCES:`,
     sources,

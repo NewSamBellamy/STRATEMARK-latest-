@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ZodType } from 'zod';
 import type { CompanyMetric } from '@mi/contracts';
 import type { CompanyCandidate, LlmClient, MarketPlan } from './types';
+import type { EnrichmentOut } from './schemas';
 import {
   CompanyCardHydrator,
   askCompanyRepresentative,
@@ -118,6 +119,60 @@ describe('Company Agent — Brand & Helper Functions', () => {
     expect(arr.confidence).toBe('verified');
     expect(arr.citations[0]?.url).toBe('https://sec.gov/filing');
   });
+
+  // ------------------------------------------------------------------------
+  // The Provenance Gate — issue #48
+  // ------------------------------------------------------------------------
+
+  /** An enrichment payload with only the fields a given test cares about. */
+  const enrichment = (metrics: Record<string, unknown>): EnrichmentOut =>
+    ({
+      oneLiner: 'Test',
+      hqLocation: null,
+      website: null,
+      brand: null,
+      metrics,
+      facts: {
+        headcount: null,
+        lastFundingRound: null,
+        scrapedPricing: null,
+        publicUserFootprint: null,
+        footprintLabel: null,
+      },
+      viceClaims: [],
+      cultureNote: null,
+    }) as unknown as EnrichmentOut;
+
+  it('never lets a model mint a user_verified figure, even with a strong citation', () => {
+    // A model claiming `user_verified` is claiming a PERSON signed this off.
+    // Nobody did. It must not survive ingestion under any evidence.
+    const metrics = metricRows(
+      enrichment({
+        valuation: { value: 9_000_000_000, confidence: 'user_verified', sourceIndex: 0, method: null },
+      }),
+      [{ title: 'sec.gov', url: 'https://sec.gov/filing' }],
+      'cmp_forge',
+    );
+
+    const valuation = metrics.find((m) => m.metricType === 'valuation')!;
+    expect(valuation.confidence).not.toBe('user_verified');
+    expect(valuation.confidence).toBe('verified'); // earned by the citation instead
+    expect(valuation.value).toBe(9_000_000_000); // the figure itself survives
+  });
+
+  it('drops a forged user_verified to estimated when no source backs it', () => {
+    const metrics = metricRows(
+      enrichment({
+        arr: { value: 42_000_000, confidence: 'user_verified', sourceIndex: null, method: null },
+      }),
+      [],
+      'cmp_forge2',
+    );
+
+    const row = metrics.find((m) => m.metricType === 'arr')!;
+    expect(row.confidence).toBe('estimated');
+    expect(row.value).toBe(42_000_000);
+  });
 });
 
 describe('Company Agent — enrichCompanyWithProxies Deep Module', () => {
@@ -170,6 +225,64 @@ describe('Company Agent — enrichCompanyWithProxies Deep Module', () => {
     const cap = result.find((m) => m.metricType === 'market_cap')!;
     expect(cap.value).toBe(1_200_000_000);
     expect(cap.confidence).toBe('verified');
+  });
+
+  it('never overwrites a human-verified figure with a proxy estimate (issue #48)', () => {
+    // A user_verified figure is a person's decision. The proxy waterfall only
+    // guarded `confidence === 'verified'`, so a human override fell through to
+    // the estimator and was silently replaced — automation CLEARING a human
+    // decision, which the provenance rules forbid outright.
+    const humanOverridden: CompanyMetric[] = [
+      {
+        id: 'met_val_h',
+        companyId: 'cmp_human',
+        metricType: 'valuation',
+        value: 3_000_000_000,
+        confidence: 'user_verified',
+        source: 'Confirmed with the founder directly',
+        citations: [],
+        methodNote: null,
+        capturedAt: new Date().toISOString(),
+      },
+      {
+        id: 'met_arr_h',
+        companyId: 'cmp_human',
+        metricType: 'arr',
+        value: 75_000_000,
+        confidence: 'user_verified',
+        source: 'Confirmed with the CFO',
+        citations: [],
+        methodNote: null,
+        capturedAt: new Date().toISOString(),
+      },
+      {
+        id: 'met_emp_h',
+        companyId: 'cmp_human',
+        metricType: 'employees',
+        value: 400,
+        confidence: 'verified',
+        source: 'https://sec.gov/filing',
+        citations: [{ title: 'SEC 10-K', url: 'https://sec.gov/filing' }],
+        methodNote: null,
+        capturedAt: new Date().toISOString(),
+      },
+    ];
+
+    // Headcount and a funding round are both present, so both estimator tiers
+    // would fire if the human values were not protected.
+    const result = enrichCompanyWithProxies(
+      { id: 'cmp_human', name: 'Human Co', category: 'b2b_vertical_saas' },
+      humanOverridden,
+      { headcount: 400, lastFundingRound: { amount: 100_000_000, roundType: 'series_b' } },
+    );
+
+    const valuation = result.find((m) => m.metricType === 'valuation')!;
+    expect(valuation.value).toBe(3_000_000_000);
+    expect(valuation.confidence).toBe('user_verified');
+
+    const arr = result.find((m) => m.metricType === 'arr')!;
+    expect(arr.value).toBe(75_000_000);
+    expect(arr.confidence).toBe('user_verified');
   });
 
   it('computes category-aware ARR proxy from headcount when private company ARR is unverified', () => {

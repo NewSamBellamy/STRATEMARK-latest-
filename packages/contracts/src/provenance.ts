@@ -11,7 +11,7 @@
  * *derived* state that requires evidence, enforced here and applied at every
  * point a metric is created or updated.
  */
-import type { Confidence } from './enums';
+import { MODEL_PROPOSABLE_CONFIDENCE, type Confidence } from './enums';
 import type { Citation, MetricConflict, SourceCredibility } from './repository';
 import type { CompanyMetric } from './types';
 
@@ -24,11 +24,17 @@ export const UNSOURCED_DOWNGRADE_NOTE =
  * `verified` is absent by design — it must be earned with a citation.
  * `user_verified` is absent too: only a human override may set it.
  */
-const MODEL_ASSERTABLE: readonly Confidence[] = ['estimated', 'unknown'];
+const MODEL_ASSERTABLE: readonly Confidence[] = MODEL_PROPOSABLE_CONFIDENCE.filter(
+  (level) => level !== 'verified',
+);
 
 export function isModelAssertable(confidence: Confidence): boolean {
   return MODEL_ASSERTABLE.includes(confidence);
 }
+
+/** Reason text stamped on a figure whose forged human sign-off was removed. */
+export const HUMAN_ONLY_CONFIDENCE_NOTE =
+  'Human-verification claim removed automatically: only a person can mark a figure user-verified, and no person did.';
 
 /** Drop citations that can't be shown or clicked. */
 export function usableCitations(citations: readonly Citation[] | undefined): Citation[] {
@@ -200,6 +206,41 @@ export function enforceMetricProvenance(metric: CompanyMetric): CompanyMetric {
   };
 }
 
+/**
+ * The automation-ingest gate. Use this — never `enforceMetricProvenance` — at
+ * every point a metric enters the system from a MODEL.
+ *
+ * `enforceMetricProvenance` deliberately preserves `user_verified`, because on
+ * the canonical path a human really did set it and a refresh must not erase it.
+ * That same leniency is a hole on the way IN: a model that returns
+ * `confidence: "user_verified"` is asserting a human sign-off that never
+ * happened, and because `evidenceWeight` ranks `user_verified` above
+ * `verified`, an unchallenged forgery would also WIN a value conflict in
+ * `reconcileMetric` against a genuinely sourced observation.
+ *
+ * So automation may propose evidence, never authorship of a human decision. A
+ * forged claim is demoted to `verified` — the strongest thing a model may aim
+ * at — and then has to earn even that from a citation under the ordinary rules
+ * below. The figure itself always survives; only the claim about it drops.
+ */
+export function enforceModelMetricProvenance(metric: CompanyMetric): CompanyMetric {
+  if (isModelAssertable(metric.confidence) || metric.confidence === 'verified') {
+    return enforceMetricProvenance(metric);
+  }
+  return enforceMetricProvenance({
+    ...metric,
+    confidence: 'verified',
+    methodNote: metric.methodNote
+      ? `${metric.methodNote} — ${HUMAN_ONLY_CONFIDENCE_NOTE}`
+      : HUMAN_ONLY_CONFIDENCE_NOTE,
+  });
+}
+
+/** Convenience for whole model-sourced rows at once. */
+export function enforceModelMetricsProvenance(metrics: CompanyMetric[]): CompanyMetric[] {
+  return metrics.map(enforceModelMetricProvenance);
+}
+
 function evidenceWeight(metric: CompanyMetric): number {
   const sourceWeight: Record<SourceCredibility, number> = {
     primary: 100,
@@ -264,7 +305,17 @@ export function reconcileMetric(existing: CompanyMetric, incoming: CompanyMetric
   };
 }
 
-/** Reconcile all metrics for one company and keep one canonical row per type. */
+/**
+ * Reconcile all metrics for one company and keep one canonical row per type.
+ *
+ * Both sides use the CANONICAL path deliberately. This is a merge primitive:
+ * `existing` is the stored snapshot, which legitimately holds human overrides,
+ * and a future caller could just as well merge two stored snapshots. Applying
+ * the model-ingest gate here would therefore strip real `user_verified` rows.
+ * Model output is gated where it ENTERS the system (`metricRows`), so anything
+ * reaching this function has already been through
+ * `enforceModelMetricsProvenance`.
+ */
 export function reconcileMetrics(
   existing: CompanyMetric[],
   incoming: CompanyMetric[],

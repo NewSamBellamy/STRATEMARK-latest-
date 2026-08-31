@@ -2,7 +2,7 @@
  * Typed data hooks — the ONLY way feature components read/write data. They wrap
  * the repository behind TanStack Query, so the mock↔IPC swap is invisible here.
  */
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import type {
   CardFilter,
@@ -44,6 +44,13 @@ export function useDeckByMarket(marketId: string | undefined): UseQueryResult<De
     queryKey: qk.deck(marketId ?? ''),
     queryFn: () => repo.getDeckByMarket(marketId as string),
     enabled: !!marketId,
+    refetchInterval: (query) => {
+      const deck = query.state.data as { status?: string } | null;
+      if (deck?.status === 'running' || deck?.status === 'partial' || deck?.status === 'refreshing') {
+        return 3000;
+      }
+      return false;
+    },
   });
 }
 
@@ -52,6 +59,11 @@ export function useCards(
   filter?: CardFilter,
 ): UseQueryResult<CardWithCompany[]> {
   const repo = useRepository();
+  const qc = useQueryClient();
+  const emptyReadySince = useRef<number | null>(null);
+  useEffect(() => {
+    emptyReadySince.current = null;
+  }, [deckId]);
   return useQuery({
     queryKey: qk.cards(deckId ?? '', filter),
     queryFn: () => repo.listCards(deckId as string, filter),
@@ -65,6 +77,28 @@ export function useCards(
     refetchInterval: (query) => {
       const cards = query.state.data;
       if (cards && cards.some((c) => c.card.tier === null)) {
+        return 3000;
+      }
+      const cachedDeck = qc.getQueryData<Deck & { status?: string }>(qk.deck(deckId ?? ''));
+      const deckInProgress =
+        cachedDeck?.status === 'running' ||
+        cachedDeck?.status === 'partial' ||
+        cachedDeck?.status === 'refreshing';
+      let readyDeckStillMissingCards = false;
+      if (cards?.length === 0 && cachedDeck?.status === 'ready') {
+        const now = Date.now();
+        emptyReadySince.current ??= now;
+        readyDeckStillMissingCards = emptyReadySince.current + 60_000 > now;
+      } else {
+        emptyReadySince.current = null;
+      }
+      const unknownDeckStillLoading =
+        cards &&
+        cards.length === 0 &&
+        cachedDeck?.status !== 'ready' &&
+        cachedDeck?.status !== 'failed' &&
+        cachedDeck?.status !== 'ready_stale';
+      if (deckInProgress || readyDeckStillMissingCards || unknownDeckStillLoading) {
         return 3000;
       }
       return false;

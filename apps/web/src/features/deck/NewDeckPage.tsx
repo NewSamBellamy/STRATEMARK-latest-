@@ -379,10 +379,10 @@ export default function NewDeckPage() {
   const [logsOpen, setLogsOpen] = useState(false);
 
   useEffect(() => {
-    if (isPro && !localStorage.getItem('mi.researchEngine')) {
+    if (user && !localStorage.getItem('mi.researchEngine')) {
       setEngine('cloud');
     }
-  }, [isPro, setEngine]);
+  }, [user, setEngine]);
 
   // Session from the store — survives navigation
   const session = useResearchSession((s) => s.session);
@@ -426,20 +426,33 @@ export default function NewDeckPage() {
 
     if (engine === 'cloud') {
       try {
+        let targetCompanies = 10;
+        try {
+          const raw = Number(localStorage.getItem('mi.targetCompanies'));
+          if (Number.isFinite(raw) && raw >= 2 && raw <= 30) targetCompanies = raw;
+        } catch {
+          /* opaque origin — keep default */
+        }
+        
         addLog('Connecting to Sentinel Cloud Agent…', { stage: 'interpret' });
-        const authToken = (await getToken()) || user?.id || null;
-        const res = await runCloudResearchDeck(q, regionStr || null, undefined, authToken);
+        const authToken = await getToken();
+        const res = await runCloudResearchDeck(q, regionStr || null, targetCompanies, authToken);
         const market =
           res.market ||
           res.result?.market ||
+          (res.deckId ? { id: res.deckId } : null) ||
           (res.deck?.marketId ? { id: res.deck.marketId as string } : null) ||
           (res.deck?.id ? { id: res.deck.id as string } : null);
         if (res.ok && market && (market as { id?: string }).id) {
           const m = market as { id: string };
-          const cardCount = res.cards?.length || res.candidates?.length || res.result?.cards?.length || 12;
+          if ('cacheCloudDeckResponse' in repo && typeof repo.cacheCloudDeckResponse === 'function') {
+            (repo as { cacheCloudDeckResponse: (r: typeof res) => void }).cacheCloudDeckResponse(res);
+          }
+          const cardCount = res.cards?.length || res.candidates?.length || res.result?.cards?.length || 0;
           finish(`/markets/${m.id}/deck`, cardCount);
           // The deck exists NOW — every deck list refetches immediately.
           void qc.invalidateQueries({ queryKey: qk.markets });
+          navigate(`/markets/${m.id}/deck`);
           return;
         } else {
           const errMsg = res.error || 'Sentinel Cloud Agent failed to create deck.';
@@ -681,7 +694,7 @@ export default function NewDeckPage() {
           setRegion={setRegion}
           engine={engine}
           setEngine={setEngine}
-          isPro={isPro}
+          isPro={isPro || !!user}
           onSubmit={onSubmit}
           disabled={running}
           hasKey={hasKey}

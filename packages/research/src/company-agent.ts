@@ -24,6 +24,8 @@ import {
   classifySource,
   computeCms,
   enforceMetricsProvenance,
+  enforceModelMetricsProvenance,
+  isHumanAuthored,
   isEntityCardType,
   type BrandTheme,
   type Card,
@@ -160,8 +162,7 @@ export interface EnrichCompanyWithProxiesInput {
 // 2. Helper Functions
 // ============================================================================
 
-const uid = (prefix: string, slug: string): string =>
-  `${prefix}_${slug}_${Math.random().toString(36).slice(2, 7)}`;
+const uid = (prefix: string, slug: string): string => `${prefix}_${slug}`;
 
 const now = (): string => new Date().toISOString();
 
@@ -242,7 +243,10 @@ export function metricRows(
       capturedAt: now(),
     });
   }
-  return enforceMetricsProvenance(rows);
+  // These rows come straight from model output, so they pass through the
+  // automation-ingest gate: a forged `user_verified` is stripped here, not
+  // merely preserved as the canonical path would (issue #48).
+  return enforceModelMetricsProvenance(rows);
 }
 
 // ============================================================================
@@ -261,6 +265,25 @@ export function metricRows(
  *   4. Missing facts honestly resolve to null/unknown with explanatory methodNote (Tier 4).
  *   5. Preserves all citations and validates results through `enforceMetricsProvenance`.
  */
+/**
+ * Figures the proxy waterfall must never replace.
+ *
+ * Two kinds. An earned `verified` figure from a filing is better than any
+ * estimate we could compute. And a `user_verified` figure is a PERSON's
+ * decision: automation may preserve it but never set or clear it, so it is
+ * protected whatever its value — including a deliberate "unknown", which is
+ * itself a human finding.
+ *
+ * Guarding only `confidence === 'verified'` was a real defect: a human-overridden
+ * valuation fell straight through to the estimator and was overwritten.
+ */
+function isProxyProtected(metric: CompanyMetric): boolean {
+  // A human's decision is final whatever its value — including a deliberate
+  // "unknown", which is itself a finding.
+  if (isHumanAuthored(metric)) return true;
+  return metric.confidence === 'verified' && metric.value !== null && metric.value > 0;
+}
+
 export function enrichCompanyWithProxies(
   companyOrInput:
     | {
@@ -351,13 +374,8 @@ export function enrichCompanyWithProxies(
   // 1. ARR Estimation Waterfall
   // --------------------------------------------------------------------------
   let finalArr: CompanyMetric | null = null;
-  if (
-    existingArr &&
-    existingArr.confidence === 'verified' &&
-    existingArr.value !== null &&
-    existingArr.value > 0
-  ) {
-    // Preserve verified ARR
+  if (existingArr && isProxyProtected(existingArr)) {
+    // Preserve an earned or human-authored ARR
     finalArr = existingArr;
   } else if (headcount !== null && headcount !== undefined && headcount > 0) {
     // Tier 2: Category-Aware Headcount Multiplier
@@ -420,20 +438,10 @@ export function enrichCompanyWithProxies(
   // 2. Valuation Estimation Waterfall
   // --------------------------------------------------------------------------
   let finalValuation: CompanyMetric | null = null;
-  if (
-    existingValuation &&
-    existingValuation.confidence === 'verified' &&
-    existingValuation.value !== null &&
-    existingValuation.value > 0
-  ) {
-    // Preserve verified valuation
+  if (existingValuation && isProxyProtected(existingValuation)) {
+    // Preserve an earned or human-authored valuation
     finalValuation = existingValuation;
-  } else if (
-    existingMarketCap &&
-    existingMarketCap.confidence === 'verified' &&
-    existingMarketCap.value !== null &&
-    existingMarketCap.value > 0
-  ) {
+  } else if (existingMarketCap && isProxyProtected(existingMarketCap)) {
     // Public company with verified market cap: no private valuation proxy required
   } else if (
     explicitFunding &&
@@ -476,6 +484,77 @@ export function enrichCompanyWithProxies(
 
   if (finalValuation) {
     resultMetrics.push(finalValuation);
+  }
+
+  // --------------------------------------------------------------------------
+  // 3. Populate Employees & Users from Facts or Fallback Unknowns
+  // --------------------------------------------------------------------------
+  const existingEmp = resultMetrics.find((m) => m.metricType === 'employees');
+  if ((!existingEmp || existingEmp.value === null) && headcount !== null && headcount !== undefined && headcount > 0) {
+    const citationsToUse = citations.length > 0 ? citations : [];
+    const empMetric: CompanyMetric = {
+      id: existingEmp?.id || uid('met', `${companyId}-employees`),
+      companyId,
+      metricType: 'employees',
+      value: headcount,
+      confidence: 'estimated',
+      source: citationsToUse[0]?.url ?? null,
+      citations: citationsToUse,
+      methodNote: headcountSource ?? 'Disclosed employee/team headcount.',
+      capturedAt: now(),
+    };
+    const empIdx = resultMetrics.findIndex((m) => m.metricType === 'employees');
+    if (empIdx >= 0) {
+      resultMetrics[empIdx] = empMetric;
+    } else {
+      resultMetrics.push(empMetric);
+    }
+  }
+
+  const existingUsers = resultMetrics.find((m) => m.metricType === 'users');
+  if ((!existingUsers || existingUsers.value === null) && explicitFootprint?.footprintCount && explicitFootprint.footprintCount > 0) {
+    const citationsToUse = citations.length > 0 ? citations : [];
+    const usersMetric: CompanyMetric = {
+      id: existingUsers?.id || uid('met', `${companyId}-users`),
+      companyId,
+      metricType: 'users',
+      value: explicitFootprint.footprintCount,
+      confidence: 'estimated',
+      source: citationsToUse[0]?.url ?? null,
+      citations: citationsToUse,
+      methodNote: explicitFootprint.footprintLabel ?? 'Public user/customer footprint count.',
+      capturedAt: now(),
+    };
+    const usersIdx = resultMetrics.findIndex((m) => m.metricType === 'users');
+    if (usersIdx >= 0) {
+      resultMetrics[usersIdx] = usersMetric;
+    } else {
+      resultMetrics.push(usersMetric);
+    }
+  }
+
+  if (mergedOptions.includeUnknowns ?? true) {
+    for (const type of ['market_share', 'employees', 'users'] as const) {
+      const exists = resultMetrics.some((m) => m.metricType === type);
+      if (!exists) {
+        let methodNote = 'Unknown: No disclosed figure found in primary sources.';
+        if (type === 'market_share') methodNote = 'Unknown: No disclosed market share percentage.';
+        else if (type === 'employees') methodNote = 'Unknown: No disclosed employee or team count.';
+        else if (type === 'users') methodNote = 'Unknown: No disclosed user or customer count.';
+
+        resultMetrics.push({
+          id: uid('met', `${companyId}-${type}`),
+          companyId,
+          metricType: type,
+          value: null,
+          confidence: 'unknown',
+          source: null,
+          citations: [],
+          methodNote,
+          capturedAt: now(),
+        });
+      }
+    }
   }
 
   return enforceMetricsProvenance(resultMetrics);

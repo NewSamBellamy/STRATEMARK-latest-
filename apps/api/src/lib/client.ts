@@ -20,6 +20,7 @@
  */
 import { createGenAiClient } from '@mi/research';
 import type { LlmClient } from '@mi/research';
+import { DEFAULT_VERTEX_GROUNDED_MODEL, DEFAULT_VERTEX_STRUCTURE_MODEL } from '@mi/research';
 import { hasServerCredentials, type ServiceEnv } from '../env';
 
 export type KeySource = 'caller' | 'server';
@@ -82,11 +83,16 @@ export function resolveClient(opts: ResolveOptions): ResolvedClient {
   if (!hasServerCredentials(opts.env)) throw new NoCredentialsError();
 
   return {
-    client: make(
-      opts.env.vertex
-        ? { vertex: opts.env.vertex, onCall: opts.onCall }
+      client: make(
+        opts.env.vertex
+        ? {
+            vertex: opts.env.vertex,
+            model: DEFAULT_VERTEX_GROUNDED_MODEL,
+            structureModel: DEFAULT_VERTEX_STRUCTURE_MODEL,
+            onCall: opts.onCall,
+          }
         : { apiKey: opts.env.geminiApiKey, onCall: opts.onCall },
-    ),
+      ),
     keySource: 'server',
   };
 }

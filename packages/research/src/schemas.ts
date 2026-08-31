@@ -5,11 +5,32 @@
  * permissive (missing → Unknown/null) to honor the missing-data protocol.
  */
 import { z } from 'zod';
-import { cardTypeSchema, confidenceSchema } from '@mi/contracts';
+import { cardTypeSchema, modelConfidenceSchema } from '@mi/contracts';
+import { FUNDING_ROUND_TYPES, parseFundingRoundType } from './proxy-estimator';
+
+/**
+ * Coerce a model's funding round into the canonical vocabulary, or drop it.
+ *
+ * Dropping is the honest outcome for an unreadable round: the alternative is
+ * either guessing a dilution bracket (an invented figure) or failing the entire
+ * enrichment over a single optional fact.
+ */
+function normalizeFundingRound(raw: unknown): unknown {
+  if (raw === undefined) return undefined; // let .default() apply
+  if (raw === null || typeof raw !== 'object') return null;
+  const round = raw as { amount?: unknown; roundType?: unknown };
+  if (typeof round.amount !== 'number' || !Number.isFinite(round.amount)) return null;
+  const roundType =
+    typeof round.roundType === 'string' ? parseFundingRoundType(round.roundType) : null;
+  if (roundType === null) return null;
+  return { amount: round.amount, roundType };
+}
 
 export const metricOutSchema = z.object({
   value: z.number().nullable().default(null),
-  confidence: confidenceSchema.default('unknown'),
+  // Model-facing vocabulary: `user_verified` is human-only and is excluded from
+  // the generated native responseSchema (issue #48).
+  confidence: modelConfidenceSchema,
   /** Index into the grounded citations array; null if not attributable. */
   sourceIndex: z.number().int().nullable().default(null),
   /** One-line "how we got this" note for estimated figures. */
@@ -86,9 +107,22 @@ export const enrichmentOutSchema = z.object({
   facts: z
     .object({
       headcount: z.number().nullable().default(null),
+      /**
+       * Constrained outcome: the round selects a dilution bracket and so moves
+       * the estimated valuation. The enum is what reaches the native
+       * `responseSchema`, so a conforming model can only emit a canonical
+       * value. The preprocess handles the non-conforming case without letting
+       * one bad field cost us the whole company: recognisable prose is
+       * normalised, and anything else drops the round to null rather than
+       * inventing a bracket for it (issue #48).
+       */
       lastFundingRound: z
-        .object({ amount: z.number(), roundType: z.string() })
-        .nullable()
+        .preprocess(
+          normalizeFundingRound,
+          z
+            .object({ amount: z.number(), roundType: z.enum(FUNDING_ROUND_TYPES) })
+            .nullable(),
+        )
         .default(null),
       scrapedPricing: z
         .object({

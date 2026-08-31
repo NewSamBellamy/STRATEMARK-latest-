@@ -32,19 +32,20 @@ export interface GeminiClientConfig {
   onCall?: (info: { model: string; kind: 'ground' | 'structure' }) => void;
 }
 
-/** Default RPM pacing: 15 grounded / 30 structure. */
-export const DEFAULT_GROUNDED_RPM = 15;
-export const DEFAULT_STRUCTURE_RPM = 30;
+/** Default RPM pacing: disabled for the hackathon (0). */
+export const DEFAULT_GROUNDED_RPM = 0;
+export const DEFAULT_STRUCTURE_RPM = 0;
 
-// Current Google Gemini frontier models (verified August 2026).
-//   grounded  — 3.7 Flash: newest Flash, carries Google Search grounding.
-//   reasoning — 3.1 Pro: the frontier reasoning tier.
-//   structure — 3.5 Flash-Lite: fastest + cheapest GA model (replaces the
-//               3.1 Flash-Lite *preview*), used for the high-volume JSON
-//               extraction half of every two-call pass.
+// Current Gemini API defaults. Vertex AI has a separate model line below because
+// the newest Developer API IDs are not necessarily published in every Vertex
+// region.
 export const DEFAULT_GROUNDED_MODEL = 'gemini-3.7-flash';
 export const DEFAULT_REASONING_MODEL = 'gemini-3.1-pro-preview';
 export const DEFAULT_STRUCTURE_MODEL = 'gemini-3.5-flash-lite';
+
+// Vertex AI model IDs verified in us-central1.
+export const DEFAULT_VERTEX_GROUNDED_MODEL = 'gemini-2.5-flash';
+export const DEFAULT_VERTEX_STRUCTURE_MODEL = 'gemini-2.5-flash-lite';
 
 interface GeminiPart {
   text?: string;
@@ -148,6 +149,16 @@ export function createGeminiClient(config: GeminiClientConfig): LlmClient {
     },
 
     async structure<T>(prompt: string, schema: ZodType<T, ZodTypeDef, unknown>, opts?: { system?: string; signal?: AbortSignal }): Promise<T> {
+      // No `responseSchema` here, deliberately (issue #48). The SDK client
+      // (`genai.ts`) sends one, because it can derive it without cost. Doing the
+      // same here would mean pulling the schema converter — and with it the
+      // Node-oriented SDK it imports `Type` from — into the browser/Electron
+      // bundle, which is the one thing this client exists to avoid.
+      //
+      // The strict Zod contract below is still enforced on the way out, so the
+      // BYOK path cannot ACCEPT a malformed or forged value; it just isn't
+      // constrained at generation time, so a non-conforming model costs a
+      // reparse retry instead of being prevented up front.
       const body: Record<string, unknown> = {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { responseMimeType: 'application/json', temperature: 0 },

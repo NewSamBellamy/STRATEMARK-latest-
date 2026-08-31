@@ -6,6 +6,9 @@
  * and vice claims when Cloud Engine is selected or when authenticated as a Pro user.
  */
 import type {
+  HuntMetricsResult,
+  VerifyMetricInput,
+  VerifyMetricResult,
   AskResearchInput,
   Card,
   CardFilter,
@@ -37,7 +40,8 @@ import type {
   Unsubscribe,
   ViceClaim,
 } from '@mi/contracts';
-import { MockRepository, type SeedSnapshot } from '@mi/mocks';
+import {
+  MockRepository, type SeedSnapshot } from '@mi/mocks';
 import sampleSnapshot from '@/sample/frontier-snapshot.json';
 
 /** A Market/Deck object that optionally carries a runtime `engine` tag. */
@@ -59,6 +63,46 @@ interface CloudCardPayload {
   metrics?: CloudRecord[];
   viceClaims?: CloudRecord[];
 }
+
+export interface CachedCloudEntry {
+  deck?: CloudDeck & { revision?: number; lastSyncedAt?: string; stale?: boolean; isOffline?: boolean };
+  market?: CloudMarket & { revision?: number; lastSyncedAt?: string; stale?: boolean; isOffline?: boolean };
+  cards?: CardWithCompany[];
+  lastSyncedAt: string;
+  revision: number;
+  pendingDeletion?: boolean;
+}
+
+const CLOUD_CACHE_KEY = 'mi.cloud.cache.v1';
+
+function readCloudCache(): Map<string, CachedCloudEntry> {
+  const map = new Map<string, CachedCloudEntry>();
+  try {
+    if (typeof localStorage === 'undefined') return map;
+    const raw = localStorage.getItem(CLOUD_CACHE_KEY);
+    if (!raw) return map;
+    const entries = JSON.parse(raw) as Record<string, CachedCloudEntry>;
+    for (const [k, v] of Object.entries(entries)) {
+      map.set(k, v);
+    }
+  } catch {
+    /* ignore parse errors */
+  }
+  return map;
+}
+
+function writeCloudCache(map: Map<string, CachedCloudEntry>): void {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    const obj: Record<string, CachedCloudEntry> = {};
+    for (const [k, v] of map.entries()) {
+      obj[k] = v;
+    }
+    localStorage.setItem(CLOUD_CACHE_KEY, JSON.stringify(obj));
+  } catch {
+    /* quota/error handling */
+  }
+}
 import {
   deleteCloudDeck,
   getCloudDeck,
@@ -67,10 +111,14 @@ import {
   getCloudMarkets,
   runCloudResearchDeck,
   askCloudResearch,
+  verifyCloudMetric,
+  huntCloudMetrics,
   expandCloudDeck,
   saveCloudCard,
   unsaveCloudCard,
   listCloudSavedCards,
+  fetchSentinel,
+  type CloudResearchDeckResponse,
 } from '@/lib/sentinelApi';
 
 export class SentinelRepository implements MarketIntelRepository {
@@ -94,9 +142,13 @@ export class SentinelRepository implements MarketIntelRepository {
       ]);
       const marketList = cloudMarkets.length > 0 ? cloudMarkets : cloudDecks;
       if (marketList && marketList.length > 0) {
+        const cache = readCloudCache();
+        const now = new Date().toISOString();
         const remoteMarkets: Market[] = marketList.map((d: CloudRecord) => {
           const marketId = String(d.marketId || d.id || `mkt_${String(d.id)}`);
-          const market: CloudMarket = {
+          const status = (d.status as string) || (d.state as { status?: string } | undefined)?.status;
+          const revision = typeof d.revision === 'number' ? d.revision : 1;
+          const market: CloudMarket & { status?: string; revision?: number; lastSyncedAt?: string; stale?: boolean; isOffline?: boolean } = {
             id: marketId,
             name: String(d.marketName || d.name || d.title || d.prompt || 'Sentinel Cloud Market'),
             scopeDefinition: {
@@ -105,12 +157,27 @@ export class SentinelRepository implements MarketIntelRepository {
               notes: (d.notes || null) as string | null,
             },
             refreshCadence: 'weekly',
-            createdAt: String(d.createdAt || new Date().toISOString()),
+            createdAt: String(d.createdAt || now),
             engine: 'cloud',
+            revision,
+            lastSyncedAt: now,
+            ...(status ? { status } : {}),
           };
           this.memoryMarkets.set(marketId, market);
+
+          const existingCache = cache.get(marketId) || cache.get(`dck_${marketId}`) || cache.get(`deck_${marketId}`);
+          cache.set(marketId, {
+            ...existingCache,
+            market,
+            lastSyncedAt: now,
+            revision,
+            pendingDeletion: false,
+          });
+
           return market;
         });
+
+        writeCloudCache(cache);
 
         // Combine with any locally created memory markets
         for (const localM of this.memoryMarkets.values()) {
@@ -124,11 +191,32 @@ export class SentinelRepository implements MarketIntelRepository {
       console.warn('Failed to fetch remote markets from Sentinel Cloud:', err);
     }
 
-    // Fallback to memory markets or local mock repository
+    // Check local persistent cloud cache first for offline/outage state
+    const cache = readCloudCache();
+    const cachedMarkets: Market[] = [];
+    for (const [id, entry] of cache.entries()) {
+      if (entry.pendingDeletion) continue;
+      if (entry.market && !cachedMarkets.some(m => m.id === id || m.id === entry.market?.id)) {
+        const staleMarket: Market = {
+          ...entry.market,
+          stale: true,
+          isOffline: true,
+          lastSyncedAt: entry.lastSyncedAt,
+          revision: entry.revision,
+        } as unknown as Market;
+        cachedMarkets.push(staleMarket);
+        this.memoryMarkets.set(id, staleMarket);
+      }
+    }
+    if (cachedMarkets.length > 0) {
+      return cachedMarkets;
+    }
+
+    // A Cloud Engine outage must not masquerade as sample data.
     if (this.memoryMarkets.size > 0) {
       return Array.from(this.memoryMarkets.values());
     }
-    return this.fallbackRepo.listMarkets();
+    return [];
   }
 
   async getMarket(id: string): Promise<Market | null> {
@@ -157,7 +245,7 @@ export class SentinelRepository implements MarketIntelRepository {
       /* ignore */
     }
     const markets = await this.listMarkets();
-    return markets.find((m) => m.id === id) || this.fallbackRepo.getMarket(id);
+    return markets.find((m) => m.id === id) || null;
   }
 
   async createMarket(input: CreateMarketInput): Promise<Market> {
@@ -173,79 +261,227 @@ export class SentinelRepository implements MarketIntelRepository {
   }
 
   async updateMarketCadence(id: string, cadence: RefreshCadence): Promise<Market> {
-    const market = await this.getMarket(id);
-    if (market) {
-      market.refreshCadence = cadence;
-      this.memoryMarkets.set(id, market);
-      return market;
-    }
-    return this.fallbackRepo.updateMarketCadence(id, cadence);
+    void cadence;
+    throw new Error(`Cloud market cadence updates are not available through Sentinel yet: ${id}`);
   }
 
   async deleteMarket(id: string): Promise<boolean> {
+    const existingMarket = this.memoryMarkets.get(id);
+    const isCloud = (existingMarket as CloudMarket)?.engine === 'cloud';
+
     this.memoryMarkets.delete(id);
     const deck = this.memoryDecks.get(id);
+    const targetDeckId = deck?.id || id;
     if (deck) {
       this.memoryDecks.delete(id);
       this.memoryDecks.delete(deck.id);
       this.memoryCards.delete(deck.id);
       this.memoryCards.delete(id);
-      await deleteCloudDeck(deck.id);
-    } else {
-      await deleteCloudDeck(id);
     }
-    await this.fallbackRepo.deleteMarket?.(id);
+    
+    const cache = readCloudCache();
+    try {
+      const res = await deleteCloudDeck(targetDeckId);
+      if (res) {
+        cache.delete(id);
+        cache.delete(targetDeckId);
+        writeCloudCache(cache);
+      }
+    } catch {
+      const entry1 = cache.get(id);
+      if (entry1) {
+        entry1.pendingDeletion = true;
+        cache.set(id, entry1);
+      }
+      const entry2 = cache.get(targetDeckId);
+      if (entry2) {
+        entry2.pendingDeletion = true;
+        cache.set(targetDeckId, entry2);
+      }
+      writeCloudCache(cache);
+    }
+
+    if (!isCloud) {
+      await this.fallbackRepo.deleteMarket?.(id);
+    }
     return true;
   }
 
   async deleteDeck(deckId: string): Promise<boolean> {
+    const existingDeck = this.memoryDecks.get(deckId);
+    const isCloud = (existingDeck as CloudDeck)?.engine === 'cloud';
+
     this.memoryDecks.delete(deckId);
     this.memoryCards.delete(deckId);
+    let matchedMarketId: string | undefined;
     for (const [mktId, m] of this.memoryMarkets.entries()) {
-      if (m.id === deckId) this.memoryMarkets.delete(mktId);
+      if (m.id === deckId) {
+        matchedMarketId = mktId;
+        this.memoryMarkets.delete(mktId);
+      }
     }
-    const res = await deleteCloudDeck(deckId);
-    await this.fallbackRepo.deleteDeck?.(deckId);
-    return res;
+
+    const cache = readCloudCache();
+    try {
+      const res = await deleteCloudDeck(deckId);
+      if (res) {
+        cache.delete(deckId);
+        if (matchedMarketId) cache.delete(matchedMarketId);
+        writeCloudCache(cache);
+      }
+      if (!isCloud) {
+        await this.fallbackRepo.deleteDeck?.(deckId);
+      }
+      return res;
+    } catch {
+      const entry = cache.get(deckId) || (matchedMarketId ? cache.get(matchedMarketId) : undefined);
+      if (entry) {
+        entry.pendingDeletion = true;
+        cache.set(deckId, entry);
+        if (matchedMarketId) cache.set(matchedMarketId, entry);
+        writeCloudCache(cache);
+      }
+      return true;
+    }
   }
 
   async getDeckByMarket(marketId: string): Promise<Deck | null> {
-    if (this.memoryDecks.has(marketId)) {
-      return this.memoryDecks.get(marketId)!;
+    const cached = this.memoryDecks.get(marketId);
+    const deckState = (cached as { state?: { status?: string } } | undefined)?.state?.status;
+    const deckStatus = (cached as { status?: string } | undefined)?.status;
+    const isRunning = deckStatus === 'running' || deckState === 'running';
+    const isPartial = deckStatus === 'partial' || deckState === 'partial';
+    const isRefreshing = deckStatus === 'refreshing' || deckState === 'refreshing';
+
+    if (cached && !isRunning && !isPartial && !isRefreshing && !(cached as { stale?: boolean }).stale) {
+      return cached;
     }
 
     try {
-      const cloudPayload = await getCloudDeck(marketId);
+      let targetDeckId = marketId;
+      if (marketId.startsWith('mkt_')) {
+        targetDeckId = `dck_${marketId.slice(4)}`;
+      } else if (!marketId.startsWith('dck_') && !marketId.startsWith('deck_')) {
+        targetDeckId = `dck_${marketId}`;
+      }
+      const cloudPayload = await getCloudDeck(targetDeckId);
       if (cloudPayload && cloudPayload.deck) {
         const d: CloudRecord = cloudPayload.deck;
-        const deck: CloudDeck = {
+        const stateRecord = (cloudPayload as CloudRecord).state as CloudRecord | undefined;
+        const status = (stateRecord?.status as string) || (d.status as string) || 'ready';
+        const revision = typeof d.revision === 'number' ? d.revision : 1;
+        const now = new Date().toISOString();
+        const deck: CloudDeck & { status?: string; error?: string; revision?: number; lastSyncedAt?: string; stale?: boolean; isOffline?: boolean } = {
           id: String(d.id || `dck_${marketId}`),
           marketId: String(d.marketId || marketId),
-          createdAt: String(d.createdAt || new Date().toISOString()),
-          lastRefreshedAt: String(d.lastRefreshedAt || new Date().toISOString()),
+          createdAt: String(d.createdAt || now),
+          lastRefreshedAt: String(d.lastRefreshedAt || now),
           engine: 'cloud',
+          status,
+          revision,
+          lastSyncedAt: now,
+          ...(stateRecord?.error ? { error: String(stateRecord.error) } : {}),
         };
         this.memoryDecks.set(marketId, deck);
+        this.memoryDecks.set(deck.id, deck);
 
         // Process cards if returned in payload
+        let cardsWithCompany: CardWithCompany[] = [];
         if (cloudPayload.cards && cloudPayload.cards.length > 0) {
-          const cardsWithCompany = this.mapCloudCards(cloudPayload);
+          cardsWithCompany = this.mapCloudCards(cloudPayload);
           this.memoryCards.set(deck.id, cardsWithCompany);
           this.memoryCards.set(marketId, cardsWithCompany);
         }
+
+        const cache = readCloudCache();
+        const existing = cache.get(marketId) || cache.get(deck.id);
+        cache.set(deck.id, {
+          ...existing,
+          deck,
+          cards: cardsWithCompany.length > 0 ? cardsWithCompany : existing?.cards,
+          lastSyncedAt: now,
+          revision,
+          pendingDeletion: false,
+        });
+        cache.set(marketId, {
+          ...existing,
+          deck,
+          cards: cardsWithCompany.length > 0 ? cardsWithCompany : existing?.cards,
+          lastSyncedAt: now,
+          revision,
+          pendingDeletion: false,
+        });
+        writeCloudCache(cache);
+
         return deck;
       }
     } catch (err) {
       console.warn(`Failed to fetch cloud deck for market ${marketId}:`, err);
     }
 
-    return this.fallbackRepo.getDeckByMarket(marketId);
+    // Offline / outage cache recovery
+    const cache = readCloudCache();
+    const cachedEntry = cache.get(marketId) || cache.get(`dck_${marketId}`) || cache.get(`deck_${marketId}`);
+    if (cachedEntry && !cachedEntry.pendingDeletion && cachedEntry.deck) {
+      const staleDeck: Deck = {
+        ...cachedEntry.deck,
+        stale: true,
+        isOffline: true,
+        lastSyncedAt: cachedEntry.lastSyncedAt,
+        revision: cachedEntry.revision,
+      } as unknown as Deck;
+      this.memoryDecks.set(marketId, staleDeck);
+      this.memoryDecks.set(staleDeck.id, staleDeck);
+      if (cachedEntry.cards && cachedEntry.cards.length > 0) {
+        this.memoryCards.set(staleDeck.id, cachedEntry.cards);
+        this.memoryCards.set(marketId, cachedEntry.cards);
+      }
+      return staleDeck;
+    }
+
+    if (cached) return cached;
+    return null;
   }
 
   async refreshDeck(marketId: string): Promise<Deck> {
-    const deck = await this.getDeckByMarket(marketId);
-    if (deck) return deck;
-    return this.fallbackRepo.refreshDeck(marketId);
+    const existing = await this.getDeckByMarket(marketId);
+    if (!existing) throw new Error(`Cloud Deck not found: ${marketId}`);
+
+    let targetCompanies = 10;
+    try {
+      const raw = Number(localStorage.getItem('mi.targetCompanies'));
+      if (Number.isFinite(raw) && raw >= 2 && raw <= 30) targetCompanies = raw;
+    } catch {
+      /* opaque origin */
+    }
+
+    const market = await this.getMarket(marketId);
+    const query = market?.name || existing.id;
+    const region = market?.scopeDefinition?.geography || null;
+
+    try {
+      await runCloudResearchDeck(query, region, targetCompanies, undefined, existing.id);
+    } catch (err) {
+      console.warn(`Failed to re-enqueue research for deck ${existing.id}:`, err);
+    }
+
+    const runningDeck: Deck & { status?: string } = {
+      ...existing,
+      status: 'running',
+    };
+
+    this.memoryDecks.set(marketId, runningDeck);
+    this.memoryDecks.set(existing.id, runningDeck);
+
+    const cache = readCloudCache();
+    const current = cache.get(existing.id) || cache.get(marketId);
+    if (current) {
+      cache.set(existing.id, { ...current, deck: runningDeck });
+      cache.set(marketId, { ...current, deck: runningDeck });
+      writeCloudCache(cache);
+    }
+
+    return runningDeck;
   }
 
   async createResearchedDeck(
@@ -258,14 +494,25 @@ export class SentinelRepository implements MarketIntelRepository {
       kind: 'step',
     });
 
-    const res = await runCloudResearchDeck(brief.prompt, brief.region);
+    let targetCompanies = 10;
+    try {
+      const raw = Number(localStorage.getItem('mi.targetCompanies'));
+      if (Number.isFinite(raw) && raw >= 2 && raw <= 30) targetCompanies = raw;
+    } catch {
+      /* opaque origin — keep default */
+    }
+
+    const res = await runCloudResearchDeck(brief.prompt, brief.region, targetCompanies);
     if (!res.ok) {
       throw new Error(res.error || 'Sentinel Cloud Agent failed to create research deck.');
     }
 
     const rawM = res.market ?? res.result?.market ?? res.deck;
     const m: CloudRecord = (rawM as CloudRecord | undefined) ?? {};
-    const marketId = String(m.id || m.marketId || `mkt_${Date.now().toString(36)}`);
+    
+    // Cloud enqueued decks return deckId directly. Synchronous runs return market/deck objects.
+    const returnedDeckId = res.deckId as string | undefined;
+    const marketId = String(m.id || m.marketId || returnedDeckId || `mkt_${Date.now().toString(36)}`);
     const marketName = String(m.name || brief.prompt);
     const scopeDef = m.scopeDefinition as CloudRecord | undefined;
 
@@ -283,24 +530,50 @@ export class SentinelRepository implements MarketIntelRepository {
     };
 
     const deckRecord: CloudRecord = (res.deck as CloudRecord | undefined) ?? {};
-    const deckId = String(deckRecord.id || res.result?.deck?.id || `dck_${marketId}`);
-    const deck: CloudDeck = {
+    const stateRecord = res.state as CloudRecord | undefined;
+    const deckId = String(returnedDeckId || deckRecord.id || res.result?.deck?.id || `dck_${marketId.replace(/^mkt_/, '')}`);
+    const status = (stateRecord?.status as string) || (deckRecord.status as string) || (res.deckId ? 'running' : 'ready');
+    const deck: CloudDeck & { status?: string; error?: string } = {
       id: deckId,
       marketId,
       createdAt: new Date().toISOString(),
       lastRefreshedAt: new Date().toISOString(),
       engine: 'cloud',
+      status,
+      ...(stateRecord?.error ? { error: String(stateRecord.error) } : {}),
     };
 
     this.memoryMarkets.set(market.id, market);
     this.memoryDecks.set(market.id, deck);
     this.memoryDecks.set(deck.id, deck);
 
+    let cardsWithCompany: CardWithCompany[] = [];
     if (res.cards && res.cards.length > 0) {
-      const cardsWithCompany = this.mapCloudCards(res);
+      cardsWithCompany = this.mapCloudCards(res);
       this.memoryCards.set(deck.id, cardsWithCompany);
       this.memoryCards.set(market.id, cardsWithCompany);
     }
+
+    const cache = readCloudCache();
+    const now = new Date().toISOString();
+    const revision = (deck as { revision?: number }).revision ?? 1;
+    cache.set(deck.id, {
+      deck,
+      market,
+      cards: cardsWithCompany,
+      lastSyncedAt: now,
+      revision,
+      pendingDeletion: false,
+    });
+    cache.set(market.id, {
+      deck,
+      market,
+      cards: cardsWithCompany,
+      lastSyncedAt: now,
+      revision,
+      pendingDeletion: false,
+    });
+    writeCloudCache(cache);
 
     handlers?.onProgress?.({
       message: 'Sentinel Cloud Agent deck created successfully.',
@@ -313,8 +586,27 @@ export class SentinelRepository implements MarketIntelRepository {
   }
 
   async listCards(deckId: string, filter?: CardFilter): Promise<CardWithCompany[]> {
-    if (this.memoryCards.has(deckId)) {
-      let list = this.memoryCards.get(deckId)!;
+    let cachedCards = this.memoryCards.get(deckId);
+    let cachedDeck = this.memoryDecks.get(deckId);
+    if (!cachedCards || cachedCards.length === 0) {
+      const cache = readCloudCache();
+      const entry = cache.get(deckId) || cache.get(`mkt_${deckId.replace(/^dck_/, '')}`);
+      if (entry && !entry.pendingDeletion && entry.cards && entry.cards.length > 0) {
+        cachedCards = entry.cards;
+        this.memoryCards.set(deckId, cachedCards);
+      }
+      if (entry?.deck) {
+        cachedDeck = entry.deck;
+        this.memoryDecks.set(deckId, cachedDeck);
+      }
+    }
+    const cachedStatus = (cachedDeck as { status?: string; state?: { status?: string } } | undefined);
+    const deckInProgress = ['running', 'partial', 'refreshing'].includes(
+      cachedStatus?.status ?? cachedStatus?.state?.status ?? '',
+    );
+
+    if (cachedCards && cachedCards.length > 0 && !deckInProgress) {
+      let list = cachedCards;
       if (filter?.cardType) {
         list = list.filter((c) => c.card.cardType === filter.cardType);
       }
@@ -323,7 +615,7 @@ export class SentinelRepository implements MarketIntelRepository {
 
     try {
       const cloudPayload = await getCloudDeck(deckId);
-      if (cloudPayload && cloudPayload.cards) {
+      if (cloudPayload) {
         const cardsWithCompany = this.mapCloudCards(cloudPayload);
         this.memoryCards.set(deckId, cardsWithCompany);
         if (filter?.cardType) {
@@ -335,7 +627,11 @@ export class SentinelRepository implements MarketIntelRepository {
       console.warn(`Failed to fetch cloud cards for deck ${deckId}:`, err);
     }
 
-    return this.fallbackRepo.listCards(deckId, filter);
+    if (cachedCards && cachedCards.length > 0) {
+      return cachedCards;
+    }
+
+    return [];
   }
 
   async getCard(cardId: string): Promise<CardWithCompany | null> {
@@ -343,7 +639,7 @@ export class SentinelRepository implements MarketIntelRepository {
       const match = cardList.find((c) => c.card.id === cardId);
       if (match) return match;
     }
-    return this.fallbackRepo.getCard(cardId);
+    return null;
   }
 
   async listSavedCards(): Promise<CardWithCompany[]> {
@@ -355,25 +651,16 @@ export class SentinelRepository implements MarketIntelRepository {
     } catch {
       /* fallback */
     }
-    return this.fallbackRepo.listSavedCards();
+    return [];
   }
 
   async saveCard(cardId: string): Promise<SavedCard> {
-    try {
-      await saveCloudCard(cardId);
-    } catch {
-      /* ignore */
-    }
-    return this.fallbackRepo.saveCard(cardId);
+    await saveCloudCard(cardId);
+    return { cardId, savedAt: new Date().toISOString() };
   }
 
   async unsaveCard(cardId: string): Promise<void> {
-    try {
-      await unsaveCloudCard(cardId);
-    } catch {
-      /* ignore */
-    }
-    return this.fallbackRepo.unsaveCard(cardId);
+    await unsaveCloudCard(cardId);
   }
 
   async getCompany(companyId: string): Promise<Company | null> {
@@ -381,7 +668,7 @@ export class SentinelRepository implements MarketIntelRepository {
       const match = cardList.find((c) => c.company?.id === companyId);
       if (match && match.company) return match.company;
     }
-    return this.fallbackRepo.getCompany(companyId);
+    return null;
   }
 
   async getCompanyMetrics(companyId: string): Promise<CompanyMetric[]> {
@@ -389,7 +676,7 @@ export class SentinelRepository implements MarketIntelRepository {
       const match = cardList.find((c) => c.company?.id === companyId);
       if (match) return match.metrics || [];
     }
-    return this.fallbackRepo.getCompanyMetrics(companyId);
+    return [];
   }
 
   async getViceClaims(cardId: string): Promise<ViceClaim[]> {
@@ -397,101 +684,280 @@ export class SentinelRepository implements MarketIntelRepository {
       const match = cardList.find((c) => c.card.id === cardId);
       if (match) return match.viceClaims || [];
     }
-    return this.fallbackRepo.getViceClaims(cardId);
+    return [];
   }
 
   async getDashboardTab<T extends DashboardTab>(
     companyId: string,
     tab: T,
-    force?: boolean,
+    _force?: boolean,
   ): Promise<DashboardTabResult<T> | null> {
-    return this.fallbackRepo.getDashboardTab(companyId, tab, force);
+    let deckId: string | null = null;
+
+    // 1. Resolve deckId from in-memory cache
+    for (const [id, cards] of this.memoryCards.entries()) {
+      if (cards.some((c) => c.company?.id === companyId)) {
+        deckId = id;
+        break;
+      }
+    }
+
+    // 2. Resolve from cloud localStorage cache
+    if (!deckId) {
+      const cache = readCloudCache();
+      for (const [id, entry] of cache.entries()) {
+        if (entry.cards?.some((c) => c.company?.id === companyId)) {
+          deckId = id;
+          break;
+        }
+      }
+    }
+
+    // 3. Fallback to active market
+    if (!deckId) {
+      const market = await this.listMarkets().then((m) => m[0]);
+      if (market) deckId = market.id;
+    }
+
+    if (!deckId) return null;
+
+    try {
+      const res = await fetchSentinel<{ content: DashboardTabResult<T>['content'] }>('/api/research/tab', {
+        method: 'POST',
+        body: JSON.stringify({ deckId, companyId, tab }),
+      });
+      return {
+        companyId,
+        tab,
+        content: res.content,
+        lastRefreshedAt: new Date().toISOString(),
+      };
+    } catch (e) {
+      console.error('Failed to fetch cloud dashboard tab:', e);
+      return null;
+    }
   }
 
   async deepDive(input: DeepDiveInput): Promise<DeepDiveResult> {
-    return this.fallbackRepo.deepDive(input);
+    void input;
+    throw new Error('Cloud deep-dive research is not available through Sentinel yet.');
   }
 
   async factCheck(input: FactCheckInput): Promise<FactCheckResult> {
-    return this.fallbackRepo.factCheck(input);
+    void input;
+    throw new Error('Cloud fact-check research is not available through Sentinel yet.');
+  }
+
+
+  private invalidateDeckCache(deckId: string) {
+    this.memoryCards.delete(deckId);
+    this.memoryDecks.delete(deckId);
+
+    // Also delete by marketId if possible, or just scan
+    for (const [k, v] of this.memoryDecks.entries()) {
+      if (v.id === deckId) {
+        this.memoryDecks.delete(k);
+        this.memoryCards.delete(k);
+      }
+    }
+
+    const cache = readCloudCache();
+    let changed = false;
+    for (const [k, v] of cache.entries()) {
+      if (v.deck?.id === deckId || k === deckId) {
+        cache.delete(k);
+        changed = true;
+      }
+    }
+    if (changed) writeCloudCache(cache);
+  }
+
+  private findDeckIdForCompany(companyId: string): string | undefined {
+    for (const [key, cards] of this.memoryCards.entries()) {
+      const card = cards.find((c) => c.company?.id === companyId);
+      if (!card) continue;
+      const deckId = card.card.deckId || this.memoryDecks.get(key)?.id;
+      if (deckId) return deckId;
+    }
+    return undefined;
   }
 
   async expandDeck(marketId: string, focus: ExpandFocus): Promise<{ added: number }> {
-    try {
-      const res = await expandCloudDeck(marketId, focus);
-      if (res && typeof res.added === 'number') return res;
-    } catch {
-      /* fallback to local mock repository */
+    const res = await expandCloudDeck(marketId, focus);
+    if (res && typeof res.added === 'number') {
+      const deckId = this.memoryDecks.get(marketId)?.id || marketId;
+      this.invalidateDeckCache(deckId);
+      return res;
     }
-    return this.fallbackRepo.expandDeck(marketId, focus);
+    throw new Error('Failed to expand cloud deck: no response from Sentinel');
+  }
+
+  async verifyMetric(input: VerifyMetricInput): Promise<VerifyMetricResult> {
+    const deckId = this.findDeckIdForCompany(input.companyId);
+    if (!deckId) throw new Error('Cannot verify metric: Deck ID not found in local cache');
+    const res = await verifyCloudMetric(input, deckId);
+    if (!res) throw new Error('Failed to verify cloud metric: no response from Sentinel');
+    this.invalidateDeckCache(deckId);
+    return res;
+  }
+
+  async huntCompanyMetrics(companyId: string): Promise<HuntMetricsResult> {
+    const deckId = this.findDeckIdForCompany(companyId);
+    if (!deckId) throw new Error('Cannot hunt metrics: Deck ID not found in local cache');
+    const res = await huntCloudMetrics(companyId, deckId);
+    if (!res) throw new Error('Failed to hunt cloud metrics: no response from Sentinel');
+    this.invalidateDeckCache(deckId);
+    return res;
   }
 
   async overrideMetric(input: OverrideMetricInput): Promise<CompanyMetric> {
-    return this.fallbackRepo.overrideMetric(input);
+    void input;
+    throw new Error('Cloud metric overrides are not available through Sentinel yet.');
   }
 
   async getMarketOpportunity(marketId: string, force?: boolean): Promise<DeepDiveResult> {
-    return this.fallbackRepo.getMarketOpportunity(marketId, force);
+    void marketId;
+    void force;
+    throw new Error('Cloud market opportunity research is not available through Sentinel yet.');
   }
 
   async askResearch(input: AskResearchInput): Promise<ResearchThread> {
-    try {
-      const res = await askCloudResearch(input);
-      if (res && res.id && Array.isArray(res.messages)) {
-        return res as unknown as ResearchThread;
-      }
-    } catch {
-      /* fallback to local mock repository */
+    const res = await askCloudResearch(input);
+    if (res && res.id && Array.isArray(res.messages)) {
+      return res as unknown as ResearchThread;
     }
-    return (this.fallbackRepo as MarketIntelRepository).askResearch!(input);
+    throw new Error('Sentinel returned an invalid research thread.');
   }
 
   async listResearchThreads(filter?: { deckId?: string; companyId?: string }): Promise<ResearchThread[]> {
-    return (this.fallbackRepo as MarketIntelRepository).listResearchThreads!(filter);
+    void filter;
+    return [];
   }
 
   async getResearchThread(id: string): Promise<ResearchThread | null> {
-    return (this.fallbackRepo as MarketIntelRepository).getResearchThread!(id);
+    void id;
+    return null;
   }
 
   async saveThreadAsReport(threadId: string, focus?: string | null): Promise<Report> {
-    return (this.fallbackRepo as MarketIntelRepository).saveThreadAsReport!(threadId, focus);
+    void threadId;
+    void focus;
+    throw new Error('Cloud report creation from research threads is not available through Sentinel yet.');
   }
 
   async listResearchJobs(): Promise<ResearchJob[]> {
-    return (this.fallbackRepo as MarketIntelRepository).listResearchJobs!();
+    return [];
   }
 
   async getResearchJob(id: string): Promise<ResearchJob | null> {
-    return (this.fallbackRepo as MarketIntelRepository).getResearchJob!(id);
+    void id;
+    return null;
   }
 
   async cancelResearchJob(id: string): Promise<ResearchJob | null> {
-    return (this.fallbackRepo as MarketIntelRepository).cancelResearchJob!(id);
+    void id;
+    return null;
   }
 
   async resumeResearchJob(id: string): Promise<ResearchJob | null> {
-    return (this.fallbackRepo as MarketIntelRepository).resumeResearchJob!(id);
+    void id;
+    return null;
   }
 
   async generateReport(request: ReportRequest): Promise<Report> {
-    return this.fallbackRepo.generateReport(request);
+    void request;
+    throw new Error('Cloud report generation is not available through Sentinel yet.');
   }
 
   async listReports(): Promise<Report[]> {
-    return this.fallbackRepo.listReports();
+    return [];
   }
 
   async getReport(id: string): Promise<Report | null> {
-    return this.fallbackRepo.getReport(id);
+    void id;
+    return null;
   }
 
   subscribeDeckRefresh(_listener: DeckRefreshListener): Unsubscribe {
     return () => {};
   }
 
+  cacheCloudDeckResponse(res: CloudResearchDeckResponse): void {
+    const rawM = res.market ?? res.result?.market ?? res.deck;
+    const m: CloudRecord = (rawM as CloudRecord | undefined) ?? {};
+    const returnedDeckId = res.deckId as string | undefined;
+    const marketId = String(m.id || m.marketId || returnedDeckId || `mkt_${Date.now().toString(36)}`);
+    const marketName = String(m.name || 'Sentinel Cloud Market');
+    const scopeDef = m.scopeDefinition as CloudRecord | undefined;
+
+    const market: CloudMarket = {
+      id: marketId,
+      name: marketName,
+      scopeDefinition: {
+        vertical: String(scopeDef?.vertical || 'Competitive Market Intelligence'),
+        geography: (m.region || m.geography || null) as string | null,
+        notes: null,
+      },
+      refreshCadence: 'weekly',
+      createdAt: new Date().toISOString(),
+      engine: 'cloud',
+    };
+
+    const deckRecord: CloudRecord = (res.deck as CloudRecord | undefined) ?? {};
+    const stateRecord = res.state as CloudRecord | undefined;
+    const deckId = String(returnedDeckId || deckRecord.id || res.result?.deck?.id || `dck_${marketId.replace(/^mkt_/, '')}`);
+    const status = (stateRecord?.status as string) || (deckRecord.status as string) || (res.deckId ? 'running' : 'ready');
+    const deck: CloudDeck & { status?: string; error?: string } = {
+      id: deckId,
+      marketId,
+      createdAt: new Date().toISOString(),
+      lastRefreshedAt: new Date().toISOString(),
+      engine: 'cloud',
+      status,
+      ...(stateRecord?.error ? { error: String(stateRecord.error) } : {}),
+    };
+
+    this.memoryMarkets.set(market.id, market);
+    this.memoryDecks.set(market.id, deck);
+    this.memoryDecks.set(deck.id, deck);
+
+    if (res.cards && res.cards.length > 0) {
+      const cardsWithCompany = this.mapCloudCards(res);
+      this.memoryCards.set(deck.id, cardsWithCompany);
+      this.memoryCards.set(market.id, cardsWithCompany);
+    }
+
+    const cache = readCloudCache();
+    const now = new Date().toISOString();
+    const revision = (res.deck as { revision?: number } | undefined)?.revision ?? 1;
+    let cardsWithCompany: CardWithCompany[] = [];
+    if (res.cards && res.cards.length > 0) {
+      cardsWithCompany = this.mapCloudCards(res);
+    }
+    cache.set(deck.id, {
+      deck,
+      market,
+      cards: cardsWithCompany,
+      lastSyncedAt: now,
+      revision,
+      pendingDeletion: false,
+    });
+    cache.set(market.id, {
+      deck,
+      market,
+      cards: cardsWithCompany,
+      lastSyncedAt: now,
+      revision,
+      pendingDeletion: false,
+    });
+    writeCloudCache(cache);
+  }
+
   private mapCloudCards(payload: CloudCardPayload): CardWithCompany[] {
-    const rawCards: CloudRecord[] = payload.cards || payload.result?.cards || [];
+    const rawCards: Array<Record<string, unknown>> =
+      (payload.cards as Array<Record<string, unknown>> | undefined) ||
+      (payload.result?.cards as Array<Record<string, unknown>> | undefined) ||
+      [];
     const rawCompanies: CloudRecord[] = payload.companies || [];
     const rawMetrics: CloudRecord[] = payload.metrics || [];
     const rawViceClaims: CloudRecord[] = payload.viceClaims || [];
@@ -520,7 +986,50 @@ export class SentinelRepository implements MarketIntelRepository {
       }
     }
 
-    return rawCards.map((c: CloudRecord) => {
+    const results: CardWithCompany[] = [];
+
+    for (const rawItem of rawCards) {
+      if (!rawItem) continue;
+      const item = rawItem as CloudRecord;
+      const primaryCard = item.primaryCard as { card?: Card; company?: Company; metrics?: CompanyMetric[]; viceClaims?: ViceClaim[] } | undefined;
+      // Handle HydrateCompanyCardResult objects (with primaryCard and cards arrays)
+      if (primaryCard?.card && primaryCard?.company) {
+        results.push({
+          card: { ...primaryCard.card, engine: 'cloud' } as Card,
+          company: primaryCard.company,
+          metrics: (item.metrics as CompanyMetric[] | undefined) || primaryCard.metrics || [],
+          viceClaims: (item.viceClaims as ViceClaim[] | undefined) || primaryCard.viceClaims || [],
+        });
+        if (Array.isArray(item.cards)) {
+          for (const facet of (item.cards as Array<{ card?: Card; company?: Company; metrics?: CompanyMetric[]; viceClaims?: ViceClaim[] }>).slice(1)) {
+            if (facet?.card && facet?.company) {
+              results.push({
+                card: { ...facet.card, engine: 'cloud' } as Card,
+                company: facet.company,
+                metrics: facet.metrics || [],
+                viceClaims: facet.viceClaims || [],
+              });
+            }
+          }
+        }
+        continue;
+      }
+
+      const directCard = item.card as Card | undefined;
+      const directCompany = item.company as Company | undefined;
+      // Handle direct CardWithCompany objects
+      if (directCard && Object.prototype.hasOwnProperty.call(item, 'company')) {
+        results.push({
+          card: { ...directCard, engine: 'cloud' } as Card,
+          company: (directCompany ?? null) as Company | null,
+          metrics: (item.metrics as CompanyMetric[] | undefined) || [],
+          viceClaims: (item.viceClaims as ViceClaim[] | undefined) || [],
+        });
+        continue;
+      }
+
+      // Handle raw card records
+      const c = item as CloudRecord;
       const companyId = String(c.companyId || `comp_${String(c.id)}`);
       let company = companyMap.get(companyId);
       if (!company) {
@@ -555,7 +1064,7 @@ export class SentinelRepository implements MarketIntelRepository {
         citations: (c.citations ?? []) as unknown as Citation[],
         keyPoints: (c.keyPoints ?? []) as string[],
         createdAt: String(c.createdAt || new Date().toISOString()),
-        engine: 'cloud', // Visual distinction flag
+        engine: 'cloud',
       };
 
       const companyObj = company;
@@ -564,12 +1073,14 @@ export class SentinelRepository implements MarketIntelRepository {
       const viceClaims = rawViceClaims
         .filter((vc: CloudRecord) => vc.cardId === c.id || vc.companyId === companyObj.id) as unknown as ViceClaim[];
 
-      return {
+      results.push({
         card,
         company: companyObj,
         metrics,
         viceClaims,
-      };
-    });
+      });
+    }
+
+    return results;
   }
 }

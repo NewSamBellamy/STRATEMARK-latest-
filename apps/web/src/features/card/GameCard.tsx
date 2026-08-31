@@ -246,6 +246,8 @@ export interface GameCardProps {
   data: CardWithCompany;
   /** All usable user-count values in the deck — context for relative CMS scoring. */
   deckUserValues?: number[];
+  /** Deck research status to differentiate active research from settled barren cards. */
+  deckStatus?: 'running' | 'refreshing' | 'partial' | 'failed' | 'ready' | 'ready_stale';
   onOpen?: () => void;
   /** Wire the card's Share action (native share sheet / copy link). */
   onShare?: () => void;
@@ -257,6 +259,7 @@ export interface GameCardProps {
 export function GameCard({
   data,
   deckUserValues = [],
+  deckStatus,
   onOpen,
   onShare,
   hideActions = false,
@@ -349,7 +352,9 @@ export function GameCard({
   // Still forming: enrichment hasn't assigned a tier yet, so empty slots are
   // shimmer skeletons (the card visibly "comes to life"), not honest dashes.
   // Once the desk has finished, a missing figure is a FINDING and renders "—".
-  const forming = card.tier == null && !isSignalCardType(card.cardType);
+  const isResearchActive = deckStatus === undefined || deckStatus === 'running' || deckStatus === 'refreshing';
+  const forming = card.tier == null && !isSignalCardType(card.cardType) && isResearchActive;
+  const barren = card.tier == null && !isSignalCardType(card.cardType) && !isResearchActive;
   const checked = lastCheckedMs(metrics);
   const checkedAgo = checked != null ? checkedAgoLabel(checked) : null;
   const arrKnown = arr?.value != null && arr.confidence !== 'unknown';
@@ -442,13 +447,18 @@ export function GameCard({
         {/* Enrichment still running: say so instead of showing a wall of dashes
             (founder's audit: a fresh deck of all-dash cards "looks broken").
             Cards poll while tier is null, so figures pop in as the desk works. */}
-        {!signal && card.tier == null && !arrKnown && !valKnown && !shareKnown && (
+        {!signal && forming && !arrKnown && !valKnown && !shareKnown && (
           <p className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-primary-ink">
             <span className="relative flex h-1.5 w-1.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
             </span>
             Desk researching — figures arriving live
+          </p>
+        )}
+        {!signal && barren && !arrKnown && !valKnown && !shareKnown && (
+          <p className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-faint">
+            No verified figures disclosed in primary sources
           </p>
         )}
 

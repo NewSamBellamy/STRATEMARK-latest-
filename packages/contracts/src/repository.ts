@@ -251,6 +251,25 @@ export interface ThreadMessage {
   at: string;
 }
 
+export interface DistilledSemanticFact {
+  id: string;
+  fact: string;
+  category?: 'metric' | 'finding' | 'competitor' | 'trend' | 'risk' | 'general';
+  companyId?: string | null;
+  subject?: string | null;
+  citations: Citation[];
+  extractedAt: string;
+  userVerified?: boolean;
+}
+
+export interface SemanticMemory {
+  threadId: string;
+  distilledFacts: DistilledSemanticFact[];
+  lastDistilledTurnIndex: number;
+  totalTurnsDistilled: number;
+  distilledAt: string;
+}
+
 export interface ResearchThread {
   id: string;
   scope: ResearchScope;
@@ -258,6 +277,8 @@ export interface ResearchThread {
   messages: ThreadMessage[];
   /** Set when the thread has been distilled into a saved report. */
   reportId: string | null;
+  /** Structured, scoped semantic facts extracted after turn threshold (issue #56). */
+  semanticMemory?: SemanticMemory | null;
   createdAt: string;
   updatedAt: string;
 }

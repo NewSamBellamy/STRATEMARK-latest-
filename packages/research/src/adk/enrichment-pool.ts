@@ -287,13 +287,20 @@ export async function runEnrichmentPool(
       } catch (err) {
         const error = toTraceError(err);
         workerSpan.fail(err, { company: candidate.name });
+
+        if (
+          error.name === 'AbortError' ||
+          signal?.aborted ||
+          error.message.includes('aborted')
+        ) {
+          return;
+        }
+
         failures.push({
           candidate,
           message: error.message,
           retryable: error.retryable,
         });
-
-        if (error.name === 'AbortError') return;
 
         // Retryable means rate-limited or upstream-degraded: slow down.
         if (error.retryable && penalty < MAX_PENALTY) {

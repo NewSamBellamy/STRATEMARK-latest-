@@ -10,6 +10,7 @@ import {
   CONFIDENCE_LEVELS,
   DASHBOARD_TABS,
   METRIC_TYPES,
+  MODEL_PROPOSABLE_CONFIDENCE,
   REFRESH_CADENCES,
   SUBSCRIPTION_STATUSES,
   SUBSCRIPTION_TIERS,
@@ -19,6 +20,30 @@ import {
 export const cardTypeSchema = z.enum(CARD_TYPES);
 export const metricTypeSchema = z.enum(METRIC_TYPES);
 export const confidenceSchema = z.enum(CONFIDENCE_LEVELS);
+
+/**
+ * Confidence as a MODEL may state it (issue #48). Use this — never
+ * `confidenceSchema` — on any structured-output schema handed to a model.
+ *
+ * Two jobs. Declaring the narrow enum makes the generated native
+ * `responseSchema` exclude `user_verified`, so a conforming model cannot emit a
+ * forged human sign-off at all. Normalising first stops a NON-conforming model
+ * from costing us an entire enrichment payload: the human-only value is demoted
+ * to `verified` (which must then be earned from a citation downstream), and
+ * anything unrecognisable becomes `unknown` rather than being trusted.
+ * `enforceModelMetricProvenance` applies the same demotion for callers that
+ * bypass this schema, so both entry points agree.
+ */
+export const modelConfidenceSchema = z
+  .preprocess((raw) => {
+    if (raw === undefined || raw === null) return undefined; // let .default() apply
+    if (raw === 'user_verified') return 'verified'; // human-only: never asserted
+    return (MODEL_PROPOSABLE_CONFIDENCE as readonly string[]).includes(raw as string)
+      ? raw
+      : 'unknown'; // malformed is a gap, not a figure to trust
+  }, z.enum(MODEL_PROPOSABLE_CONFIDENCE))
+  .default('unknown');
+
 export const refreshCadenceSchema = z.enum(REFRESH_CADENCES);
 export const dashboardTabSchema = z.enum(DASHBOARD_TABS);
 export const subscriptionTierSchema = z.enum(SUBSCRIPTION_TIERS);
@@ -96,6 +121,15 @@ export const companySchema = z.object({
   brandTheme: brandThemeSchema.nullable(),
 });
 
+// Citation schema ----------------------------------------------------------
+export const citationSchema = z.object({
+  title: z.string(),
+  url: z.string(),
+  credibility: z
+    .enum(['primary', 'reputable_secondary', 'industry', 'user_generated', 'unknown'])
+    .optional(),
+});
+
 export const companyMetricSchema = z.object({
   id: z.string(),
   companyId: z.string(),
@@ -111,17 +145,7 @@ export const companyMetricSchema = z.object({
    * expire, so the publisher name is the durable half of the provenance.
    * Defaulted to [] so snapshots written before this field still parse.
    */
-  citations: z
-    .array(
-      z.object({
-        title: z.string(),
-        url: z.string(),
-        credibility: z
-          .enum(['primary', 'reputable_secondary', 'industry', 'user_generated', 'unknown'])
-          .optional(),
-      }),
-    )
-    .default([]),
+  citations: z.array(citationSchema).default([]),
   methodNote: z.string().nullable(), // "how we got this number" for estimated figures
   capturedAt: isoTimestamp,
   /**
@@ -394,3 +418,67 @@ export const dashboardDataSchema = z.object({
   contentJson: z.unknown(),
   lastRefreshedAt: isoTimestamp.nullable(),
 });
+
+// Semantic Memory & Research Thread Schemas (spec #56) -----------------------
+export const distilledSemanticFactSchema = z.object({
+  id: z.string(),
+  fact: z.string().min(1),
+  category: z
+    .enum(['metric', 'finding', 'competitor', 'trend', 'risk', 'general'])
+    .default('general'),
+  companyId: z.string().nullable().optional(),
+  subject: z.string().nullable().optional(),
+  citations: z.array(citationSchema).default([]),
+  extractedAt: isoTimestamp,
+  userVerified: z.boolean().optional(),
+});
+
+export const semanticMemorySchema = z.object({
+  threadId: z.string(),
+  distilledFacts: z.array(distilledSemanticFactSchema).default([]),
+  lastDistilledTurnIndex: z.number().int().nonnegative(),
+  totalTurnsDistilled: z.number().int().nonnegative(),
+  distilledAt: isoTimestamp,
+});
+
+export const distillationExtractionSchema = z.object({
+  facts: z.array(
+    z.object({
+      fact: z.string().min(1),
+      category: z
+        .enum(['metric', 'finding', 'competitor', 'trend', 'risk', 'general'])
+        .default('general'),
+      companyId: z.string().nullable().optional(),
+      subject: z.string().nullable().optional(),
+      citations: z.array(citationSchema).default([]),
+    }),
+  ),
+});
+
+export const researchScopeSchema = z.object({
+  kind: z.enum(['deck', 'company', 'cards', 'datapoint']),
+  deckId: z.string().nullable(),
+  companyId: z.string().nullable().optional(),
+  cardIds: z.array(z.string()).optional(),
+  subject: z.string().nullable().optional(),
+});
+
+export const threadMessageSchema = z.object({
+  id: z.string(),
+  role: z.enum(['user', 'assistant']),
+  text: z.string(),
+  citations: z.array(citationSchema).default([]),
+  at: isoTimestamp,
+});
+
+export const researchThreadSchema = z.object({
+  id: z.string(),
+  scope: researchScopeSchema,
+  title: z.string(),
+  messages: z.array(threadMessageSchema),
+  reportId: z.string().nullable().default(null),
+  semanticMemory: semanticMemorySchema.nullable().optional(),
+  createdAt: isoTimestamp,
+  updatedAt: isoTimestamp,
+});
+
