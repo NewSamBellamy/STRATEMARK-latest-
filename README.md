@@ -12,7 +12,6 @@ Built for the **All Things Agentic** hackathon (Google Cloud, Aug 2026). See [`d
 
 | Who | Role | Owns |
 |---|---|---|
-| **Shannon** | CEO | Product direction, hackathon submission |
 | **Tobi** | CPO & Design | Final design pass, landing page, Lemon Squeezy store — [`docs/HANDOVER-TOBI.md`](docs/HANDOVER-TOBI.md) |
 | **Maruf** | CTO & Lead Engineer | Hosting, backend, auth, this repository — [`docs/HANDOVER-MARUF.md`](docs/HANDOVER-MARUF.md) |
 
