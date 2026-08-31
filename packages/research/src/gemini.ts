@@ -32,9 +32,9 @@ export interface GeminiClientConfig {
   onCall?: (info: { model: string; kind: 'ground' | 'structure' }) => void;
 }
 
-/** Default RPM pacing: 15 grounded / 30 structure. */
-export const DEFAULT_GROUNDED_RPM = 15;
-export const DEFAULT_STRUCTURE_RPM = 30;
+/** Default RPM pacing: disabled for the hackathon (0). */
+export const DEFAULT_GROUNDED_RPM = 0;
+export const DEFAULT_STRUCTURE_RPM = 0;
 
 // Current Gemini API defaults. Vertex AI has a separate model line below because
 // the newest Developer API IDs are not necessarily published in every Vertex

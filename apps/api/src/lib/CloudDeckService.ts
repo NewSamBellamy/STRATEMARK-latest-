@@ -66,7 +66,7 @@ export class FirebaseAdapter implements AuthAdapter, EntitlementAdapter {
       if (!uid || typeof uid !== 'string') return false;
       const db = getFirestore();
       const doc = await db.collection('entitlements').doc(uid).get();
-       if (!doc.exists) return false; // Cloud work requires an explicit entitlement record.
+      if (!doc.exists) return false; // Cloud work requires an explicit entitlement record.
       const data = doc.data();
       const status = data?.status;
       const tier = data?.tier;

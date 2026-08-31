@@ -15,6 +15,7 @@
  * service's own credentials do the work. See lib/client.ts.
  */
 import { Hono, type Context } from 'hono';
+import { getFirestore } from 'firebase-admin/firestore';
 import { cors } from 'hono/cors';
 import { z } from 'zod';
 import { 
@@ -603,6 +604,74 @@ export function createApp(
 
   app.post('/v1/research', researchHandler);
   app.post('/api/research/deck', researchHandler);
+
+  app.post('/api/research/chat', async (c) => {
+    try {
+      const input = await c.req.json().catch(() => ({}));
+      const question = input.question || '';
+      const uid = await getUserId(c);
+      
+      const env = c.env as ServiceEnv;
+      const db = getFirestore();
+      
+      let resolved;
+      try {
+        resolved = resolveClient({
+          env,
+          callerKey: c.req.header('X-Gemini-Key') || undefined,
+        });
+      } catch (err) {
+        if (err instanceof NoCredentialsError) return c.json({ error: err.message }, 401);
+        throw err;
+      }
+      
+      const threadId = input.threadId || `thread_${uid}_default`;
+      const threadRef = db.collection('chatThreads').doc(threadId);
+      
+      await db.runTransaction(async (t: any) => {
+        const doc = await t.get(threadRef);
+        let data = doc.exists ? doc.data() : { turns: 0, rawHistory: [], distilledMemory: '' };
+        
+        data!.turns = (data!.turns || 0) + 1;
+        data!.rawHistory.push({ role: 'user', content: question });
+        
+        // Memory Distillation Guardrail (20+ turns)
+        if (data!.turns > 20) {
+          // Distill the raw history into Semantic Memory using the LLM
+          const summaryPrompt = `Distill these raw chat logs into a concise set of durable facts and context. Logs: ${JSON.stringify(data!.rawHistory)}`;
+          const summaryRes = await resolved.client.ground(summaryPrompt, { system: 'You are a summarizer.' });
+          
+          const newMemory = summaryRes.text;
+          data!.distilledMemory = `${data!.distilledMemory}\n${newMemory}`;
+          data!.rawHistory = []; // Clear raw history to prevent token bloat
+          data!.turns = 0; // Reset counter for next distillation phase
+        }
+        
+        t.set(threadRef, data!, { merge: true });
+      });
+      
+      // Fetch thread again after transaction for generation
+      const finalDoc = await threadRef.get();
+      const finalData = finalDoc.data() || { distilledMemory: '', rawHistory: [] };
+      
+      // Combine distilled memory + recent history + new question
+      const contextPrompt = `
+      Semantic Memory: ${finalData.distilledMemory}
+      Recent Chat: ${JSON.stringify(finalData.rawHistory)}
+      New Question: ${question}
+      `;
+      
+      const res = await resolved.client.ground(contextPrompt);
+
+      return c.json({
+        reply: res.text,
+        distilledActive: finalData.turns > 20
+      });
+    } catch (error: any) {
+      console.error('Chat error', error);
+      return c.json({ error: 'Chat failed' }, 500);
+    }
+  });
 
   app.post('/api/research/expand', async (c) => {
     const json = await c.req.json().catch(() => ({}));

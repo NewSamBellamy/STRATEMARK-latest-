@@ -81,14 +81,14 @@ import {
  * Raise it when running on a paid tier — check your project's real limit in AI
  * Studio rather than guessing, since Google no longer publishes per-model RPM.
  */
-export const DEFAULT_REQUESTS_PER_MINUTE = 12;
+export const DEFAULT_REQUESTS_PER_MINUTE = 0; // Disabled for the hackathon
 
 /**
  * Default nodes in flight in the top-level DAG. Matches `runAdkTaskGraph`'s own
  * default — these were 2 and 4 respectively, so the engine silently serialized
  * graph nodes that the executor was willing to run in parallel.
  */
-export const DEFAULT_GRAPH_CONCURRENCY = 4;
+export const DEFAULT_GRAPH_CONCURRENCY = 8;
 
 // ============================================================================
 // 1. Events
@@ -116,7 +116,7 @@ export interface LivingDeckEngineOptions {
   signal?: AbortSignal;
   /** Nodes in flight in the top-level DAG. Defaults to DEFAULT_GRAPH_CONCURRENCY. */
   graphConcurrency?: number;
-  /** Hydration workers. Defaults to 3. */
+  /** Hydration workers. Defaults to 8. */
   enrichmentConcurrency?: number;
   /** Cap on candidates hydrated in the first pass. */
   maxCandidates?: number;
@@ -310,7 +310,7 @@ export class LivingDeckEngine {
       telemetry,
       deckId,
       ...(this.options.enrichmentConcurrency === undefined
-        ? {}
+        ? { concurrency: 8 }
         : { concurrency: this.options.enrichmentConcurrency }),
       ...(this.options.maxCandidates === undefined
         ? {}
