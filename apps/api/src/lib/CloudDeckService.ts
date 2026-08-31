@@ -205,7 +205,7 @@ export class CloudDeckService {
     return deck;
   }
 
-  async enqueueCreation(payload: TaskPayload) {
+  async enqueueCreation(payload: TaskPayload): Promise<{ deckId: string }> {
     if (!payload.userId) {
       throw new Error('Unauthorized: Missing userId');
     }
@@ -219,10 +219,18 @@ export class CloudDeckService {
     
     // A changed plan or Market Scope creates a new deck rather than mutating the old operation
     const existing = await this.getDeck(payload.userId, payload.deckId);
-    if (existing && existing.plan) {
-      const existingMarket = (existing.plan as { marketName?: string })?.marketName;
-      if (existingMarket && payload.plan?.marketName && existingMarket.toLowerCase().trim() !== payload.plan.marketName.toLowerCase().trim()) {
-        payload.deckId = `deck_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    if (existing) {
+      const status = existing.state?.status as string | undefined;
+      // Idempotent no-op: skip if already in-progress (running) or complete (ready).
+      // Allow partial (interrupted creation) to be re-enqueued for resume.
+      if (status === 'running' || status === 'ready') {
+        return { deckId: payload.deckId }; // Already being processed or complete
+      }
+      if (existing.plan) {
+        const existingMarket = (existing.plan as { marketName?: string })?.marketName;
+        if (existingMarket && payload.plan?.marketName && existingMarket.toLowerCase().trim() !== payload.plan.marketName.toLowerCase().trim()) {
+          payload.deckId = `deck_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+        }
       }
     }
 
@@ -257,6 +265,7 @@ export class CloudDeckService {
     });
 
     await this.tasks.enqueueDeckCreation(payload);
+    return { deckId: payload.deckId };
   }
 
   async deleteDeck(uid: string, deckId: string) {

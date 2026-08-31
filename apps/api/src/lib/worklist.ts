@@ -150,13 +150,13 @@ export async function executeScheduledRefresh(
         continue;
       }
       
-      const fullDeck = await cloudDeckService.getDeck(deck.userId, deck.deckId);
-      if (fullDeck) {
-         await cloudDeckService.saveDeck(deck.userId, deck.deckId, {
-           ...fullDeck,
-           state: { status: 'refreshing' }
-         });
-         await tasksAdapter.enqueueDeckRefresh({
+       const fullDeck = await cloudDeckService.getDeck(deck.userId, deck.deckId);
+       if (fullDeck) {
+          await cloudDeckService.saveDeck(deck.userId, deck.deckId, {
+            ...fullDeck,
+            state: { status: 'refreshing' }
+          }, fullDeck.revision);
+          await tasksAdapter.enqueueDeckRefresh({
            deckId: deck.deckId,
            userId: deck.userId,
            query: deck.query

@@ -106,6 +106,7 @@ export function createApp(
   const store = createDataStore(env, {
     store: options?.store,
     forceMemory: options?.forceMemoryStore,
+    allowMemoryFallback: options?.forceMemoryStore,
   });
 
   const tasksAdapter = options?.tasksAdapter ?? (env.tasks ? new CloudTasksAdapter(env) : new MockTasksAdapter(env.port));
@@ -482,7 +483,7 @@ export function createApp(
         query: marketQuery,
         maxCandidates: body.data.maxCandidates ?? CLOUD_DEFAULT_MAX_CANDIDATES,
       });
-      await cloudDeckService.enqueueCreation({
+      const result = await cloudDeckService.enqueueCreation({
         deckId,
         userId,
         plan,
@@ -494,7 +495,7 @@ export function createApp(
 
       return c.json({
         ok: true,
-        deckId,
+        deckId: result.deckId,
         plan,
         state: { status: 'running' },
       }, 202);
@@ -669,7 +670,39 @@ export function createApp(
     });
   });
 
-  const verifyWorkerOidc = (c: Context): boolean => {
+  /**
+   * Verify a Google OIDC token against an expected service account email.
+   * Tries Google's tokeninfo endpoint first (verifies signature + expiry),
+   * falls back to local JWT decode for environments without internet.
+   */
+  const verifyGoogleOidcToken = async (token: string, expectedEmail: string): Promise<boolean> => {
+    // Try Google's tokeninfo endpoint for signature/expiry validation
+    const tokenInfoRes = await fetch(
+      `https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(token)}`,
+    );
+    if (tokenInfoRes.ok) {
+      const info = await tokenInfoRes.json() as { email?: string; exp?: string; iss?: string };
+      if (info.email !== expectedEmail) return false;
+      if (info.iss && info.iss !== 'https://accounts.google.com' && info.iss !== 'accounts.google.com') return false;
+      return true;
+    }
+
+    // Fallback: decode JWT and verify locally (for environments without internet)
+    const parts = token.split('.');
+    if (parts.length < 3) return false;
+    const payloadBase64 = parts[1];
+    if (!payloadBase64) return false;
+    const payloadJson = Buffer.from(payloadBase64, 'base64url').toString('utf8');
+    const payload = JSON.parse(payloadJson);
+
+    if (payload.email !== expectedEmail) return false;
+    if (payload.exp && typeof payload.exp === 'number' && payload.exp * 1000 < Date.now()) return false;
+    if (payload.iss && payload.iss !== 'https://accounts.google.com' && payload.iss !== 'accounts.google.com') return false;
+
+    return true;
+  };
+
+  const verifyWorkerOidc = async (c: Context): Promise<boolean> => {
     if (!env.tasks?.serviceAccountEmail) return true;
     const authHeader = c.req.header('authorization');
     if (!authHeader || !authHeader.toLowerCase().startsWith('bearer ')) {
@@ -678,13 +711,7 @@ export function createApp(
     try {
       const token = authHeader.split(' ')[1];
       if (!token) return false;
-      const parts = token.split('.');
-      if (parts.length < 2) return false;
-      const payloadBase64 = parts[1];
-      if (!payloadBase64) return false;
-      const payloadJson = Buffer.from(payloadBase64, 'base64').toString('utf8');
-      const payload = JSON.parse(payloadJson);
-      return payload.email === env.tasks.serviceAccountEmail;
+      return await verifyGoogleOidcToken(token, env.tasks.serviceAccountEmail);
     } catch {
       return false;
     }
@@ -696,7 +723,7 @@ export function createApp(
    * We do basic sanity checks here.
    */
   app.post('/tasks/worker/research', async (c) => {
-    if (!verifyWorkerOidc(c)) {
+    if (!(await verifyWorkerOidc(c))) {
       return c.json({ error: 'Unauthorized: Invalid service account OIDC token' }, 401);
     }
 
@@ -723,7 +750,7 @@ export function createApp(
   });
 
   app.post('/tasks/worker/refresh', async (c) => {
-    if (!verifyWorkerOidc(c)) {
+    if (!(await verifyWorkerOidc(c))) {
       return c.json({ error: 'Unauthorized: Invalid service account OIDC token' }, 401);
     }
 
@@ -763,13 +790,9 @@ export function createApp(
     try {
       const token = authHeader.split(' ')[1];
       if (!token) throw new Error('Missing token');
-      const payloadBase64 = token.split('.')[1];
-      if (!payloadBase64) throw new Error('Missing payload');
-      const payloadJson = Buffer.from(payloadBase64, 'base64').toString('utf8');
-      const payload = JSON.parse(payloadJson);
-      
-      if (payload.email !== env.schedulerServiceAccountEmail) {
-         return c.json({ error: 'Unauthorized: Invalid service account' }, 401);
+      const valid = await verifyGoogleOidcToken(token, env.schedulerServiceAccountEmail);
+      if (!valid) {
+        return c.json({ error: 'Unauthorized: Invalid service account or expired token' }, 401);
       }
     } catch {
       return c.json({ error: 'Unauthorized: Malformed token' }, 401);

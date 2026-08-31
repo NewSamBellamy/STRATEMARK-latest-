@@ -89,6 +89,9 @@ export function sanitizeDistilledFacts(
     }
 
     const cleanCites = cleanDistillationCitations(raw.citations);
+    // Facts without at least one usable citation are not established research facts
+    if (cleanCites.length === 0) continue;
+
     const factId = `fact_${Date.now().toString(36)}_${i}_${Math.random().toString(36).slice(2, 6)}`;
 
     sanitizedNew.push({

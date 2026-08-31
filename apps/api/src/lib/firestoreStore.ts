@@ -502,6 +502,7 @@ export class FirestoreDataStore implements StratemarkDataStore {
             (typeof record.plan?.marketName === 'string' ? record.plan.marketName : '') ??
             (typeof record.market?.name === 'string' ? record.market.name : ''),
           ...(resolvedUserId ? { userId: resolvedUserId } : {}),
+          ...(record.watch !== undefined ? { watch: record.watch } : {}),
           createdAt: deckDoc.exists ? deckDoc.data()?.createdAt : now,
           updatedAt: now,
           refreshedAt: record.refreshedAt ?? now,
@@ -621,10 +622,18 @@ export class FirestoreDataStore implements StratemarkDataStore {
   }
 
   async deleteDeck(deckId: string): Promise<void> {
-    await Promise.all([
-      this.firestore.collection(this.decksCol).doc(deckId).delete(),
-      this.firestore.collection(this.marketsCol).doc(deckId).delete(),
+    // Cascade: delete deck, market, all associated shares, and all associated artifact metadata
+    const [sharesSnap, artifactsSnap] = await Promise.all([
+      this.firestore.collection(this.sharesCol).where('deckId', '==', deckId).get(),
+      this.firestore.collection(this.artifactsCol).where('deckId', '==', deckId).get(),
     ]);
+
+    const batch = this.firestore.batch();
+    batch.delete(this.firestore.collection(this.decksCol).doc(deckId));
+    batch.delete(this.firestore.collection(this.marketsCol).doc(deckId));
+    sharesSnap.forEach((doc) => batch.delete(doc.ref));
+    artifactsSnap.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
   }
 
   async saveMarket(marketId: string, market: Record<string, unknown>, userId?: string, expectedRevision?: number): Promise<void> {
@@ -968,6 +977,7 @@ export function createDataStore(
     store?: StratemarkDataStore;
     firestore?: Firestore;
     forceMemory?: boolean;
+    allowMemoryFallback?: boolean;
   },
 ): StratemarkDataStore {
   if (options?.store) {
@@ -991,6 +1001,14 @@ export function createDataStore(
       projectId,
       firestore: options?.firestore,
     });
+  }
+
+  // In production (Cloud Run), never silently fall back to memory — data would
+  // vanish on restart. Only allow memory fallback with explicit opt-in.
+  if (!options?.allowMemoryFallback) {
+    throw new Error(
+      'No Firestore configuration found. Set GOOGLE_CLOUD_PROJECT or pass forceMemory=true for development.',
+    );
   }
 
   return new MemoryDataStore();

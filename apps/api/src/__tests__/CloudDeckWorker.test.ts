@@ -339,7 +339,7 @@ describe('CloudDeckWorker', () => {
         query: 'Testing Refresh'
       });
       const d = await service.getDeck('user_free', 'deck_3');
-      expect(d?.state?.status).toBe('ready');
+      expect(d?.state?.status).toBe('ready_stale');
       expect(d?.state?.error).toBe('Entitlement lost');
     });
   });

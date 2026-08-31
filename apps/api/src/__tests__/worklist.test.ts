@@ -69,7 +69,7 @@ describe('executeScheduledRefresh', () => {
     });
     expect(mockCloudDeckService.saveDeck).toHaveBeenCalledWith('user1', 'd1', expect.objectContaining({
       state: { status: 'refreshing' }
-    }));
+    }), undefined);
   });
 
   it('skips decks if the user has lost entitlement', async () => {

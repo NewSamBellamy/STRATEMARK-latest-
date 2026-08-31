@@ -221,7 +221,7 @@ export class CloudDeckWorker {
     if (!isEntitled) {
       logger.logWarn(`User ${userId} lost entitlement before refresh`);
       await this.updateDeckState(id, () => ({
-        state: { status: 'ready', error: 'Entitlement lost' }
+        state: { status: 'ready_stale', error: 'Entitlement lost' }
       }));
       return;
     }
@@ -252,8 +252,11 @@ export class CloudDeckWorker {
       );
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
+      // Use 'ready_stale' to distinguish a failed refresh from a healthy ready deck.
+      // The worklist queries on 'ready', so a failed refresh won't be re-enqueued
+      // but the deck remains accessible. Only a successful refresh restores 'ready'.
       await this.updateDeckState(id, () => ({
-        state: { status: 'ready', error: errMsg }
+        state: { status: 'ready_stale', error: errMsg }
       }));
       logger.logError(`Cloud Deck refresh failed: ${errMsg}`, err, { deckId });
     }

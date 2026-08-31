@@ -180,6 +180,10 @@ describe('FirestoreDataStore', () => {
         get: mockCollectionGet,
       })),
       runTransaction: mockRunTransaction,
+      batch: vi.fn(() => ({
+        delete: vi.fn(),
+        commit: vi.fn(async () => {}),
+      })),
     } as unknown as Firestore;
 
     const store = new FirestoreDataStore({ firestore: mockFirestore });
@@ -208,7 +212,8 @@ describe('FirestoreDataStore', () => {
     expect(worklist[0]?.deckId).toBe('deck_f1');
 
     await store.deleteDeck('deck_f1');
-    expect(mockDocDelete).toHaveBeenCalled();
+    // deleteDeck now uses batch() to cascade-delete deck + market + shares + artifacts
+    expect(mockFirestore.batch).toHaveBeenCalled();
   });
 
   it('wraps Firestore backend failures in a 503 Persistence failure error', async () => {

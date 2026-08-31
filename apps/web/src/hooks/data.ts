@@ -46,7 +46,7 @@ export function useDeckByMarket(marketId: string | undefined): UseQueryResult<De
     enabled: !!marketId,
     refetchInterval: (query) => {
       const deck = query.state.data as { status?: string } | null;
-      if (deck?.status === 'running') {
+      if (deck?.status === 'running' || deck?.status === 'partial' || deck?.status === 'refreshing') {
         return 3000;
       }
       return false;
@@ -76,7 +76,7 @@ export function useCards(
         return 3000;
       }
       const cachedDeck = qc.getQueryData<Deck & { status?: string }>(qk.deck(deckId ?? ''));
-      if (cachedDeck?.status === 'running' || (cards && cards.length === 0 && cachedDeck?.status !== 'ready' && cachedDeck?.status !== 'failed')) {
+      if (cachedDeck?.status === 'running' || cachedDeck?.status === 'partial' || cachedDeck?.status === 'refreshing' || (cards && cards.length === 0 && cachedDeck?.status !== 'ready' && cachedDeck?.status !== 'failed' && cachedDeck?.status !== 'ready_stale')) {
         return 3000;
       }
       return false;

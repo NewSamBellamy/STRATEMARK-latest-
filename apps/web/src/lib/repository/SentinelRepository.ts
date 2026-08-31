@@ -345,10 +345,13 @@ export class SentinelRepository implements MarketIntelRepository {
 
   async getDeckByMarket(marketId: string): Promise<Deck | null> {
     const cached = this.memoryDecks.get(marketId);
-    const isRunning = (cached as { status?: string } | undefined)?.status === 'running' ||
-                      (cached as { state?: { status?: string } } | undefined)?.state?.status === 'running';
+    const deckState = (cached as { state?: { status?: string } } | undefined)?.state?.status;
+    const deckStatus = (cached as { status?: string } | undefined)?.status;
+    const isRunning = deckStatus === 'running' || deckState === 'running';
+    const isPartial = deckStatus === 'partial' || deckState === 'partial';
+    const isRefreshing = deckStatus === 'refreshing' || deckState === 'refreshing';
 
-    if (cached && !isRunning && !(cached as { stale?: boolean }).stale) {
+    if (cached && !isRunning && !isPartial && !isRefreshing && !(cached as { stale?: boolean }).stale) {
       return cached;
     }
 

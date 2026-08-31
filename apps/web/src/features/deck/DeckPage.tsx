@@ -101,8 +101,13 @@ export default function DeckPage() {
 
   const deckStatus = (deck.data as { status?: string } | null)?.status;
   const isRunning = deckStatus === 'running';
+  const isPartial = deckStatus === 'partial';
+  const isRefreshing = deckStatus === 'refreshing';
   const isFailed = deckStatus === 'failed';
+  const isStale = deckStatus === 'ready_stale';
   const deckError = (deck.data as { error?: string } | null)?.error;
+  const lastSyncedAt = (deck.data as { lastSyncedAt?: string } | null)?.lastSyncedAt;
+  const deckRevision = (deck.data as { revision?: number } | null)?.revision;
 
   // Compare mode: select cards, then ask a grounded question about exactly
   // that set. Selection is deck-page state — leaving the page clears it.
@@ -310,6 +315,60 @@ export default function DeckPage() {
               <div className="mt-6 flex items-center justify-center gap-2 text-xs text-primary font-medium">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span>Streaming live updates…</span>
+              </div>
+            </div>
+          ) : isPartial ? (
+            <div className="panel mx-auto max-w-xl p-8 text-center glow-border my-6">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Radar className="h-6 w-6 animate-pulse text-primary" />
+              </div>
+              <h2 className="mt-4 font-display text-xl font-semibold text-content">
+                Research in progress — partial results below
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted">
+                More cards are being added as they are discovered. Partial cards are marked incomplete.
+              </p>
+              <div className="mt-6 flex items-center justify-center gap-2 text-xs text-primary font-medium">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Streaming live updates…</span>
+              </div>
+            </div>
+          ) : isRefreshing ? (
+            <div className="panel mx-auto max-w-xl p-8 text-center border-teal-200 bg-teal-50 my-6 dark:border-teal-800 dark:bg-teal-950/50">
+              <RefreshCw className="mx-auto h-8 w-8 text-teal-600 animate-spin" />
+              <h2 className="mt-3 font-display text-xl font-semibold text-teal-800 dark:text-teal-200">
+                Refreshing deck…
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted">
+                Delta research is running. Your existing cards remain visible while new discoveries are added.
+              </p>
+            </div>
+          ) : isStale ? (
+            <div className="panel mx-auto max-w-xl p-8 text-center border-amber-200 bg-amber-50 my-6 dark:border-amber-800 dark:bg-amber-950/50">
+              <AlertCircle className="mx-auto h-8 w-8 text-amber-600" />
+              <h2 className="mt-3 font-display text-xl font-semibold text-amber-800 dark:text-amber-200">
+                Last refresh failed — showing previous results
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted">
+                {deckError || 'The refresh did not complete. The deck below is the last successful snapshot.'}
+                {lastSyncedAt && (
+                  <span className="block mt-1 text-xs text-faint">
+                    Last synced: {new Date(lastSyncedAt).toLocaleString()}{deckRevision ? ` · Revision ${deckRevision}` : ''}
+                  </span>
+                )}
+              </p>
+              <div className="mt-5 flex justify-center gap-2">
+                {marketId && (
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    disabled={refreshDeck.isPending}
+                    onClick={() => refreshDeck.mutate(marketId)}
+                  >
+                    <RefreshCw className={`h-4 w-4 ${refreshDeck.isPending ? 'animate-spin' : ''}`} />
+                    Retry refresh
+                  </button>
+                )}
               </div>
             </div>
           ) : isFailed ? (
