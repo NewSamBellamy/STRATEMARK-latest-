@@ -162,8 +162,7 @@ export interface EnrichCompanyWithProxiesInput {
 // 2. Helper Functions
 // ============================================================================
 
-const uid = (prefix: string, slug: string): string =>
-  `${prefix}_${slug}_${Math.random().toString(36).slice(2, 7)}`;
+const uid = (prefix: string, slug: string): string => `${prefix}_${slug}`;
 
 const now = (): string => new Date().toISOString();
 
@@ -485,6 +484,77 @@ export function enrichCompanyWithProxies(
 
   if (finalValuation) {
     resultMetrics.push(finalValuation);
+  }
+
+  // --------------------------------------------------------------------------
+  // 3. Populate Employees & Users from Facts or Fallback Unknowns
+  // --------------------------------------------------------------------------
+  const existingEmp = resultMetrics.find((m) => m.metricType === 'employees');
+  if ((!existingEmp || existingEmp.value === null) && headcount !== null && headcount !== undefined && headcount > 0) {
+    const citationsToUse = citations.length > 0 ? citations : [];
+    const empMetric: CompanyMetric = {
+      id: existingEmp?.id || uid('met', `${companyId}-employees`),
+      companyId,
+      metricType: 'employees',
+      value: headcount,
+      confidence: citationsToUse.length > 0 ? 'verified' : 'estimated',
+      source: citationsToUse[0]?.url ?? null,
+      citations: citationsToUse,
+      methodNote: headcountSource ?? 'Disclosed employee/team headcount.',
+      capturedAt: now(),
+    };
+    const empIdx = resultMetrics.findIndex((m) => m.metricType === 'employees');
+    if (empIdx >= 0) {
+      resultMetrics[empIdx] = empMetric;
+    } else {
+      resultMetrics.push(empMetric);
+    }
+  }
+
+  const existingUsers = resultMetrics.find((m) => m.metricType === 'users');
+  if ((!existingUsers || existingUsers.value === null) && explicitFootprint?.footprintCount && explicitFootprint.footprintCount > 0) {
+    const citationsToUse = citations.length > 0 ? citations : [];
+    const usersMetric: CompanyMetric = {
+      id: existingUsers?.id || uid('met', `${companyId}-users`),
+      companyId,
+      metricType: 'users',
+      value: explicitFootprint.footprintCount,
+      confidence: citationsToUse.length > 0 ? 'verified' : 'estimated',
+      source: citationsToUse[0]?.url ?? null,
+      citations: citationsToUse,
+      methodNote: explicitFootprint.footprintLabel ?? 'Public user/customer footprint count.',
+      capturedAt: now(),
+    };
+    const usersIdx = resultMetrics.findIndex((m) => m.metricType === 'users');
+    if (usersIdx >= 0) {
+      resultMetrics[usersIdx] = usersMetric;
+    } else {
+      resultMetrics.push(usersMetric);
+    }
+  }
+
+  if (mergedOptions.includeUnknowns ?? true) {
+    for (const type of ['market_share', 'employees', 'users'] as const) {
+      const exists = resultMetrics.some((m) => m.metricType === type);
+      if (!exists) {
+        let methodNote = 'Unknown: No disclosed figure found in primary sources.';
+        if (type === 'market_share') methodNote = 'Unknown: No disclosed market share percentage.';
+        else if (type === 'employees') methodNote = 'Unknown: No disclosed employee or team count.';
+        else if (type === 'users') methodNote = 'Unknown: No disclosed user or customer count.';
+
+        resultMetrics.push({
+          id: uid('met', `${companyId}-${type}`),
+          companyId,
+          metricType: type,
+          value: null,
+          confidence: 'unknown',
+          source: null,
+          citations: [],
+          methodNote,
+          capturedAt: now(),
+        });
+      }
+    }
   }
 
   return enforceMetricsProvenance(resultMetrics);

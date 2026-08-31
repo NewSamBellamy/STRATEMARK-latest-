@@ -52,7 +52,10 @@ fi
 QUEUE_NAME="stratemark-tasks"
 if ! gcloud tasks queues describe "${QUEUE_NAME}" --project "${PROJECT}" --location "${REGION}" >/dev/null 2>&1; then
   echo "▸ Creating Cloud Tasks queue ${QUEUE_NAME}"
-  gcloud tasks queues create "${QUEUE_NAME}" --project "${PROJECT}" --location "${REGION}" --quiet
+  gcloud tasks queues create "${QUEUE_NAME}" --project "${PROJECT}" --location "${REGION}" --max-attempts=3 --max-retry-duration=1800s --quiet
+else
+  echo "▸ Updating Cloud Tasks queue ${QUEUE_NAME} retry policy"
+  gcloud tasks queues update "${QUEUE_NAME}" --project "${PROJECT}" --location "${REGION}" --max-attempts=3 --max-retry-duration=1800s --quiet || true
 fi
 
 PROJECT_NUM="$(gcloud projects describe "${PROJECT}" --format='value(projectNumber)')"

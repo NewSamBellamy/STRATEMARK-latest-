@@ -76,7 +76,7 @@ const researchSchema = z.object({
   query: z.string().min(3).max(300).optional(),
   plan: planSchema.optional(),
   deckId: z.string().min(1).optional(),
-  maxCandidates: z.number().int().min(1).max(24).optional(),
+  maxCandidates: z.number().int().min(1).max(30).optional(),
   watch: z.boolean().optional(),
 });
 
