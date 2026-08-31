@@ -657,11 +657,34 @@ export class SentinelRepository implements MarketIntelRepository {
     tab: T,
     _force?: boolean,
   ): Promise<DashboardTabResult<T> | null> {
-    const market = await this.listMarkets().then(m => m[0]); // Find the active market
-    if (!market) return null;
-    
-    // In Sentinel, a market corresponds to a deck
-    const deckId = market.id;
+    let deckId: string | null = null;
+
+    // 1. Resolve deckId from in-memory cache
+    for (const [id, cards] of this.memoryCards.entries()) {
+      if (cards.some((c) => c.company?.id === companyId)) {
+        deckId = id;
+        break;
+      }
+    }
+
+    // 2. Resolve from cloud localStorage cache
+    if (!deckId) {
+      const cache = readCloudCache();
+      for (const [id, entry] of cache.entries()) {
+        if (entry.cards?.some((c) => c.company?.id === companyId)) {
+          deckId = id;
+          break;
+        }
+      }
+    }
+
+    // 3. Fallback to active market
+    if (!deckId) {
+      const market = await this.listMarkets().then((m) => m[0]);
+      if (market) deckId = market.id;
+    }
+
+    if (!deckId) return null;
 
     try {
       const res = await fetchSentinel<{ content: DashboardTabResult<T>['content'] }>('/api/research/tab', {

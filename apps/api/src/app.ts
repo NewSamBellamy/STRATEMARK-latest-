@@ -638,8 +638,9 @@ export function createApp(
         data!.turns = (data!.turns || 0) + 1;
         data!.rawHistory.push({ role: 'user', content: question });
         
+        const MEMORY_DISTILLATION_THRESHOLD = 20;
         // Memory Distillation Guardrail (20+ turns)
-        if (data!.turns > 20) {
+        if (data!.turns > MEMORY_DISTILLATION_THRESHOLD) {
           // Bonus Points: Using additional Google AI Models (Gemma 2) for Distillation
           const summaryPrompt = `Distill these raw chat logs into a concise set of durable facts and context. Logs: ${JSON.stringify(data!.rawHistory)}`;
           
@@ -662,7 +663,7 @@ export function createApp(
             newMemory = summaryRes.text;
           }
 
-          data!.distilledMemory = `${data!.distilledMemory}\n${newMemory}`;
+          data!.distilledMemory = `${data!.distilledMemory}\n${newMemory}`.trim();
           data!.rawHistory = []; // Clear raw history to prevent token bloat
           data!.turns = 0; // Reset counter for next distillation phase
         }
@@ -685,7 +686,7 @@ export function createApp(
 
       return c.json({
         reply: res.text,
-        distilledActive: finalData.turns > 20
+        distilledActive: Boolean(finalData.distilledMemory),
       });
     } catch (error) {
       console.error('Chat error', error);
