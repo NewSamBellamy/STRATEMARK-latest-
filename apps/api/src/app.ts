@@ -107,6 +107,8 @@ async function planFromQuery(
 const DECK_ESTIMATE_USD = 0.65;
 /** Estimated cost of one capture with a vision adjudication. */
 const CAPTURE_ESTIMATE_USD = 0.002;
+/** Reserve enough budget for one grounded verification or metrics hunt. */
+const METRIC_RESEARCH_ESTIMATE_USD = 0.05;
 /** Keep the asynchronous judging path inside the Cloud Run worker budget. */
 const CLOUD_DEFAULT_MAX_CANDIDATES = 2;
 
@@ -154,6 +156,29 @@ export function createApp(
       return await cloudDeckService.authenticate(auth);
     }
     return null;
+  };
+
+  const authorizeCloudResearch = async (
+    c: Context,
+    estimatedUsd: number,
+  ): Promise<{ userId: string; callerKey: string | undefined; metered: boolean }> => {
+    const callerKey = c.req.header(BYOK_HEADER);
+    const rawAppToken = c.req.header(APP_TOKEN_HEADER);
+    const authHeader = c.req.header('authorization')?.replace(/^Bearer\s+/i, '').trim();
+    const appToken = rawAppToken
+      ? rawAppToken
+      : authHeader && env.appToken && authHeader === env.appToken
+        ? authHeader
+        : undefined;
+    const userId = await getUserId(c);
+    if (!userId) throw new UnauthorizedSpendError('Authenticated user required for cloud research');
+
+    const authorization = authorizeSpend({ env, callerKey, appToken });
+    researchLimiter.check(callerKeyFor({ forwardedFor: c.req.header('x-forwarded-for'), appToken }));
+    if (authorization.metered && !budget.canAfford(estimatedUsd)) {
+      throw new BudgetExhaustedError(budget.status());
+    }
+    return { userId, callerKey, metered: authorization.metered };
   };
 
   app.use(
@@ -588,27 +613,15 @@ export function createApp(
       return c.json({ error: 'Missing marketId or focus' }, 400);
     }
 
-    const callerKey = c.req.header(BYOK_HEADER);
-    const rawAppToken = c.req.header(APP_TOKEN_HEADER);
-    const authHeader = c.req.header('authorization')?.replace(/^Bearer\s+/i, '').trim();
-    const appToken = rawAppToken
-      ? rawAppToken
-      : authHeader && env.appToken && authHeader === env.appToken
-        ? authHeader
-        : undefined;
-
-    const userId = await getUserId(c);
-
+    let access: Awaited<ReturnType<typeof authorizeCloudResearch>>;
     try {
-      authorizeSpend({ env, callerKey, appToken });
-      if (!userId) {
-        throw new UnauthorizedSpendError('Authenticated user required for cloud research');
-      }
+      access = await authorizeCloudResearch(c, DECK_ESTIMATE_USD);
     } catch (err) {
       const mapped = guardError(err);
       if (mapped) return c.json(mapped.body, mapped.status);
       throw err;
     }
+    const { userId, callerKey, metered } = access;
 
     const isEntitled = await cloudDeckService.checkEntitlement(userId!);
     if (!isEntitled) {
@@ -617,7 +630,13 @@ export function createApp(
 
     let resolved;
     try {
-      resolved = resolveClient({ env, callerKey });
+      resolved = resolveClient({
+        env,
+        callerKey,
+        onCall: (info) => {
+          if (metered) budget.record(info.kind);
+        },
+      });
     } catch (err) {
       if (err instanceof NoCredentialsError) return c.json({ error: err.message }, 503);
       throw err;
@@ -667,10 +686,15 @@ export function createApp(
       return c.json({ error: 'Missing parameters' }, 400);
     }
 
-    const callerKey = c.req.header(BYOK_HEADER);
-    const userId = await getUserId(c);
-
-    if (!userId) return c.json({ error: 'Authenticated user required' }, 401);
+    let access: Awaited<ReturnType<typeof authorizeCloudResearch>>;
+    try {
+      access = await authorizeCloudResearch(c, METRIC_RESEARCH_ESTIMATE_USD);
+    } catch (err) {
+      const mapped = guardError(err);
+      if (mapped) return c.json(mapped.body, mapped.status);
+      throw err;
+    }
+    const { userId, callerKey, metered } = access;
 
     const isEntitled = await cloudDeckService.checkEntitlement(userId);
     if (!isEntitled) return c.json({ error: 'Active subscription required' }, 402);
@@ -730,7 +754,13 @@ export function createApp(
 
     let resolved;
     try {
-      resolved = resolveClient({ env, callerKey });
+      resolved = resolveClient({
+        env,
+        callerKey,
+        onCall: (info) => {
+          if (metered) budget.record(info.kind);
+        },
+      });
     } catch (err) {
       return c.json({ error: err instanceof Error ? err.message : String(err) }, 503);
     }
@@ -821,10 +851,15 @@ export function createApp(
       return c.json({ error: 'Missing parameters' }, 400);
     }
 
-    const callerKey = c.req.header(BYOK_HEADER);
-    const userId = await getUserId(c);
-
-    if (!userId) return c.json({ error: 'Authenticated user required' }, 401);
+    let access: Awaited<ReturnType<typeof authorizeCloudResearch>>;
+    try {
+      access = await authorizeCloudResearch(c, METRIC_RESEARCH_ESTIMATE_USD);
+    } catch (err) {
+      const mapped = guardError(err);
+      if (mapped) return c.json(mapped.body, mapped.status);
+      throw err;
+    }
+    const { userId, callerKey, metered } = access;
     const isEntitled = await cloudDeckService.checkEntitlement(userId);
     if (!isEntitled) return c.json({ error: 'Active subscription required' }, 402);
 
@@ -852,7 +887,13 @@ export function createApp(
 
     let resolved;
     try {
-      resolved = resolveClient({ env, callerKey });
+      resolved = resolveClient({
+        env,
+        callerKey,
+        onCall: (info) => {
+          if (metered) budget.record(info.kind);
+        },
+      });
     } catch (err) {
       return c.json({ error: err instanceof Error ? err.message : String(err) }, 503);
     }

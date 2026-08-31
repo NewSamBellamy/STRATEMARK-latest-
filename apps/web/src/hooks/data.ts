@@ -2,7 +2,7 @@
  * Typed data hooks — the ONLY way feature components read/write data. They wrap
  * the repository behind TanStack Query, so the mock↔IPC swap is invisible here.
  */
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import type {
   CardFilter,
@@ -60,6 +60,10 @@ export function useCards(
 ): UseQueryResult<CardWithCompany[]> {
   const repo = useRepository();
   const qc = useQueryClient();
+  const emptyReadySince = useRef<number | null>(null);
+  useEffect(() => {
+    emptyReadySince.current = null;
+  }, [deckId]);
   return useQuery({
     queryKey: qk.cards(deckId ?? '', filter),
     queryFn: () => repo.listCards(deckId as string, filter),
@@ -80,10 +84,14 @@ export function useCards(
         cachedDeck?.status === 'running' ||
         cachedDeck?.status === 'partial' ||
         cachedDeck?.status === 'refreshing';
-      const readyDeckStillMissingCards =
-        cards?.length === 0 &&
-        cachedDeck?.status === 'ready' &&
-        query.state.dataUpdatedAt + 60_000 > Date.now();
+      let readyDeckStillMissingCards = false;
+      if (cards?.length === 0 && cachedDeck?.status === 'ready') {
+        const now = Date.now();
+        emptyReadySince.current ??= now;
+        readyDeckStillMissingCards = emptyReadySince.current + 60_000 > now;
+      } else {
+        emptyReadySince.current = null;
+      }
       const unknownDeckStillLoading =
         cards &&
         cards.length === 0 &&

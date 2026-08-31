@@ -165,15 +165,6 @@ export class CloudDeckWorker {
     const freshDeck = await this.service.getDeck(userId, deckId);
     if (!freshDeck) return; // Deleted during processing
 
-    // Determine final status
-    const isFailed = run.aborted || run.state.status === 'failed';
-    const isPartial = !isFailed && run.enrichmentFailures.length > 0;
-    const finalStatus = isFailed ? 'failed' : isPartial ? 'partial' : 'ready';
-    const failedReason = run.aborted
-      ? 'Research timed out or was aborted'
-      : run.statuses.find((status) => status.state === 'failed')?.error ??
-        (isPartial ? 'Some research units failed; coverage is incomplete' : 'Research failed');
-
     const cardMap = new Map<string, CardWithCompany>();
     for (const c of currentCards) {
       if (c?.card?.id) cardMap.set(c.card.id, c);
@@ -184,6 +175,17 @@ export class CloudDeckWorker {
       }
     }
     const finalCards = Array.from(cardMap.values());
+
+    // An interrupted run with validated progress remains partial so the next
+    // delivery can resume it without presenting incomplete coverage as ready.
+    const isPartial =
+      run.enrichmentFailures.length > 0 || (run.aborted && finalCards.length > 0);
+    const isFailed = !isPartial && (run.aborted || run.state.status === 'failed');
+    const finalStatus = isFailed ? 'failed' : isPartial ? 'partial' : 'ready';
+    const failedReason = run.aborted
+      ? 'Research timed out or was aborted'
+      : run.statuses.find((status) => status.state === 'failed')?.error ??
+        (isPartial ? 'Some research units failed; coverage is incomplete' : 'Research failed');
 
     await this.updateDeckState(id, () => ({
       cards: finalCards,

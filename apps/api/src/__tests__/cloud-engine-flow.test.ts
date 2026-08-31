@@ -131,7 +131,7 @@ describe('Cloud Engine creation-to-worker flow', () => {
     const store = new MemoryDataStore();
     const auth = new MockFirebaseAdapter();
     const service = new CloudDeckService(store, auth, auth);
-    const app = createApp(readEnv({ GEMINI_API_KEY: 'server-key' }), {
+    const app = createApp(readEnv({ GEMINI_API_KEY: 'server-key', APP_TOKEN: 'app-token' }), {
       store,
       cloudDeckService: service,
       forceMemoryStore: true,
@@ -162,9 +162,20 @@ describe('Cloud Engine creation-to-worker flow', () => {
       state: { status: 'ready' },
     });
 
-    const response = await app.request('/api/research/verify', {
+    const unauthorizedResponse = await app.request('/api/research/verify', {
       method: 'POST',
       headers: { Authorization: 'Bearer valid_token', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deckId: 'deck_verify', companyId: 'company_1', metricType: 'arr' }),
+    });
+    expect(unauthorizedResponse.status).toBe(401);
+
+    const response = await app.request('/api/research/verify', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer valid_token',
+        'X-Stratemark-Token': 'app-token',
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({
         deckId: 'deck_verify',
         companyId: 'company_1',
