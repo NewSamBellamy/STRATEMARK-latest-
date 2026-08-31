@@ -88,7 +88,7 @@ export const DEFAULT_REQUESTS_PER_MINUTE = 0; // Disabled for the hackathon
  * default — these were 2 and 4 respectively, so the engine silently serialized
  * graph nodes that the executor was willing to run in parallel.
  */
-export const DEFAULT_GRAPH_CONCURRENCY = 8;
+export const DEFAULT_GRAPH_CONCURRENCY = 32;
 
 // ============================================================================
 // 1. Events
@@ -116,7 +116,7 @@ export interface LivingDeckEngineOptions {
   signal?: AbortSignal;
   /** Nodes in flight in the top-level DAG. Defaults to DEFAULT_GRAPH_CONCURRENCY. */
   graphConcurrency?: number;
-  /** Hydration workers. Defaults to 8. */
+  /** Hydration workers. Defaults to 32. */
   enrichmentConcurrency?: number;
   /** Cap on candidates hydrated in the first pass. */
   maxCandidates?: number;
@@ -310,7 +310,7 @@ export class LivingDeckEngine {
       telemetry,
       deckId,
       ...(this.options.enrichmentConcurrency === undefined
-        ? { concurrency: 8 }
+        ? { concurrency: 32 }
         : { concurrency: this.options.enrichmentConcurrency }),
       ...(this.options.maxCandidates === undefined
         ? {}

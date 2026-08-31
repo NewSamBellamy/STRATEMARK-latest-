@@ -100,7 +100,7 @@ describe('pacing defaults', () => {
   it('aligns the engine graph concurrency with the executor default', () => {
     // These were 2 (engine) vs 4 (executor); the engine silently serialized
     // nodes the executor would happily have run in parallel.
-    expect(DEFAULT_GRAPH_CONCURRENCY).toBe(8); // Hackathon concurrency increased
+    expect(DEFAULT_GRAPH_CONCURRENCY).toBe(32); // Hackathon concurrency increased
   });
 
   it('serializes acquisitions so N callers cannot burst through together', async () => {
