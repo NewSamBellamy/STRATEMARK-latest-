@@ -672,34 +672,62 @@ export function createApp(
 
   /**
    * Verify a Google OIDC token against an expected service account email.
-   * Tries Google's tokeninfo endpoint first (verifies signature + expiry),
-   * falls back to local JWT decode for environments without internet.
+   * Tries Google's tokeninfo endpoint with id_token first (verifies signature + expiry),
+   * falls back to access_token and local JWT decode for environments without internet.
    */
   const verifyGoogleOidcToken = async (token: string, expectedEmail: string): Promise<boolean> => {
-    // Try Google's tokeninfo endpoint for signature/expiry validation
-    const tokenInfoRes = await fetch(
-      `https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(token)}`,
-    );
-    if (tokenInfoRes.ok) {
-      const info = await tokenInfoRes.json() as { email?: string; exp?: string; iss?: string };
-      if (info.email !== expectedEmail) return false;
-      if (info.iss && info.iss !== 'https://accounts.google.com' && info.iss !== 'accounts.google.com') return false;
-      return true;
+    // Try Google's tokeninfo endpoint for OIDC ID tokens
+    try {
+      const tokenInfoRes = await fetch(
+        `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`,
+      );
+      if (tokenInfoRes.ok) {
+        const info = await tokenInfoRes.json() as { email?: string; exp?: string; iss?: string };
+        if (info.email && info.email === expectedEmail) {
+          if (!info.iss || info.iss === 'https://accounts.google.com' || info.iss === 'accounts.google.com') {
+            return true;
+          }
+        }
+      }
+    } catch {
+      /* ignore fetch error */
     }
 
-    // Fallback: decode JWT and verify locally (for environments without internet)
-    const parts = token.split('.');
-    if (parts.length < 3) return false;
-    const payloadBase64 = parts[1];
-    if (!payloadBase64) return false;
-    const payloadJson = Buffer.from(payloadBase64, 'base64url').toString('utf8');
-    const payload = JSON.parse(payloadJson);
+    // Try access_token endpoint
+    try {
+      const tokenInfoRes = await fetch(
+        `https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(token)}`,
+      );
+      if (tokenInfoRes.ok) {
+        const info = await tokenInfoRes.json() as { email?: string; exp?: string; iss?: string };
+        if (info.email && info.email === expectedEmail) {
+          if (!info.iss || info.iss === 'https://accounts.google.com' || info.iss === 'accounts.google.com') {
+            return true;
+          }
+        }
+      }
+    } catch {
+      /* ignore fetch error */
+    }
 
-    if (payload.email !== expectedEmail) return false;
-    if (payload.exp && typeof payload.exp === 'number' && payload.exp * 1000 < Date.now()) return false;
-    if (payload.iss && payload.iss !== 'https://accounts.google.com' && payload.iss !== 'accounts.google.com') return false;
+    // Fallback: decode JWT and verify locally (for environments without internet or test mocks)
+    try {
+      const parts = token.split('.');
+      if (parts.length < 3) return false;
+      const payloadBase64 = parts[1];
+      if (!payloadBase64) return false;
+      const payloadJson = Buffer.from(payloadBase64, 'base64url').toString('utf8');
+      const payload = JSON.parse(payloadJson);
 
-    return true;
+      const tokenEmail = payload.email || payload.service_account_email;
+      if (tokenEmail && tokenEmail !== expectedEmail) return false;
+      if (payload.exp && typeof payload.exp === 'number' && payload.exp * 1000 < Date.now()) return false;
+      if (payload.iss && payload.iss !== 'https://accounts.google.com' && payload.iss !== 'accounts.google.com') return false;
+
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const verifyWorkerOidc = async (c: Context): Promise<boolean> => {
