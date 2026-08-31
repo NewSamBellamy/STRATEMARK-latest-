@@ -117,6 +117,7 @@ import {
   saveCloudCard,
   unsaveCloudCard,
   listCloudSavedCards,
+  fetchSentinel,
   type CloudResearchDeckResponse,
 } from '@/lib/sentinelApi';
 
@@ -648,10 +649,28 @@ export class SentinelRepository implements MarketIntelRepository {
     tab: T,
     force?: boolean,
   ): Promise<DashboardTabResult<T> | null> {
-    void companyId;
-    void tab;
-    void force;
-    return null;
+    const market = await this.listMarkets().then(m => m[0]); // Find the active market
+    if (!market) return null;
+    
+    // In Sentinel, a market corresponds to a deck
+    const deckId = market.id;
+
+    try {
+      const res = await fetchSentinel<{ content: DashboardTabResult<T>['content'] }>('/api/research/tab', {
+        method: 'POST',
+        body: JSON.stringify({ deckId, companyId, tab }),
+        token: this.token,
+      });
+      return {
+        companyId,
+        tab,
+        content: res.content,
+        lastRefreshedAt: new Date().toISOString(),
+      };
+    } catch (e) {
+      console.error('Failed to fetch cloud dashboard tab:', e);
+      return null;
+    }
   }
 
   async deepDive(input: DeepDiveInput): Promise<DeepDiveResult> {

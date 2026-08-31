@@ -23,11 +23,13 @@ import {
   describeAgentGraph, 
   runLivingDeckEngine, 
   expandDeckWithDeltaAgent,
+  researchDashboardTab,
   verifyMetricOutSchema, 
   huntMetricsOutSchema,
   GROUNDED_SYSTEM, 
   STRUCTURE_SYSTEM
 } from '@mi/research';
+import type { DashboardTab } from '@mi/contracts';
 import { 
   usableCitations, 
   hasVerificationGradeCitation, 
@@ -688,6 +690,46 @@ export function createApp(
     } catch (error: any) {
       console.error('Chat error', error);
       return c.json({ error: 'Chat failed' }, 500);
+    }
+  });
+
+  app.post('/api/research/tab', async (c) => {
+    try {
+      const input = await c.req.json().catch(() => ({}));
+      const { deckId, companyId, tab } = input;
+      
+      if (!deckId || !companyId || !tab) {
+        return c.json({ error: 'Missing deckId, companyId, or tab' }, 400);
+      }
+      
+      const uid = await getUserId(c);
+      if (!uid) return c.json({ error: 'Unauthorized' }, 401);
+
+      const deckRec = await store.getDeck(deckId);
+      if (!deckRec || (deckRec.userId && deckRec.userId !== uid)) {
+        return c.json({ error: 'Deck not found' }, 404);
+      }
+
+      const card = deckRec.cards?.find((c: any) => c.company.id === companyId);
+      if (!card) return c.json({ error: 'Company not found in deck' }, 404);
+
+      const env = c.env as ServiceEnv;
+      const resolved = resolveClient({
+        env,
+        callerKey: c.req.header('X-Gemini-Key') || undefined,
+      });
+
+      const content = await researchDashboardTab(tab as DashboardTab, {
+        company: card.company as any,
+        marketName: deckRec.market.name as string,
+        storedMetrics: card.metrics || [],
+        client: resolved.client,
+      });
+
+      return c.json({ content });
+    } catch (error: any) {
+      console.error('Tab research error:', error);
+      return c.json({ error: 'Tab generation failed' }, 500);
     }
   });
 
