@@ -290,7 +290,8 @@ describe('SentinelRepository — Stale Local Cloud Deck Cache (#55)', () => {
       state: { status: 'partial' },
     });
 
-    const cards = await repo.listCards('deck_partial');
+    const freshRepo = new SentinelRepository();
+    const cards = await freshRepo.listCards('deck_partial');
 
     expect(cards[0]?.card.id).toBe('card_new');
     expect(cards[0]?.company?.name).toBe('New Company');

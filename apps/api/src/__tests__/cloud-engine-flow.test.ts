@@ -41,18 +41,18 @@ describe('Cloud Engine creation-to-worker flow', () => {
     };
 
     const hydratedCard = {
-      card: { id: 'card_openai', deckId: 'deck_flow', companyId: 'company_openai' },
-      company: { id: 'company_openai', name: 'OpenAI', oneLiner: 'AI research company' },
+      card: { id: 'card_example', deckId: 'deck_flow', companyId: 'company_example' },
+      company: { id: 'company_example', name: 'Example Co', oneLiner: 'Example research company' },
       metrics: [
         {
-          id: 'metric_openai_arr',
-          companyId: 'company_openai',
+          id: 'metric_example_arr',
+          companyId: 'company_example',
           metricType: 'arr',
-          value: 1_000_000_000,
+          value: 123,
           confidence: 'verified',
-          source: 'https://openai.com',
-          citations: [{ title: 'OpenAI', url: 'https://openai.com' }],
-          methodNote: 'Reported company revenue',
+          source: 'https://example.com/filing',
+          citations: [{ title: 'Example Co filing', url: 'https://example.com/filing', credibility: 'primary' }],
+          methodNote: 'Reported example revenue',
           capturedAt: '2026-08-31T00:00:00.000Z',
         },
       ],
@@ -102,7 +102,7 @@ describe('Cloud Engine creation-to-worker flow', () => {
     expect(deckResponse.status).toBe(200);
     expect(deck.state.status).toBe('ready');
     expect(deck.cards[0]?.metrics).toEqual([
-      expect.objectContaining({ metricType: 'arr', value: 1_000_000_000 }),
+      expect.objectContaining({ metricType: 'arr', value: 123 }),
     ]);
   });
 

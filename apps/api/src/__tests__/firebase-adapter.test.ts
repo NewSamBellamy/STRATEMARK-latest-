@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const verifyIdToken = vi.fn();
+const { getFirestore, verifyIdToken } = vi.hoisted(() => ({
+  getFirestore: vi.fn(),
+  verifyIdToken: vi.fn(),
+}));
 
 vi.mock('firebase-admin/app', () => ({
   getApps: () => ['initialized'],
@@ -9,6 +12,10 @@ vi.mock('firebase-admin/app', () => ({
 
 vi.mock('firebase-admin/auth', () => ({
   getAuth: () => ({ verifyIdToken }),
+}));
+
+vi.mock('firebase-admin/firestore', () => ({
+  getFirestore,
 }));
 
 import { FirebaseAdapter } from '../lib/CloudDeckService';
@@ -30,5 +37,16 @@ describe('FirebaseAdapter', () => {
     const adapter = new FirebaseAdapter();
 
     await expect(adapter.verifyIdToken('header.payload.signature')).resolves.toBe('firebase_uid');
+  });
+
+  it('fails closed when the entitlement store is unavailable', async () => {
+    getFirestore.mockReturnValue({
+      collection: () => ({
+        doc: () => ({ get: vi.fn().mockRejectedValue(new Error('Firestore unavailable')) }),
+      }),
+    });
+    const adapter = new FirebaseAdapter();
+
+    await expect(adapter.hasActiveEntitlement('firebase_uid')).resolves.toBe(false);
   });
 });

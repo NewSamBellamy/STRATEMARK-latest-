@@ -78,7 +78,7 @@ export class FirebaseAdapter implements AuthAdapter, EntitlementAdapter {
       }
       return true;
     } catch {
-      return true; // Default to allowed on Firestore read error
+      return false; // Paid work must fail closed when entitlement is unknown.
     }
   }
 }

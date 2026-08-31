@@ -449,8 +449,8 @@ export class SentinelRepository implements MarketIntelRepository {
 
   async refreshDeck(marketId: string): Promise<Deck> {
     const deck = await this.getDeckByMarket(marketId);
-    if (deck) return deck;
-    return this.fallbackRepo.refreshDeck(marketId);
+    if (!deck) throw new Error(`Cloud Deck not found: ${marketId}`);
+    return deck;
   }
 
   async createResearchedDeck(
@@ -548,6 +548,7 @@ export class SentinelRepository implements MarketIntelRepository {
 
   async listCards(deckId: string, filter?: CardFilter): Promise<CardWithCompany[]> {
     let cachedCards = this.memoryCards.get(deckId);
+    let cachedDeck = this.memoryDecks.get(deckId);
     if (!cachedCards || cachedCards.length === 0) {
       const cache = readCloudCache();
       const entry = cache.get(deckId) || cache.get(`mkt_${deckId.replace(/^dck_/, '')}`);
@@ -555,8 +556,11 @@ export class SentinelRepository implements MarketIntelRepository {
         cachedCards = entry.cards;
         this.memoryCards.set(deckId, cachedCards);
       }
+      if (entry?.deck) {
+        cachedDeck = entry.deck;
+        this.memoryDecks.set(deckId, cachedDeck);
+      }
     }
-    const cachedDeck = this.memoryDecks.get(deckId);
     const cachedStatus = (cachedDeck as { status?: string; state?: { status?: string } } | undefined);
     const deckInProgress = ['running', 'partial', 'refreshing'].includes(
       cachedStatus?.status ?? cachedStatus?.state?.status ?? '',
@@ -596,7 +600,7 @@ export class SentinelRepository implements MarketIntelRepository {
       const match = cardList.find((c) => c.card.id === cardId);
       if (match) return match;
     }
-    return this.fallbackRepo.getCard(cardId);
+    return null;
   }
 
   async listSavedCards(): Promise<CardWithCompany[]> {
@@ -608,7 +612,7 @@ export class SentinelRepository implements MarketIntelRepository {
     } catch {
       /* fallback */
     }
-    return this.fallbackRepo.listSavedCards();
+    return [];
   }
 
   async saveCard(cardId: string): Promise<SavedCard> {
@@ -634,7 +638,7 @@ export class SentinelRepository implements MarketIntelRepository {
       const match = cardList.find((c) => c.company?.id === companyId);
       if (match && match.company) return match.company;
     }
-    return this.fallbackRepo.getCompany(companyId);
+    return null;
   }
 
   async getCompanyMetrics(companyId: string): Promise<CompanyMetric[]> {
@@ -642,7 +646,7 @@ export class SentinelRepository implements MarketIntelRepository {
       const match = cardList.find((c) => c.company?.id === companyId);
       if (match) return match.metrics || [];
     }
-    return this.fallbackRepo.getCompanyMetrics(companyId);
+    return [];
   }
 
   async getViceClaims(cardId: string): Promise<ViceClaim[]> {
@@ -650,7 +654,7 @@ export class SentinelRepository implements MarketIntelRepository {
       const match = cardList.find((c) => c.card.id === cardId);
       if (match) return match.viceClaims || [];
     }
-    return this.fallbackRepo.getViceClaims(cardId);
+    return [];
   }
 
   async getDashboardTab<T extends DashboardTab>(
@@ -658,7 +662,10 @@ export class SentinelRepository implements MarketIntelRepository {
     tab: T,
     force?: boolean,
   ): Promise<DashboardTabResult<T> | null> {
-    return this.fallbackRepo.getDashboardTab(companyId, tab, force);
+    void companyId;
+    void tab;
+    void force;
+    return null;
   }
 
   async deepDive(input: DeepDiveInput): Promise<DeepDiveResult> {
@@ -732,12 +739,14 @@ export class SentinelRepository implements MarketIntelRepository {
   }
 
   async overrideMetric(input: OverrideMetricInput): Promise<CompanyMetric> {
-
-    return this.fallbackRepo.overrideMetric(input);
+    void input;
+    throw new Error('Cloud metric overrides are not available through Sentinel yet.');
   }
 
   async getMarketOpportunity(marketId: string, force?: boolean): Promise<DeepDiveResult> {
-    return this.fallbackRepo.getMarketOpportunity(marketId, force);
+    void marketId;
+    void force;
+    throw new Error('Cloud market opportunity research is not available through Sentinel yet.');
   }
 
   async askResearch(input: AskResearchInput): Promise<ResearchThread> {
