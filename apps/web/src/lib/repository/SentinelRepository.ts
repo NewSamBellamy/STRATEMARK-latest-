@@ -667,30 +667,36 @@ export class SentinelRepository implements MarketIntelRepository {
   }
 
 
+  
+  private findDeckIdForCompany(companyId: string): string | undefined {
+    for (const [deckId, cards] of this.memoryCards.entries()) {
+      if (cards.some((c) => c.company?.id === companyId)) {
+        return deckId;
+      }
+    }
+    return undefined;
+  }
+
   async expandDeck(marketId: string, focus: ExpandFocus): Promise<{ added: number }> {
     const res = await expandCloudDeck(marketId, focus);
     if (res && typeof res.added === 'number') return res;
-    return this.fallbackRepo.expandDeck(marketId, focus);
+    throw new Error('Failed to expand cloud deck: no response from Sentinel');
   }
 
   async verifyMetric(input: VerifyMetricInput): Promise<VerifyMetricResult> {
-    try {
-      const res = await verifyCloudMetric(input);
-      if (res) return res;
-    } catch {
-      /* fallback to local mock repository */
-    }
-    return (this.fallbackRepo as unknown as MarketIntelRepository).verifyMetric!(input);
+    const deckId = this.findDeckIdForCompany(input.companyId);
+    if (!deckId) throw new Error('Cannot verify metric: Deck ID not found in local cache');
+    const res = await verifyCloudMetric({ ...input, deckId } as VerifyMetricInput);
+    if (!res) throw new Error('Failed to verify cloud metric: no response from Sentinel');
+    return res;
   }
 
   async huntCompanyMetrics(companyId: string): Promise<HuntMetricsResult> {
-    try {
-      const res = await huntCloudMetrics(companyId);
-      if (res) return res;
-    } catch {
-      /* fallback to local mock repository */
-    }
-    return (this.fallbackRepo as unknown as MarketIntelRepository).huntCompanyMetrics!(companyId);
+    const deckId = this.findDeckIdForCompany(companyId);
+    if (!deckId) throw new Error('Cannot hunt metrics: Deck ID not found in local cache');
+    const res = await huntCloudMetrics(companyId, deckId);
+    if (!res) throw new Error('Failed to hunt cloud metrics: no response from Sentinel');
+    return res;
   }
 
   async overrideMetric(input: OverrideMetricInput): Promise<CompanyMetric> {

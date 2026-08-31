@@ -673,8 +673,9 @@ export function createApp(
     const isEntitled = await cloudDeckService.checkEntitlement(userId);
     if (!isEntitled) return c.json({ error: 'Active subscription required' }, 402);
 
-    const existingDeck = await cloudDeckService.getDeck(userId, deckId);
+        const existingDeck = await cloudDeckService.getDeck(userId, deckId);
     if (!existingDeck) return c.json({ error: 'Deck not found' }, 404);
+
 
     const cards = existingDeck.cards || [];
     const cardIdx = cards.findIndex(c => c.company?.id === companyId);
@@ -704,7 +705,7 @@ export function createApp(
         }
         Object.assign(metric, markVerified(metric as CompanyMetric, nowIso));
         
-        await cloudDeckService.saveDeck(userId, deckId, existingDeck, existingDeck.revision);
+        await cloudDeckService.saveDeck(userId, deckId!, existingDeck, existingDeck.revision);
         
         return c.json({
           verdict: 'supported',
@@ -783,7 +784,7 @@ export function createApp(
       if (!changed) {
         Object.assign(metric, markVerified(metric as CompanyMetric, nowIso));
       }
-      await cloudDeckService.saveDeck(userId, deckId, existingDeck, existingDeck.revision);
+      await cloudDeckService.saveDeck(userId, deckId!, existingDeck, existingDeck.revision);
     }
 
     return c.json({
@@ -901,7 +902,7 @@ export function createApp(
     }
 
     if (changed) {
-      await cloudDeckService.saveDeck(userId, deckId, existingDeck, existingDeck.revision);
+      await cloudDeckService.saveDeck(userId, deckId!, existingDeck, existingDeck.revision);
     }
 
     return c.json({

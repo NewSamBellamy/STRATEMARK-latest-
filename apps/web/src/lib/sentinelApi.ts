@@ -366,11 +366,12 @@ export async function verifyCloudMetric(
 
 export async function huntCloudMetrics(
   companyId: string,
+  deckId?: string,
   token?: string | null,
 ): Promise<HuntMetricsResult> {
   return fetchSentinel<HuntMetricsResult>('/api/research/hunt-metrics', {
     method: 'POST',
-    body: JSON.stringify({ companyId }),
+    body: JSON.stringify({ companyId, deckId }),
     token,
   });
 }
