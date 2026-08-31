@@ -194,7 +194,7 @@ describe('POST /v1/research', () => {
       deckId: 'deck_exact_identity',
       state: { status: 'running' },
     });
-    expect(tasks.queuedTasks[0]?.maxCandidates).toBe(2);
+    expect(tasks.queuedTasks[0]?.maxCandidates).toBe(10);
     const deck = await a.request('/api/decks/deck_exact_identity', {
       headers: { Authorization: 'Bearer valid_token' },
     });

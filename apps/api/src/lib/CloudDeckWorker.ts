@@ -74,7 +74,7 @@ export class CloudDeckWorker {
     let currentCards = existing.cards ?? [];
     let savePromise = Promise.resolve();
     const abortController = new AbortController();
-    const timeoutSignal = AbortSignal.timeout(540_000);
+    const timeoutSignal = AbortSignal.timeout(1740_000);
     
     const onAbort = () => abortController.abort();
     timeoutSignal.addEventListener('abort', onAbort);

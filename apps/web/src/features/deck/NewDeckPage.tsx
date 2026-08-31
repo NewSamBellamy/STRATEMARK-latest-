@@ -426,9 +426,17 @@ export default function NewDeckPage() {
 
     if (engine === 'cloud') {
       try {
+        let targetCompanies = 10;
+        try {
+          const raw = Number(localStorage.getItem('mi.targetCompanies'));
+          if (Number.isFinite(raw) && raw >= 2 && raw <= 30) targetCompanies = raw;
+        } catch {
+          /* opaque origin — keep default */
+        }
+        
         addLog('Connecting to Sentinel Cloud Agent…', { stage: 'interpret' });
         const authToken = await getToken();
-        const res = await runCloudResearchDeck(q, regionStr || null, undefined, authToken);
+        const res = await runCloudResearchDeck(q, regionStr || null, targetCompanies, authToken);
         const market =
           res.market ||
           res.result?.market ||

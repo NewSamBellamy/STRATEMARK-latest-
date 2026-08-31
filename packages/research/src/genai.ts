@@ -191,13 +191,20 @@ export function createGenAiClient(config: GenAiClientConfig): LlmClient {
     await (kind === 'ground' ? groundLimiter : structureLimiter)?.acquire(signal);
     const res = await withRetry(
       async () => {
+        const timeoutSignal = AbortSignal.timeout(180_000);
+        const reqSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
         try {
           return await ai.models.generateContent({
             model,
             contents,
-            config: signal ? { ...cfg, abortSignal: signal } : cfg,
+            config: { ...cfg, abortSignal: reqSignal },
           });
         } catch (err) {
+          if (timeoutSignal.aborted && (!signal || !signal.aborted)) {
+            const wrapped = new Error('Gemini API request timed out after 180s') as RetryableError;
+            wrapped.status = 504;
+            throw wrapped;
+          }
           // Re-shape into the retry contract shared with the fetch client, so
           // 429/5xx back off identically no matter which client is in play.
           const status = statusOf(err);

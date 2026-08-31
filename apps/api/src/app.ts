@@ -110,7 +110,7 @@ const CAPTURE_ESTIMATE_USD = 0.002;
 /** Reserve enough budget for one grounded verification or metrics hunt. */
 const METRIC_RESEARCH_ESTIMATE_USD = 0.05;
 /** Keep the asynchronous judging path inside the Cloud Run worker budget. */
-const CLOUD_DEFAULT_MAX_CANDIDATES = 2;
+const CLOUD_DEFAULT_MAX_CANDIDATES = 10;
 
 export function createApp(
   env: ServiceEnv,
