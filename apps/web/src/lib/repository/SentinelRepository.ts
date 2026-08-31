@@ -647,7 +647,7 @@ export class SentinelRepository implements MarketIntelRepository {
   async getDashboardTab<T extends DashboardTab>(
     companyId: string,
     tab: T,
-    force?: boolean,
+    _force?: boolean,
   ): Promise<DashboardTabResult<T> | null> {
     const market = await this.listMarkets().then(m => m[0]); // Find the active market
     if (!market) return null;
@@ -659,7 +659,6 @@ export class SentinelRepository implements MarketIntelRepository {
       const res = await fetchSentinel<{ content: DashboardTabResult<T>['content'] }>('/api/research/tab', {
         method: 'POST',
         body: JSON.stringify({ deckId, companyId, tab }),
-        token: this.token,
       });
       return {
         companyId,

@@ -109,9 +109,15 @@ export class CloudDeckWorker {
 
             let updated = false;
             for (const card of newCards) {
-              const isDuplicate = currentCards.some(c => c.card.id === card.card.id);
-              if (!isDuplicate) {
+              const duplicateIndex = currentCards.findIndex(c => c.card.id === card.card.id);
+              if (duplicateIndex === -1) {
                 currentCards = [...currentCards, card];
+                updated = true;
+              } else {
+                // Overwrite the older shell card with the newly hydrated one that contains metrics and confidence scores
+                const next = [...currentCards];
+                next[duplicateIndex] = card;
+                currentCards = next;
                 updated = true;
               }
             }

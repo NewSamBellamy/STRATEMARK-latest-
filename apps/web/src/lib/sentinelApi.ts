@@ -131,7 +131,7 @@ async function getStoredAuthToken(): Promise<string | null> {
   return null;
 }
 
-async function fetchSentinel<T>(
+export async function fetchSentinel<T>(
   endpoint: string,
   options: RequestInit & { token?: string | null } = {},
 ): Promise<T> {

@@ -29,7 +29,7 @@ import {
   GROUNDED_SYSTEM, 
   STRUCTURE_SYSTEM
 } from '@mi/research';
-import type { DashboardTab } from '@mi/contracts';
+import type { DashboardTab, CardWithCompany, Company } from '@mi/contracts';
 import { 
   usableCitations, 
   hasVerificationGradeCitation, 
@@ -631,9 +631,9 @@ export function createApp(
       const threadId = input.threadId || `thread_${uid}_default`;
       const threadRef = db.collection('chatThreads').doc(threadId);
       
-      await db.runTransaction(async (t: any) => {
+      await db.runTransaction(async (t) => {
         const doc = await t.get(threadRef);
-        let data = doc.exists ? doc.data() : { turns: 0, rawHistory: [], distilledMemory: '' };
+        const data = doc.exists ? doc.data() : { turns: 0, rawHistory: [], distilledMemory: '' };
         
         data!.turns = (data!.turns || 0) + 1;
         data!.rawHistory.push({ role: 'user', content: question });
@@ -656,7 +656,7 @@ export function createApp(
               contents: summaryPrompt
             });
             newMemory = summaryRes.text ?? '';
-          } catch (e) {
+          } catch {
             // Fallback to Gemini if Gemma is not deployed in this region
             const summaryRes = await resolved.client.ground(summaryPrompt, { system: 'You are a summarizer.' });
             newMemory = summaryRes.text;
@@ -687,7 +687,7 @@ export function createApp(
         reply: res.text,
         distilledActive: finalData.turns > 20
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Chat error', error);
       return c.json({ error: 'Chat failed' }, 500);
     }
@@ -710,8 +710,8 @@ export function createApp(
         return c.json({ error: 'Deck not found' }, 404);
       }
 
-      const card = deckRec.cards?.find((c: any) => c.company.id === companyId);
-      if (!card) return c.json({ error: 'Company not found in deck' }, 404);
+      const card = deckRec.cards?.find((c: CardWithCompany) => c.company?.id === companyId);
+      if (!card || !card.company) return c.json({ error: 'Company not found in deck' }, 404);
 
       const env = c.env as ServiceEnv;
       const resolved = resolveClient({
@@ -720,14 +720,14 @@ export function createApp(
       });
 
       const content = await researchDashboardTab(tab as DashboardTab, {
-        company: card.company as any,
+        company: card.company as Company,
         marketName: deckRec.market.name as string,
         storedMetrics: card.metrics || [],
         client: resolved.client,
       });
 
       return c.json({ content });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Tab research error:', error);
       return c.json({ error: 'Tab generation failed' }, 500);
     }
