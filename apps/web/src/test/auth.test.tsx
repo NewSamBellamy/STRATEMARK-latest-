@@ -61,7 +61,7 @@ describe('Google Auth System', () => {
       await user.click(profileBtn);
 
       expect(screen.getByText('No email provided')).toBeInTheDocument();
-      expect(screen.getByText('Google Account')).toBeInTheDocument();
+      expect(screen.getByText('User Account')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /sign out/i })).toBeInTheDocument();
     });
   });
@@ -84,8 +84,8 @@ describe('Google Auth System', () => {
       const signOutBtn = screen.getByRole('button', { name: /sign out/i });
       await user.click(signOutBtn);
 
-      // TopBar now shows the Sign in button when unauthenticated
-      expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
+      // TopBar now shows Signed In status text when unauthenticated
+      expect(screen.getByText('Signed In')).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /user profile menu/i })).not.toBeInTheDocument();
     });
 

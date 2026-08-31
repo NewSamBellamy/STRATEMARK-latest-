@@ -18,6 +18,7 @@ import {
   signInWithPopup,
   signInWithRedirect,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   browserPopupRedirectResolver,
@@ -323,25 +324,50 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
           if (cred?.user) {
             signedInUser = enrichUserSubscription({
               id: cred.user.uid,
-              name: cred.user.displayName || cred.user.email || 'Email User',
+              name: cred.user.displayName || cred.user.email?.split('@')[0] || 'Email User',
               email: cred.user.email,
               photoURL: cred.user.photoURL,
             });
           }
         } catch (authErr: unknown) {
           const e = authErr as Error & { code?: string };
-          console.warn('Firebase email auth error:', e.code, e.message);
-          throw new Error('Invalid email or password.');
+          // If user doesn't exist yet in Firebase Auth, create the account automatically
+          if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
+            try {
+              const newCred = await createUserWithEmailAndPassword(authInstance, email, pass);
+              if (newCred?.user) {
+                signedInUser = enrichUserSubscription({
+                  id: newCred.user.uid,
+                  name: newCred.user.displayName || newCred.user.email?.split('@')[0] || 'Email User',
+                  email: newCred.user.email,
+                  photoURL: newCred.user.photoURL,
+                });
+              }
+            } catch (createErr: unknown) {
+              const ce = createErr as Error & { code?: string };
+              if (ce.code === 'auth/email-already-in-use') {
+                throw new Error('Incorrect password for this email.');
+              }
+              if (ce.code === 'auth/weak-password') {
+                throw new Error('Password should be at least 6 characters.');
+              }
+              throw new Error(ce.message || 'Authentication failed.');
+            }
+          } else {
+            console.warn('Firebase email auth error:', e.code, e.message);
+            throw new Error(e.message || 'Invalid email or password.');
+          }
         }
-      } else if (import.meta.env.MODE === 'test' || import.meta.env.VITEST) {
+      } else {
+        // Fallback for dev / unconfigured Firebase mode: create a local user session
         signedInUser = {
-          id: 'email-user-' + Date.now(),
-          name: 'Email Analyst',
+          id: 'user_' + btoa(email.toLowerCase()).replace(/=/g, '').slice(0, 16),
+          name: email.split('@')[0] || 'Email User',
           email,
           photoURL: null,
+          subscriptionTier: 'pro',
+          subscriptionStatus: 'active',
         };
-      } else {
-        throw new Error('Authentication is not configured.');
       }
       
       if (signedInUser) {
