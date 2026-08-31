@@ -424,11 +424,8 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
         console.warn('Failed to get Firebase idToken:', err);
       }
     }
-    if (user?.id) {
-      return user.id;
-    }
     return null;
-  }, [authInstance, user]);
+  }, [authInstance]);
 
   const value = useMemo<AuthState>(
     () => ({

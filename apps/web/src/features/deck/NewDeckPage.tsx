@@ -427,7 +427,7 @@ export default function NewDeckPage() {
     if (engine === 'cloud') {
       try {
         addLog('Connecting to Sentinel Cloud Agent…', { stage: 'interpret' });
-        const authToken = (await getToken()) || user?.id || null;
+        const authToken = await getToken();
         const res = await runCloudResearchDeck(q, regionStr || null, undefined, authToken);
         const market =
           res.market ||

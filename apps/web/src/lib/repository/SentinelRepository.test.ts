@@ -256,4 +256,44 @@ describe('SentinelRepository — Stale Local Cloud Deck Cache (#55)', () => {
 
     expect(markets).toEqual([]);
   });
+
+  it('refreshes cached cards while a Cloud Deck is partial', async () => {
+    const repo = new SentinelRepository();
+    repo.cacheCloudDeckResponse({
+      ok: true,
+      deckId: 'deck_partial',
+      market: { id: 'deck_partial', name: 'Partial Market' },
+      state: { status: 'partial' },
+      cards: [
+        {
+          card: { id: 'card_old', deckId: 'deck_partial', companyId: 'company_1', cardType: 'company', title: 'Old card' },
+          company: { id: 'company_1', name: 'Old Company', oneLiner: 'Old data' },
+          metrics: [],
+          viceClaims: [],
+        },
+      ],
+    });
+    vi.spyOn(sentinelApi, 'getCloudDeck').mockResolvedValueOnce({
+      deck: { id: 'deck_partial', marketId: 'deck_partial', revision: 2 },
+      market: { id: 'deck_partial', name: 'Partial Market' },
+      cards: [
+        {
+          card: { id: 'card_new', deckId: 'deck_partial', companyId: 'company_1', cardType: 'company', title: 'New card' },
+          company: { id: 'company_1', name: 'New Company', oneLiner: 'Hydrated data' },
+          metrics: [],
+          viceClaims: [],
+        },
+      ],
+      companies: [],
+      metrics: [],
+      viceClaims: [],
+      state: { status: 'partial' },
+    });
+
+    const cards = await repo.listCards('deck_partial');
+
+    expect(cards[0]?.card.id).toBe('card_new');
+    expect(cards[0]?.company?.name).toBe('New Company');
+    expect(sentinelApi.getCloudDeck).toHaveBeenCalledWith('deck_partial');
+  });
 });

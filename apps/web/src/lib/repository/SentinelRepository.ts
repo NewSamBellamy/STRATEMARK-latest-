@@ -557,9 +557,12 @@ export class SentinelRepository implements MarketIntelRepository {
       }
     }
     const cachedDeck = this.memoryDecks.get(deckId);
-    const isRunning = (cachedDeck as { status?: string } | undefined)?.status === 'running';
+    const cachedStatus = (cachedDeck as { status?: string; state?: { status?: string } } | undefined);
+    const deckInProgress = ['running', 'partial', 'refreshing'].includes(
+      cachedStatus?.status ?? cachedStatus?.state?.status ?? '',
+    );
 
-    if (cachedCards && cachedCards.length > 0 && !isRunning) {
+    if (cachedCards && cachedCards.length > 0 && !deckInProgress) {
       let list = cachedCards;
       if (filter?.cardType) {
         list = list.filter((c) => c.card.cardType === filter.cardType);

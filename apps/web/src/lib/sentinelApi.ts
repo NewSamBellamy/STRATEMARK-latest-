@@ -88,7 +88,7 @@ export interface CloudResearchDeckResponse {
  * cannot be shadowed by a stale local `VITE_SENTINEL_API_URL`.
  *
  * An empty string is the honest value: callers check `isSentinelConfigured()`.
- * Set `VITE_SENTINEL_API_URL` explicitly to enable it.
+ * Set `VITE_API_BASE_URL` for deployments or `VITE_SENTINEL_API_URL` locally.
  */
 const DEFAULT_SENTINEL_URL =
   import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_SENTINEL_API_URL || '';
@@ -117,7 +117,7 @@ function getSentinelUrl(path: string): string {
   return `${cleanBase}/${subPath}`;
 }
 
-async function getStoredAuthToken(): Promise<string> {
+async function getStoredAuthToken(): Promise<string | null> {
   try {
     const { getAuth } = await import('firebase/auth');
     const auth = getAuth();
@@ -128,18 +128,7 @@ async function getStoredAuthToken(): Promise<string> {
     /* ignore - Firebase might not be initialized */
   }
 
-  try {
-    if (typeof localStorage !== 'undefined') {
-      const raw = localStorage.getItem('stratemark_auth_user');
-      if (raw) {
-        const parsed = JSON.parse(raw) as { id?: string };
-        if (parsed.id) return parsed.id;
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-  return 'demo-user-token';
+  return null;
 }
 
 async function fetchSentinel<T>(
@@ -155,7 +144,7 @@ async function fetchSentinel<T>(
   };
 
   const authToken = token || await getStoredAuthToken();
-  headers['Authorization'] = `Bearer ${authToken}`;
+  if (authToken) headers.Authorization = `Bearer ${authToken}`;
 
   const appToken = (import.meta.env?.VITE_API_APP_TOKEN as string | undefined)?.trim();
   if (appToken && !headers['X-Stratemark-Token'] && !headers['x-stratemark-token']) {

@@ -24,4 +24,19 @@ describe('Sentinel Cloud transport', () => {
     expect(headers.Authorization).toBe('Bearer firebase-token');
     expect(headers['X-Gemini-Key']).toBeUndefined();
   });
+
+  it('does not use a cached user id as a Firebase bearer token', async () => {
+    localStorage.setItem('mi.sentinelApiUrl', 'https://sentinel.test');
+    localStorage.setItem('stratemark_auth_user', JSON.stringify({ id: 'cached_uid' }));
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true, deckId: 'deck_1', state: { status: 'running' } }),
+    } as Response);
+
+    await runCloudResearchDeck('frontier AI', null, undefined, null);
+
+    const [, init] = fetchMock.mock.calls[0] ?? [];
+    const headers = (init?.headers ?? {}) as Record<string, string>;
+    expect(headers.Authorization).toBeUndefined();
+  });
 });
