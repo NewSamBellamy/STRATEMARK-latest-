@@ -67,13 +67,22 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): ServiceEnv {
       return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_DAILY_CAP_USD;
     })(),
     captureBlocklist: list(source.CAPTURE_BLOCKLIST),
-    tasks: source.TASKS_QUEUE && source.WORKER_URL && source.WORKER_SERVICE_ACCOUNT_EMAIL && project ? {
-      projectId: project,
-      location: location || 'us-central1',
-      queue: source.TASKS_QUEUE.trim(),
-      workerUrl: source.WORKER_URL.trim(),
-      serviceAccountEmail: source.WORKER_SERVICE_ACCOUNT_EMAIL.trim()
-    } : undefined
+    tasks: (() => {
+      const proj = (source.TASKS_PROJECT_ID || project)?.trim();
+      const queue = source.TASKS_QUEUE?.trim();
+      const workerUrl = (source.TASKS_WORKER_URL || source.WORKER_URL)?.trim();
+      const saEmail = (source.TASKS_SERVICE_ACCOUNT_EMAIL || source.WORKER_SERVICE_ACCOUNT_EMAIL)?.trim();
+      if (proj && queue && workerUrl && saEmail) {
+        return {
+          projectId: proj,
+          location: (source.TASKS_LOCATION || location || 'us-central1').trim(),
+          queue,
+          workerUrl,
+          serviceAccountEmail: saEmail,
+        };
+      }
+      return undefined;
+    })(),
   };
 }
 

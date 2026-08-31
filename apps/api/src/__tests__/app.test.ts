@@ -277,6 +277,57 @@ describe('POST /tasks/refresh', () => {
   });
 });
 
+describe('Cloud Tasks Worker Endpoints & OIDC Security', () => {
+  const MOCK_WORKER_TOKEN = `header.${Buffer.from(JSON.stringify({ email: 'worker-sa@example.com' })).toString('base64')}.sig`;
+  const MOCK_WRONG_TOKEN = `header.${Buffer.from(JSON.stringify({ email: 'stranger@example.com' })).toString('base64')}.sig`;
+
+  it('verifies OIDC token when TASKS_SERVICE_ACCOUNT_EMAIL is configured', async () => {
+    const a = app({
+      GEMINI_API_KEY: 'k',
+      TASKS_PROJECT_ID: 'test-proj',
+      TASKS_LOCATION: 'us-central1',
+      TASKS_QUEUE: 'deck-queue',
+      TASKS_WORKER_URL: 'http://localhost/tasks/worker/research',
+      TASKS_SERVICE_ACCOUNT_EMAIL: 'worker-sa@example.com',
+    });
+
+    // Unauthenticated
+    const resUnauth = await post(a, '/tasks/worker/research', {
+      deckId: 'd1',
+      userId: 'u1',
+      plan: { marketName: 'M' },
+    });
+    expect(resUnauth.status).toBe(401);
+
+    // Wrong email in token
+    const resWrong = await post(
+      a,
+      '/tasks/worker/research',
+      { deckId: 'd1', userId: 'u1', plan: { marketName: 'M' } },
+      { Authorization: `Bearer ${MOCK_WRONG_TOKEN}` },
+    );
+    expect(resWrong.status).toBe(401);
+
+    // Valid OIDC token with invalid payload
+    const resBadPayload = await post(
+      a,
+      '/tasks/worker/research',
+      { deckId: 'd1' },
+      { Authorization: `Bearer ${MOCK_WORKER_TOKEN}` },
+    );
+    expect(resBadPayload.status).toBe(400);
+
+    // Valid OIDC token on refresh endpoint
+    const resRefreshWrong = await post(
+      a,
+      '/tasks/worker/refresh',
+      { deckId: 'd1', userId: 'u1', query: 'Q' },
+      { Authorization: `Bearer ${MOCK_WRONG_TOKEN}` },
+    );
+    expect(resRefreshWrong.status).toBe(401);
+  });
+});
+
 describe('REST Persistence API Endpoints', () => {
   it('serves /api/me user profile', async () => {
     const res = await app().request('/api/me', {
@@ -433,5 +484,44 @@ describe('REST Persistence API Endpoints', () => {
       headers: { Authorization: 'Bearer valid_pro_token' },
     });
     expect(fetchRes.status).toBe(404);
+  });
+
+  it('handles idempotent deck creation requests for the same user and deckId', async () => {
+    const tasks = new MockTasksAdapter();
+    const a = app({ GEMINI_API_KEY: 'k', APP_TOKEN: 't' }, tasks);
+
+    const payload = {
+      deckId: 'deck_idempotent_1',
+      plan: { marketName: 'Autonomous Robotics', vertical: 'Robotics', geography: null, notes: null, searchThemes: [] },
+    };
+    const headers = { Authorization: 'Bearer valid_pro_token', 'X-Stratemark-Token': 't' };
+
+    const firstRes = await post(a, '/api/research/deck', payload, headers);
+    expect(firstRes.status).toBe(202);
+
+    const secondRes = await post(a, '/api/research/deck', payload, headers);
+    expect(secondRes.status).toBe(202);
+
+    const fetched = await a.request('/api/decks/deck_idempotent_1', { headers: { Authorization: 'Bearer valid_pro_token' } });
+    expect(fetched.status).toBe(200);
+    const body = await asJson<{ state: { status: string }; revision: number }>(fetched);
+    expect(body.state.status).toBe('running');
+  });
+
+  it('returns 413 when attempting to save an oversized deck record', async () => {
+    const store = new MemoryDataStore();
+    const hugePayload = 'z'.repeat(1_050_000);
+    let thrown: (Error & { status?: number }) | null = null;
+    try {
+      await store.saveDeck('deck_oversize', {
+        deck: { id: 'deck_oversize', title: 'Oversize', blob: hugePayload },
+        market: { id: 'deck_oversize', name: 'Oversize' },
+        cards: [],
+        userId: 'user_pro',
+      });
+    } catch (e) {
+      thrown = e as Error & { status?: number };
+    }
+    expect(thrown?.status).toBe(413);
   });
 });

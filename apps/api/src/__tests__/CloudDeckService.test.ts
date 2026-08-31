@@ -156,6 +156,37 @@ describe('CloudDeckService', () => {
     await expect(service.enqueueCreation(unentitledPayload)).rejects.toThrow(/entitlement/i);
   });
 
+  it('creates a new deck identity when a changed market plan is provided for an existing deckId', async () => {
+    const store = new MemoryDataStore();
+    const mockTasks: TasksAdapter = {
+      enqueueDeckCreation: vi.fn(),
+      enqueueDeckRefresh: vi.fn(),
+    };
+    const service = new CloudDeckService(store, mockAuth, mockEntitlement, mockTasks);
+
+    await service.saveDeck('user_pro', 'deck_original', {
+      deck: { id: 'deck_original' },
+      market: { id: 'deck_original', name: 'Original Market' },
+      cards: [],
+      plan: { marketName: 'Original Market', vertical: 'Tech', geography: null, notes: null, searchThemes: [] },
+      userId: 'user_pro',
+    });
+
+    const changedPayload: TaskPayload = {
+      deckId: 'deck_original',
+      userId: 'user_pro',
+      plan: { marketName: 'Completely Different Scope', vertical: 'Bio', geography: null, notes: null, searchThemes: [] },
+      query: 'Completely Different Scope',
+    };
+
+    await service.enqueueCreation(changedPayload);
+    // Verified that a new deckId was generated rather than overwriting original deck
+    expect(changedPayload.deckId).not.toBe('deck_original');
+    expect(mockTasks.enqueueDeckCreation).toHaveBeenCalledWith(
+      expect.objectContaining({ deckId: expect.not.stringMatching(/^deck_original$/) })
+    );
+  });
+
   it('supports injecting custom adapters at the seam', () => {
     const customStore = new MemoryDataStore();
     const customAuth: AuthAdapter = { verifyIdToken: async () => 'custom_user' };

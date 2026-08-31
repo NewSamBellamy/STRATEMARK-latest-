@@ -544,12 +544,37 @@ export function createApp(
     });
   });
 
+  const verifyWorkerOidc = (c: Context): boolean => {
+    if (!env.tasks?.serviceAccountEmail) return true;
+    const authHeader = c.req.header('authorization');
+    if (!authHeader || !authHeader.toLowerCase().startsWith('bearer ')) {
+      return false;
+    }
+    try {
+      const token = authHeader.split(' ')[1];
+      if (!token) return false;
+      const parts = token.split('.');
+      if (parts.length < 2) return false;
+      const payloadBase64 = parts[1];
+      if (!payloadBase64) return false;
+      const payloadJson = Buffer.from(payloadBase64, 'base64').toString('utf8');
+      const payload = JSON.parse(payloadJson);
+      return payload.email === env.tasks.serviceAccountEmail;
+    } catch {
+      return false;
+    }
+  };
+
   /**
    * Cloud Tasks worker endpoint for async deck creation.
    * Assumes OIDC validation is handled by Cloud Run IAM proxy in production.
    * We do basic sanity checks here.
    */
   app.post('/tasks/worker/research', async (c) => {
+    if (!verifyWorkerOidc(c)) {
+      return c.json({ error: 'Unauthorized: Invalid service account OIDC token' }, 401);
+    }
+
     // Cloud Tasks sets specific headers we can verify to ensure it was routed by the task queue
     // In local development or testing, these might be absent depending on adapter, so we just log.
     const queueName = c.req.header('X-CloudTasks-QueueName');
@@ -569,6 +594,10 @@ export function createApp(
   });
 
   app.post('/tasks/worker/refresh', async (c) => {
+    if (!verifyWorkerOidc(c)) {
+      return c.json({ error: 'Unauthorized: Invalid service account OIDC token' }, 401);
+    }
+
     const queueName = c.req.header('X-CloudTasks-QueueName');
     if (env.tasks && !queueName) {
        console.warn('Worker invoked without X-CloudTasks-QueueName header - ensure IAM proxy is securing this endpoint.');

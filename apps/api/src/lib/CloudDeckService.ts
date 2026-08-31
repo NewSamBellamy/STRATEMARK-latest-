@@ -148,6 +148,15 @@ export class CloudDeckService {
       throw new Error('Cloud Tasks is not configured');
     }
     
+    // A changed plan or Market Scope creates a new deck rather than mutating the old operation
+    const existing = await this.getDeck(payload.userId, payload.deckId);
+    if (existing && existing.plan) {
+      const existingMarket = (existing.plan as { marketName?: string })?.marketName;
+      if (existingMarket && payload.plan?.marketName && existingMarket.toLowerCase().trim() !== payload.plan.marketName.toLowerCase().trim()) {
+        payload.deckId = `deck_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+      }
+    }
+
     // Save initial running state
     const now = new Date().toISOString();
     const marketObj = {

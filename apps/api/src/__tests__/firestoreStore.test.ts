@@ -80,6 +80,28 @@ describe('MemoryDataStore', () => {
     expect(await store.getMarket('deck_1')).toBeNull();
   });
 
+  it('rejects oversized writes exceeding the 1MB Firestore limit with a 413 error', async () => {
+    const store = new MemoryDataStore();
+    const hugePayload = 'x'.repeat(1_050_000);
+    const record: StoredDeckRecord = {
+      deck: { id: 'deck_huge', title: 'Huge Deck', blob: hugePayload },
+      market: { id: 'deck_huge', name: 'Huge Deck' },
+      cards: [],
+      userId: 'user_123',
+    };
+
+    let thrown: (Error & { status?: number }) | null = null;
+    try {
+      await store.saveDeck('deck_huge', record);
+    } catch (err) {
+      thrown = err as Error & { status?: number };
+    }
+
+    expect(thrown).not.toBeNull();
+    expect(thrown?.status).toBe(413);
+    expect(thrown?.message).toMatch(/exceeds the maximum allowed size/);
+  });
+
   it('manages user saved card bookmarks', async () => {
     const store = new MemoryDataStore();
     await store.saveCard('user_1', 'card_abc', { deckId: 'deck_1', deckRevision: 1 });
@@ -183,6 +205,77 @@ describe('FirestoreDataStore', () => {
 
     await store.deleteDeck('deck_f1');
     expect(mockDocDelete).toHaveBeenCalled();
+  });
+
+  it('wraps Firestore backend failures in a 503 Persistence failure error', async () => {
+    const mockFirestore = {
+      collection: vi.fn(() => ({
+        doc: vi.fn(() => ({
+          get: vi.fn().mockRejectedValue(new Error('Firestore network unreachable')),
+        })),
+      })),
+      runTransaction: vi.fn(async () => {
+        throw new Error('Firestore network unreachable');
+      }),
+    } as unknown as Firestore;
+
+    const store = new FirestoreDataStore({ firestore: mockFirestore });
+
+    let thrown: (Error & { status?: number }) | null = null;
+    try {
+      await store.saveDeck('deck_fail', { deck: {}, market: {}, cards: [], userId: 'user_1' });
+    } catch (e) {
+      thrown = e as Error & { status?: number };
+    }
+
+    expect(thrown).not.toBeNull();
+    expect(thrown?.status).toBe(503);
+    expect(thrown?.message).toContain('Persistence failure');
+  });
+
+  it('handles saved cards in FirestoreDataStore', async () => {
+    const savedDocs = new Map<string, Record<string, unknown>>();
+    const mockFirestore = {
+      collection: vi.fn((_colName: string) => ({
+        doc: vi.fn((docId: string) => ({
+          set: vi.fn(async (data: Record<string, unknown>) => {
+            savedDocs.set(docId, data);
+          }),
+          delete: vi.fn(async () => {
+            savedDocs.delete(docId);
+          }),
+        })),
+        where: vi.fn((field: string, _op: string, val: string) => ({
+          limit: vi.fn(() => ({
+            get: vi.fn(async () => {
+              const matches: Array<{ data: () => Record<string, unknown> }> = [];
+              for (const [_key, value] of savedDocs.entries()) {
+                if (value[field] === val) {
+                  matches.push({ data: () => value });
+                }
+              }
+              return {
+                forEach: (cb: (doc: { data: () => Record<string, unknown> }) => void) => {
+                  matches.forEach(cb);
+                },
+              };
+            }),
+          })),
+        })),
+      })),
+    } as unknown as Firestore;
+
+    const store = new FirestoreDataStore({ firestore: mockFirestore });
+
+    await store.saveCard('user_abc', 'card_123', { deckId: 'deck_1', deckRevision: 3 });
+    const savedList = await store.listSavedCards('user_abc');
+    expect(savedList.length).toBe(1);
+    expect(savedList[0]?.cardId).toBe('card_123');
+    expect(savedList[0]?.deckRevision).toBe(3);
+
+    await store.unsaveCard('user_abc', 'card_123');
+    const emptyList = await store.listSavedCards('user_abc');
+    expect(emptyList.length).toBe(0);
   });
 });
 

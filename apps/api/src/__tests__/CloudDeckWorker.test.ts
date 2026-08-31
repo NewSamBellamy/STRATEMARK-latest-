@@ -171,6 +171,111 @@ describe('CloudDeckWorker', () => {
     expect(d?.cards.length).toBe(2);
   });
 
+  it('is idempotent and skips processing if deck is already ready', async () => {
+    await service.saveDeck('user_pro', 'deck_ready', {
+      deck: { id: 'deck_ready' },
+      market: { id: 'deck_ready' },
+      cards: [{ card: { id: 'c1', title: 'Card 1' } } as unknown as HydrateCompanyCardResult['cards'][0]],
+      plan: { marketName: 'Test', vertical: 'Test', geography: null, notes: null, searchThemes: [] },
+      state: { status: 'ready' },
+    });
+
+    await worker.processDeckCreation({
+      deckId: 'deck_ready',
+      userId: 'user_pro',
+      plan: { marketName: 'Test', vertical: 'Test', geography: null, notes: null, searchThemes: [] },
+      query: 'Test',
+    });
+
+    expect(runLivingDeckEngine).not.toHaveBeenCalled();
+    const d = await service.getDeck('user_pro', 'deck_ready');
+    expect(d?.state?.status).toBe('ready');
+  });
+
+  it('resumes interrupted deck creation without duplicating cards', async () => {
+    // Deck already has card c1 from a previous partial run
+    await service.saveDeck('user_pro', 'deck_interrupted', {
+      deck: { id: 'deck_interrupted' },
+      market: { id: 'deck_interrupted' },
+      cards: [{ card: { id: 'c1', title: 'Card 1' } } as unknown as HydrateCompanyCardResult['cards'][0]],
+      plan: { marketName: 'Test', vertical: 'Test', geography: null, notes: null, searchThemes: [] },
+      state: { status: 'partial' },
+    });
+
+    vi.mocked(runLivingDeckEngine).mockResolvedValueOnce({
+      aborted: false,
+      state: { status: 'settled' } as unknown as LivingDeckRun['state'],
+      hydrated: [
+        { cards: [{ card: { id: 'c1', title: 'Card 1' } }] },
+        { cards: [{ card: { id: 'c2', title: 'Card 2' } }] },
+      ] as unknown as LivingDeckRun['hydrated'],
+      topology: null,
+      enrichmentFailures: [],
+      watch: null,
+      statuses: [],
+      trace: [],
+      summary: {} as unknown as LivingDeckRun['summary'],
+      bootMs: 100,
+      totalMs: 500,
+    });
+
+    await worker.processDeckCreation({
+      deckId: 'deck_interrupted',
+      userId: 'user_pro',
+      plan: { marketName: 'Test', vertical: 'Test', geography: null, notes: null, searchThemes: [] },
+      query: 'Test',
+    });
+
+    const d = await service.getDeck('user_pro', 'deck_interrupted');
+    expect(d?.state?.status).toBe('ready');
+    expect(d?.cards.length).toBe(2);
+    expect(d?.cards.map(c => c.card.id)).toEqual(['c1', 'c2']);
+  });
+
+  it('aborts safely if deck is deleted mid-run', async () => {
+    await service.saveDeck('user_pro', 'deck_to_delete', {
+      deck: { id: 'deck_to_delete' },
+      market: { id: 'deck_to_delete' },
+      cards: [],
+      state: { status: 'running' },
+    });
+
+    vi.mocked(runLivingDeckEngine).mockImplementationOnce(async (options) => {
+      // Simulate deck deletion while running
+      await service.deleteDeck('user_pro', 'deck_to_delete');
+      if (options.onEvent) {
+        options.onEvent({
+          type: 'card',
+          result: { cards: [{ card: { id: 'c_mid' } }] } as unknown as HydrateCompanyCardResult,
+        });
+      }
+      return {
+        aborted: false,
+        state: { status: 'settled' } as unknown as LivingDeckRun['state'],
+        hydrated: [{ cards: [{ card: { id: 'c_mid' } }] }] as unknown as LivingDeckRun['hydrated'],
+        topology: null,
+        enrichmentFailures: [],
+        watch: null,
+        statuses: [],
+        trace: [],
+        summary: {} as unknown as LivingDeckRun['summary'],
+        bootMs: 100,
+        totalMs: 500,
+      };
+    });
+
+    await worker.processDeckCreation({
+      deckId: 'deck_to_delete',
+      userId: 'user_pro',
+      plan: { marketName: 'Test', vertical: 'Test', geography: null, notes: null, searchThemes: [] },
+      query: 'Test',
+    });
+
+    // Verify deck is not resurrected
+    const d = await service.getDeck('user_pro', 'deck_to_delete');
+    expect(d).toBeNull();
+  });
+
   it('persists a failed state when the research engine throws', async () => {
     await service.saveDeck('user_pro', 'deck_failed', {
       deck: { id: 'deck_failed' },

@@ -27,6 +27,23 @@ export interface StoredDeckRecord {
   schemaVersion?: number;
 }
 
+export const FIRESTORE_MAX_DOCUMENT_BYTES = 1048576;
+
+export function assertPayloadSize(payload: unknown, limit = FIRESTORE_MAX_DOCUMENT_BYTES): void {
+  try {
+    const serialized = JSON.stringify(payload);
+    const size = Buffer.byteLength(serialized, 'utf8');
+    if (size > limit) {
+      const err = new Error(`Document exceeds the maximum allowed size of ${limit} bytes`) as Error & { status?: number };
+      err.status = 413;
+      throw err;
+    }
+  } catch (e: unknown) {
+    const err = e as Error & { status?: number };
+    if (err.status === 413) throw err;
+  }
+}
+
 export interface StratemarkDataStore extends WorklistStore {
   saveDeck(deckId: string, record: StoredDeckRecord, expectedRevision?: number): Promise<void>;
   getDeck(deckId: string): Promise<StoredDeckRecord | null>;
@@ -48,6 +65,7 @@ export class MemoryDataStore implements StratemarkDataStore {
   private savedCards = new Map<string, { userId: string; cardId: string; data?: Record<string, unknown>; savedAt: string }>();
 
   async saveDeck(deckId: string, record: StoredDeckRecord, expectedRevision?: number): Promise<void> {
+    assertPayloadSize(record);
     const existing = this.decks.get(deckId);
     const currentRev = existing?.revision ?? 0;
     
@@ -89,9 +107,20 @@ export class MemoryDataStore implements StratemarkDataStore {
 
   async listDecks(userId?: string): Promise<Array<Record<string, unknown>>> {
     const list: Array<Record<string, unknown>> = [];
-    for (const record of this.decks.values()) {
+    for (const [key, record] of this.decks.entries()) {
       if (!userId || record.userId === userId) {
-        list.push(record.deck);
+        list.push({
+          ...record.deck,
+          id: record.deck.id ?? key,
+          marketId: record.deck.marketId ?? key,
+          title: record.deck.title ?? record.query ?? key,
+          state: record.state ?? { status: 'ready' },
+          query: record.query,
+          createdAt: record.createdAt,
+          updatedAt: record.updatedAt,
+          refreshedAt: record.refreshedAt,
+          engine: 'cloud',
+        });
       }
     }
     return list;
@@ -103,6 +132,7 @@ export class MemoryDataStore implements StratemarkDataStore {
   }
 
   async saveMarket(marketId: string, market: Record<string, unknown>, userId?: string, expectedRevision?: number): Promise<void> {
+    assertPayloadSize(market);
     const existing = this.markets.get(marketId);
     const currentRev = (existing?.revision as number) ?? 0;
 
@@ -229,6 +259,7 @@ export class FirestoreDataStore implements StratemarkDataStore {
 
   async saveDeck(deckId: string, record: StoredDeckRecord, expectedRevision?: number): Promise<void> {
     try {
+      assertPayloadSize(record);
       await this.firestore.runTransaction(async (t) => {
         const deckRef = this.firestore.collection(this.decksCol).doc(deckId);
         const deckDoc = await t.get(deckRef);
@@ -351,14 +382,28 @@ export class FirestoreDataStore implements StratemarkDataStore {
     snap.forEach((doc) => {
       const data = doc.data();
       if (data?.deck) {
-        decks.push(data.deck as Record<string, unknown>);
+        decks.push({
+          ...(data.deck as Record<string, unknown>),
+          id: data.deck.id ?? doc.id,
+          marketId: data.deck.marketId ?? doc.id,
+          title: data.deck.title ?? data.query ?? doc.id,
+          state: data.state ?? { status: 'ready' },
+          query: data.query,
+          createdAt: tsToStr(data.createdAt),
+          updatedAt: tsToStr(data.updatedAt),
+          refreshedAt: tsToStr(data.refreshedAt),
+          engine: 'cloud',
+        });
       } else if (data) {
         decks.push({
           id: doc.id,
           marketId: doc.id,
           title: data.query ?? doc.id,
+          state: data.state ?? { status: 'ready' },
+          query: data.query,
           createdAt: tsToStr(data.createdAt),
           updatedAt: tsToStr(data.updatedAt),
+          refreshedAt: tsToStr(data.refreshedAt),
           engine: 'cloud',
         });
       }
@@ -375,6 +420,7 @@ export class FirestoreDataStore implements StratemarkDataStore {
 
   async saveMarket(marketId: string, market: Record<string, unknown>, userId?: string, expectedRevision?: number): Promise<void> {
     try {
+      assertPayloadSize(market);
       await this.firestore.runTransaction(async (t) => {
         const docRef = this.firestore.collection(this.marketsCol).doc(marketId);
         const docSnap = await t.get(docRef);
@@ -561,14 +607,10 @@ export function createDataStore(
   const hasFirestoreEnv = Boolean(projectId || process.env.FIRESTORE_EMULATOR_HOST);
 
   if (hasFirestoreEnv || options?.firestore) {
-    try {
-      return new FirestoreDataStore({
-        projectId,
-        firestore: options?.firestore,
-      });
-    } catch {
-      return new MemoryDataStore();
-    }
+    return new FirestoreDataStore({
+      projectId,
+      firestore: options?.firestore,
+    });
   }
 
   return new MemoryDataStore();

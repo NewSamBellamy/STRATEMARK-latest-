@@ -43,6 +43,11 @@ export class CloudDeckWorker {
       return;
     }
 
+    // Idempotent no-op if deck is already ready
+    if (existing.state?.status === 'ready') {
+      return;
+    }
+
     // Check entitlement again
     const isEntitled = await this.service.checkEntitlement(userId);
     if (!isEntitled) {
@@ -93,6 +98,11 @@ export class CloudDeckWorker {
             if (updated) {
               // Serialize intermediate checkpoints to avoid 409s/conflicts
               savePromise = savePromise.then(async () => {
+                const freshDeck = await this.service.getDeck(userId, deckId);
+                if (!freshDeck) {
+                  abortController.abort(new Error('Deck deleted'));
+                  return;
+                }
                 const stillEntitled = await this.service.checkEntitlement(userId);
                 if (!stillEntitled) {
                   abortController.abort(new Error('Entitlement lost'));
@@ -104,7 +114,7 @@ export class CloudDeckWorker {
                 }));
               }).catch(err => {
                 console.error('Checkpoint failed:', err);
-                if (err instanceof Error && err.message.includes('Entitlement lost')) {
+                if (err instanceof Error && (err.message.includes('Entitlement lost') || err.message.includes('Deck deleted'))) {
                   abortController.abort(err);
                   throw err;
                 }
@@ -115,6 +125,9 @@ export class CloudDeckWorker {
       });
     } catch (err: unknown) {
       timeoutSignal.removeEventListener('abort', onAbort);
+      const freshDeck = await this.service.getDeck(userId, deckId);
+      if (!freshDeck) return; // Clean exit on deletion
+
       const message = err instanceof Error ? err.message : String(err);
       await this.updateDeckState(id, () => ({
         cards: currentCards,
@@ -134,6 +147,9 @@ export class CloudDeckWorker {
 
     await savePromise.catch(() => {});
 
+    const freshDeck = await this.service.getDeck(userId, deckId);
+    if (!freshDeck) return; // Deleted during processing
+
     // Determine final status
     const isFailed = run.aborted || run.state.status === 'failed';
     const finalStatus = isFailed ? 'failed' : 'ready';
@@ -141,8 +157,19 @@ export class CloudDeckWorker {
       ? 'Research timed out or was aborted'
       : run.statuses.find((status) => status.state === 'failed')?.error ?? 'Research failed';
 
+    const cardMap = new Map<string, CardWithCompany>();
+    for (const c of currentCards) {
+      if (c?.card?.id) cardMap.set(c.card.id, c);
+    }
+    for (const h of run.hydrated) {
+      for (const c of h.cards) {
+        if (c?.card?.id) cardMap.set(c.card.id, c);
+      }
+    }
+    const finalCards = Array.from(cardMap.values());
+
     await this.updateDeckState(id, () => ({
-      cards: run.hydrated.flatMap(h => h.cards),
+      cards: finalCards,
       state: { status: finalStatus, ...(isFailed ? { error: failedReason } : {}) }
     }));
   }
