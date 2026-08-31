@@ -76,7 +76,21 @@ export function useCards(
         return 3000;
       }
       const cachedDeck = qc.getQueryData<Deck & { status?: string }>(qk.deck(deckId ?? ''));
-      if (cachedDeck?.status === 'running' || cachedDeck?.status === 'partial' || cachedDeck?.status === 'refreshing' || (cards && cards.length === 0 && cachedDeck?.status !== 'ready' && cachedDeck?.status !== 'failed' && cachedDeck?.status !== 'ready_stale')) {
+      const deckInProgress =
+        cachedDeck?.status === 'running' ||
+        cachedDeck?.status === 'partial' ||
+        cachedDeck?.status === 'refreshing';
+      const readyDeckStillMissingCards =
+        cards?.length === 0 &&
+        cachedDeck?.status === 'ready' &&
+        query.state.dataUpdatedAt + 60_000 > Date.now();
+      const unknownDeckStillLoading =
+        cards &&
+        cards.length === 0 &&
+        cachedDeck?.status !== 'ready' &&
+        cachedDeck?.status !== 'failed' &&
+        cachedDeck?.status !== 'ready_stale';
+      if (deckInProgress || readyDeckStillMissingCards || unknownDeckStillLoading) {
         return 3000;
       }
       return false;

@@ -171,4 +171,89 @@ describe('SentinelRepository — Stale Local Cloud Deck Cache (#55)', () => {
     const deck = await freshRepo.getDeckByMarket('deck_offline_del');
     expect(deck?.id).not.toBe('deck_offline_del');
   });
+
+  it('preserves company-less signal cards returned by the Cloud Deck aggregate', async () => {
+    const repo = new SentinelRepository();
+    vi.spyOn(sentinelApi, 'getCloudDeck').mockResolvedValueOnce({
+      deck: { id: 'deck_signal', marketId: 'deck_signal', revision: 1 },
+      market: { id: 'deck_signal', name: 'Signal Market' },
+      cards: [
+        {
+          card: {
+            id: 'barrier_1',
+            deckId: 'deck_signal',
+            companyId: null,
+            cardType: 'barrier',
+            title: 'Power access',
+            summary: 'Grid access limits expansion.',
+            tier: null,
+            tierReason: null,
+            citations: [],
+            keyPoints: [],
+            createdAt: '2026-08-31T00:00:00.000Z',
+          },
+          company: null,
+          metrics: [],
+          viceClaims: [],
+        },
+      ],
+      companies: [],
+      metrics: [],
+      viceClaims: [],
+    });
+
+    const cards = await repo.listCards('deck_signal');
+
+    expect(cards).toHaveLength(1);
+    expect(cards[0]?.card.id).toBe('barrier_1');
+    expect(cards[0]?.card.cardType).toBe('barrier');
+    expect(cards[0]?.card.title).toBe('Power access');
+    expect(cards[0]?.company).toBeNull();
+    expect(cards[0]?.metrics).toEqual([]);
+  });
+
+  it('does not replace an empty running Cloud Deck with seeded sample cards', async () => {
+    const repo = new SentinelRepository();
+    vi.spyOn(sentinelApi, 'getCloudDeck').mockResolvedValueOnce({
+      deck: { id: 'dck_frontier-ai-ecosystem_ckgrf', marketId: 'dck_frontier-ai-ecosystem_ckgrf', revision: 1 },
+      market: { id: 'dck_frontier-ai-ecosystem_ckgrf', name: 'Running Market' },
+      cards: [],
+      companies: [],
+      metrics: [],
+      viceClaims: [],
+      state: { status: 'running' },
+    });
+
+    const cards = await repo.listCards('dck_frontier-ai-ecosystem_ckgrf');
+
+    expect(cards).toEqual([]);
+  });
+
+  it('does not replace an unavailable Cloud Deck with the seeded sample deck', async () => {
+    const repo = new SentinelRepository();
+    vi.spyOn(sentinelApi, 'getCloudDeck').mockResolvedValueOnce(null);
+
+    const cards = await repo.listCards('dck_frontier-ai-ecosystem_ckgrf');
+
+    expect(cards).toEqual([]);
+  });
+
+  it('does not replace an unavailable Cloud Deck lookup with the seeded sample deck', async () => {
+    const repo = new SentinelRepository();
+    vi.spyOn(sentinelApi, 'getCloudDeck').mockResolvedValueOnce(null);
+
+    const deck = await repo.getDeckByMarket('mkt_frontier-ai-ecosystem_s248s');
+
+    expect(deck).toBeNull();
+  });
+
+  it('does not replace an unavailable Cloud market list with seeded sample markets', async () => {
+    const repo = new SentinelRepository();
+    vi.spyOn(sentinelApi, 'getCloudDecks').mockResolvedValueOnce([]);
+    vi.spyOn(sentinelApi, 'getCloudMarkets').mockResolvedValueOnce([]);
+
+    const markets = await repo.listMarkets();
+
+    expect(markets).toEqual([]);
+  });
 });

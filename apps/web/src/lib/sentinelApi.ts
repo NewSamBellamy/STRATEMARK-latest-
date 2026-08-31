@@ -4,7 +4,6 @@
  */
 
 import type { VerifyMetricInput, VerifyMetricResult, HuntMetricsResult } from '@mi/contracts';
-import { useApiKey } from '@/lib/settings/apiKey';
 
 export interface SentinelAlert {
   id: string;
@@ -84,18 +83,15 @@ export interface CloudResearchDeckResponse {
  * deployed — so selecting the cloud engine produced a DNS failure that looked
  * like a bug in the app rather than missing configuration.
  *
- * It also deliberately does NOT fall back to `VITE_API_BASE_URL`. That variable
- * points at the agent service in `apps/api`, which is a DIFFERENT service with a
- * different contract: it serves `/v1/*` and authenticates with `X-Gemini-Key` /
- * `X-Stratemark-Token`, whereas this module calls `/api/*` with a Bearer token.
- * Pointing one at the other produces 404s that surface as silent fallback data —
- * worse than an honest "not configured", because the app appears to work.
+ * `VITE_API_BASE_URL` is the deployment-script alias for this same Cloud Run
+ * service. Prefer it when both variables exist so a build-time deployment URL
+ * cannot be shadowed by a stale local `VITE_SENTINEL_API_URL`.
  *
  * An empty string is the honest value: callers check `isSentinelConfigured()`.
  * Set `VITE_SENTINEL_API_URL` explicitly to enable it.
  */
 const DEFAULT_SENTINEL_URL =
-  import.meta.env.VITE_SENTINEL_API_URL || import.meta.env.VITE_API_BASE_URL || '';
+  import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_SENTINEL_API_URL || '';
 
 /** True when a cloud endpoint is actually configured. */
 export function isSentinelConfigured(): boolean {
@@ -164,11 +160,6 @@ async function fetchSentinel<T>(
   const appToken = (import.meta.env?.VITE_API_APP_TOKEN as string | undefined)?.trim();
   if (appToken && !headers['X-Stratemark-Token'] && !headers['x-stratemark-token']) {
     headers['X-Stratemark-Token'] = appToken;
-  }
-
-  const userApiKey = useApiKey.getState().apiKey;
-  if (userApiKey && !headers['X-Gemini-Key'] && !headers['x-gemini-key']) {
-    headers['X-Gemini-Key'] = userApiKey;
   }
 
   const res = await fetch(url, { ...rest, headers });
@@ -352,18 +343,20 @@ export async function askCloudResearch(
   });
 }
 
-/** Submit targeted micro-research expansion request to Sentinel Cloud Run backend */
+/** Re-verify one Cloud Deck metric against fresh grounded evidence. */
 export async function verifyCloudMetric(
   input: VerifyMetricInput,
+  deckId?: string,
   token?: string | null,
 ): Promise<VerifyMetricResult> {
   return fetchSentinel<VerifyMetricResult>('/api/research/verify', {
     method: 'POST',
-    body: JSON.stringify(input),
+    body: JSON.stringify(deckId ? { ...input, deckId } : input),
     token,
   });
 }
 
+/** Fill missing or soft company metrics in a Cloud Deck. */
 export async function huntCloudMetrics(
   companyId: string,
   deckId?: string,
@@ -377,7 +370,6 @@ export async function huntCloudMetrics(
 }
 
 export async function expandCloudDeck(
-
   marketId: string,
   focus: { tier?: number | null; cardType?: string | null },
   token?: string | null,

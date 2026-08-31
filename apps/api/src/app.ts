@@ -30,6 +30,8 @@ import {
   usableCitations, 
   hasVerificationGradeCitation, 
   markVerified,
+  buildCmsInput,
+  computeCms,
   METRIC_TYPE_LABELS,
   METRIC_TYPES
 } from '@mi/contracts';
@@ -695,6 +697,7 @@ export function createApp(
       if (hasVerificationGradeCitation(hintCited) && metric.confidence !== 'user_verified') {
         const prior = metric.value;
         const differs = prior == null || prior === 0 || Math.abs(correction.value - prior) / Math.max(Math.abs(prior), 1) > 0.02;
+        let changed = false;
         if (differs) {
           metric.value = correction.value;
           metric.confidence = 'verified';
@@ -702,17 +705,25 @@ export function createApp(
           metric.source = hintCited[0]?.url ?? metric.source;
           metric.methodNote = correction.rationale ?? `Corrected from a grounded fact-check${correction.asOf ? ` (as of ${correction.asOf})` : ''}.`;
           metric.capturedAt = nowIso;
+          changed = true;
         }
         Object.assign(metric, markVerified(metric as CompanyMetric, nowIso));
-        
+        const priorTier = companyCard.card.tier;
+        companyCard.card.tier = computeCms(buildCmsInput(companyCard.metrics), { deckUserValues: [] }).finalTier;
+        const retieredCardIds = changed && priorTier !== companyCard.card.tier ? [companyCard.card.id] : [];
+        if (retieredCardIds.length > 0) {
+          companyCard.card.tierReason = 'Re-tiered after a fact-check correction.';
+        }
+
         await cloudDeckService.saveDeck(userId, deckId!, existingDeck, existingDeck.revision);
         
         return c.json({
-          verdict: 'supported',
-          rationale: metric.methodNote,
-          citations: metric.citations,
-          correctedValue: metric.value,
-          correctedAsOf: null,
+          metric,
+          verdict: changed ? 'contradicted' : 'supported',
+          changed,
+          retieredCardIds,
+          rationale: correction.rationale ?? 'Applied the correction from the grounded fact-check that just ran.',
+          citations: hintCited,
         });
       }
     }
@@ -780,19 +791,25 @@ export function createApp(
       changed = true;
     }
 
+    const priorTier = companyCard.card.tier;
+    companyCard.card.tier = computeCms(buildCmsInput(companyCard.metrics), { deckUserValues: [] }).finalTier;
+    const retieredCardIds = changed && priorTier !== companyCard.card.tier ? [companyCard.card.id] : [];
+    if (retieredCardIds.length > 0) {
+      companyCard.card.tierReason = 'Re-tiered after live metric verification.';
+    }
+
     if (changed || out.verdict !== 'unverified') {
-      if (!changed) {
-        Object.assign(metric, markVerified(metric as CompanyMetric, nowIso));
-      }
+      Object.assign(metric, markVerified(metric as CompanyMetric, nowIso));
       await cloudDeckService.saveDeck(userId, deckId!, existingDeck, existingDeck.revision);
     }
 
     return c.json({
+      metric,
       verdict: out.verdict,
+      changed,
+      retieredCardIds,
       rationale: out.rationale,
       citations: g.citations,
-      correctedValue: out.currentValue,
-      correctedAsOf: null,
     });
   });
 

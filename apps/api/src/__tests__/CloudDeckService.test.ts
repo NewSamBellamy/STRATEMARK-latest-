@@ -156,6 +156,26 @@ describe('CloudDeckService', () => {
     await expect(service.enqueueCreation(unentitledPayload)).rejects.toThrow(/entitlement/i);
   });
 
+  it('marks the Cloud Deck failed when task enqueue fails instead of leaving it running', async () => {
+    const store = new MemoryDataStore();
+    const tasks: TasksAdapter = {
+      enqueueDeckCreation: vi.fn().mockRejectedValue(new Error('queue unavailable')),
+      enqueueDeckRefresh: vi.fn(),
+    };
+    const service = new CloudDeckService(store, mockAuth, mockEntitlement, tasks);
+    const payload: TaskPayload = {
+      deckId: 'deck_queue_failure',
+      userId: 'user_pro',
+      plan: { marketName: 'Robotics', vertical: 'Hardware', geography: null, notes: null, searchThemes: [] },
+      query: 'Robotics',
+    };
+
+    await expect(service.enqueueCreation(payload)).rejects.toThrow('queue unavailable');
+
+    const deck = await service.getDeck('user_pro', payload.deckId);
+    expect(deck?.state).toEqual({ status: 'failed', error: 'queue unavailable' });
+  });
+
   it('creates a new deck identity when a changed market plan is provided for an existing deckId', async () => {
     const store = new MemoryDataStore();
     const mockTasks: TasksAdapter = {

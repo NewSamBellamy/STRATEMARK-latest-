@@ -1,5 +1,5 @@
-import { describe, expect, it, beforeEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, beforeEach, vi } from 'vitest';
+import { act, render, screen } from '@testing-library/react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { GoogleAuthProvider } from '@/lib/auth/AuthContext';
@@ -11,10 +11,20 @@ import { SentinelRepository } from '@/lib/repository/SentinelRepository';
 import DeckPage from '@/features/deck/DeckPage';
 import { Sidebar } from '@/components/layout/Sidebar';
 import * as sentinelApi from '@/lib/sentinelApi';
+import { useCards } from '@/hooks/data';
+import { qk } from '@/lib/query/keys';
 
-function TestWrapper({ children, repo }: { children: React.ReactNode; repo?: SentinelRepository }) {
+function TestWrapper({
+  children,
+  repo,
+  queryClient = createQueryClient(),
+}: {
+  children: React.ReactNode;
+  repo?: SentinelRepository;
+  queryClient?: ReturnType<typeof createQueryClient>;
+}) {
   return (
-    <QueryClientProvider client={createQueryClient()}>
+    <QueryClientProvider client={queryClient}>
       <GoogleAuthProvider>
         <TaskManagerProvider>
           <DeepDiveProvider>
@@ -30,10 +40,19 @@ function TestWrapper({ children, repo }: { children: React.ReactNode; repo?: Sen
   );
 }
 
+function CardsProbe() {
+  const cards = useCards('deck_ready');
+  return <output data-testid="card-count">{cards.data?.length ?? -1}</output>;
+}
+
 describe('Cloud Deck Polling & UI State', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('SentinelRepository fetches updated deck and cards from cloud API when running', async () => {
@@ -161,5 +180,66 @@ describe('Cloud Deck Polling & UI State', () => {
 
     expect(await screen.findByText('Autonomous Delivery')).toBeInTheDocument();
     expect(screen.getByTitle('Research in progress')).toBeInTheDocument();
+  });
+
+  it('keeps polling when a ready deck response arrives before its hydrated cards', async () => {
+    vi.useFakeTimers();
+    const repo = new SentinelRepository();
+    const queryClient = createQueryClient();
+    queryClient.setQueryData(qk.deck('deck_ready'), {
+      id: 'deck_ready',
+      marketId: 'deck_ready',
+      status: 'ready',
+    });
+    const getCloudDeck = vi.spyOn(sentinelApi, 'getCloudDeck');
+    getCloudDeck
+      .mockResolvedValueOnce({
+        deck: { id: 'deck_ready', marketId: 'deck_ready' },
+        market: { id: 'deck_ready', name: 'Ready Market' },
+        cards: [],
+        companies: [],
+        metrics: [],
+        viceClaims: [],
+        state: { status: 'ready' },
+      })
+      .mockResolvedValueOnce({
+        deck: { id: 'deck_ready', marketId: 'deck_ready' },
+        market: { id: 'deck_ready', name: 'Ready Market' },
+        cards: [
+          {
+            card: {
+              id: 'card_hydrated',
+              deckId: 'deck_ready',
+              companyId: 'company_1',
+              cardType: 'company',
+              tier: 3,
+            },
+            company: { id: 'company_1', name: 'Hydrated Co', oneLiner: 'A company' },
+            metrics: [],
+            viceClaims: [],
+          },
+        ],
+        companies: [],
+        metrics: [],
+        viceClaims: [],
+        state: { status: 'ready' },
+      });
+
+    render(
+      <TestWrapper repo={repo} queryClient={queryClient}>
+        <CardsProbe />
+      </TestWrapper>,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.getByTestId('card-count')).toHaveTextContent('0');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4000);
+    });
+
+    expect(screen.getByTestId('card-count')).toHaveTextContent('1');
+    expect(getCloudDeck).toHaveBeenCalledTimes(2);
   });
 });

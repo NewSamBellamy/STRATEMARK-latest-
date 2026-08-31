@@ -54,18 +54,8 @@ export class FirebaseAdapter implements AuthAdapter, EntitlementAdapter {
       if (trimmed.length < 5 || trimmed === 'demo-user-token' || trimmed.startsWith('demo-')) {
         return null;
       }
-      if (trimmed.length > 50 && trimmed.includes('.')) {
-        try {
-          const decoded = await getAuth().verifyIdToken(trimmed);
-          if (decoded && decoded.uid) return decoded.uid.trim();
-        } catch {
-          /* Fall through to user ID check below if token is not a valid Firebase JWT */
-        }
-      }
-      if ((trimmed.startsWith('user_') || trimmed.startsWith('usr_') || trimmed.length >= 8) && !trimmed.includes('@')) {
-        return trimmed;
-      }
-      return null;
+      const decoded = await getAuth().verifyIdToken(trimmed);
+      return decoded?.uid?.trim() || null;
     } catch {
       return null;
     }
@@ -275,7 +265,24 @@ export class CloudDeckService {
       watch: payload.watch,
     });
 
-    await this.tasks.enqueueDeckCreation(payload);
+    try {
+      await this.tasks.enqueueDeckCreation(payload);
+    } catch (error: unknown) {
+      const current = await this.getDeck(payload.userId, payload.deckId);
+      if (current) {
+        const message = error instanceof Error ? error.message : String(error);
+        await this.saveDeck(
+          payload.userId,
+          payload.deckId,
+          {
+            ...current,
+            state: { status: 'failed', error: message.slice(0, 500) },
+          },
+          current.revision,
+        );
+      }
+      throw error;
+    }
     return { deckId: payload.deckId };
   }
 
@@ -456,4 +463,3 @@ export class CloudDeckService {
     return { purged: true, details };
   }
 }
-

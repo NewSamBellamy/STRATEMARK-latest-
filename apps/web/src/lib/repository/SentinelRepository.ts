@@ -211,11 +211,11 @@ export class SentinelRepository implements MarketIntelRepository {
       return cachedMarkets;
     }
 
-    // Fallback to memory markets or local mock repository
+    // A Cloud Engine outage must not masquerade as sample data.
     if (this.memoryMarkets.size > 0) {
       return Array.from(this.memoryMarkets.values());
     }
-    return this.fallbackRepo.listMarkets();
+    return [];
   }
 
   async getMarket(id: string): Promise<Market | null> {
@@ -244,7 +244,7 @@ export class SentinelRepository implements MarketIntelRepository {
       /* ignore */
     }
     const markets = await this.listMarkets();
-    return markets.find((m) => m.id === id) || this.fallbackRepo.getMarket(id);
+    return markets.find((m) => m.id === id) || null;
   }
 
   async createMarket(input: CreateMarketInput): Promise<Market> {
@@ -444,7 +444,7 @@ export class SentinelRepository implements MarketIntelRepository {
     }
 
     if (cached) return cached;
-    return this.fallbackRepo.getDeckByMarket(marketId);
+    return null;
   }
 
   async refreshDeck(marketId: string): Promise<Deck> {
@@ -569,7 +569,7 @@ export class SentinelRepository implements MarketIntelRepository {
 
     try {
       const cloudPayload = await getCloudDeck(deckId);
-      if (cloudPayload && cloudPayload.cards && cloudPayload.cards.length > 0) {
+      if (cloudPayload) {
         const cardsWithCompany = this.mapCloudCards(cloudPayload);
         this.memoryCards.set(deckId, cardsWithCompany);
         if (filter?.cardType) {
@@ -585,7 +585,7 @@ export class SentinelRepository implements MarketIntelRepository {
       return cachedCards;
     }
 
-    return this.fallbackRepo.listCards(deckId, filter);
+    return [];
   }
 
   async getCard(cardId: string): Promise<CardWithCompany | null> {
@@ -667,27 +667,55 @@ export class SentinelRepository implements MarketIntelRepository {
   }
 
 
-  
-  private findDeckIdForCompany(companyId: string): string | undefined {
-    for (const [deckId, cards] of this.memoryCards.entries()) {
-      if (cards.some((c) => c.company?.id === companyId)) {
-        return deckId;
+  private invalidateDeckCache(deckId: string) {
+    this.memoryCards.delete(deckId);
+    this.memoryDecks.delete(deckId);
+
+    // Also delete by marketId if possible, or just scan
+    for (const [k, v] of this.memoryDecks.entries()) {
+      if (v.id === deckId) {
+        this.memoryDecks.delete(k);
+        this.memoryCards.delete(k);
       }
+    }
+
+    const cache = readCloudCache();
+    let changed = false;
+    for (const [k, v] of cache.entries()) {
+      if (v.deck?.id === deckId || k === deckId) {
+        cache.delete(k);
+        changed = true;
+      }
+    }
+    if (changed) writeCloudCache(cache);
+  }
+
+  private findDeckIdForCompany(companyId: string): string | undefined {
+    for (const [key, cards] of this.memoryCards.entries()) {
+      const card = cards.find((c) => c.company?.id === companyId);
+      if (!card) continue;
+      const deckId = card.card.deckId || this.memoryDecks.get(key)?.id;
+      if (deckId) return deckId;
     }
     return undefined;
   }
 
   async expandDeck(marketId: string, focus: ExpandFocus): Promise<{ added: number }> {
     const res = await expandCloudDeck(marketId, focus);
-    if (res && typeof res.added === 'number') return res;
+    if (res && typeof res.added === 'number') {
+      const deckId = this.memoryDecks.get(marketId)?.id || marketId;
+      this.invalidateDeckCache(deckId);
+      return res;
+    }
     throw new Error('Failed to expand cloud deck: no response from Sentinel');
   }
 
   async verifyMetric(input: VerifyMetricInput): Promise<VerifyMetricResult> {
     const deckId = this.findDeckIdForCompany(input.companyId);
     if (!deckId) throw new Error('Cannot verify metric: Deck ID not found in local cache');
-    const res = await verifyCloudMetric({ ...input, deckId } as VerifyMetricInput);
+    const res = await verifyCloudMetric(input, deckId);
     if (!res) throw new Error('Failed to verify cloud metric: no response from Sentinel');
+    this.invalidateDeckCache(deckId);
     return res;
   }
 
@@ -696,6 +724,7 @@ export class SentinelRepository implements MarketIntelRepository {
     if (!deckId) throw new Error('Cannot hunt metrics: Deck ID not found in local cache');
     const res = await huntCloudMetrics(companyId, deckId);
     if (!res) throw new Error('Failed to hunt cloud metrics: no response from Sentinel');
+    this.invalidateDeckCache(deckId);
     return res;
   }
 
@@ -900,10 +929,10 @@ export class SentinelRepository implements MarketIntelRepository {
       const directCard = item.card as Card | undefined;
       const directCompany = item.company as Company | undefined;
       // Handle direct CardWithCompany objects
-      if (directCard && directCompany) {
+      if (directCard && Object.prototype.hasOwnProperty.call(item, 'company')) {
         results.push({
           card: { ...directCard, engine: 'cloud' } as Card,
-          company: directCompany,
+          company: (directCompany ?? null) as Company | null,
           metrics: (item.metrics as CompanyMetric[] | undefined) || [],
           viceClaims: (item.viceClaims as ViceClaim[] | undefined) || [],
         });
