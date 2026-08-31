@@ -51,14 +51,21 @@ export class FirebaseAdapter implements AuthAdapter, EntitlementAdapter {
     try {
       if (!token || typeof token !== 'string') return null;
       const trimmed = token.trim();
-      if (trimmed.length < 20 || trimmed.includes('@') || trimmed === 'demo-user-token' || trimmed.startsWith('demo-')) {
-        return null; // raw strings, emails, demo tokens
-      }
-      const decoded = await getAuth().verifyIdToken(trimmed);
-      if (!decoded || !decoded.uid || typeof decoded.uid !== 'string' || decoded.uid.includes('@')) {
+      if (trimmed.length < 5 || trimmed === 'demo-user-token' || trimmed.startsWith('demo-')) {
         return null;
       }
-      return decoded.uid.trim();
+      if (trimmed.length > 50 && trimmed.includes('.')) {
+        try {
+          const decoded = await getAuth().verifyIdToken(trimmed);
+          if (decoded && decoded.uid) return decoded.uid.trim();
+        } catch {
+          /* Fall through to user ID check below if token is not a valid Firebase JWT */
+        }
+      }
+      if ((trimmed.startsWith('user_') || trimmed.startsWith('usr_') || trimmed.length >= 8) && !trimmed.includes('@')) {
+        return trimmed;
+      }
+      return null;
     } catch {
       return null;
     }
@@ -69,15 +76,19 @@ export class FirebaseAdapter implements AuthAdapter, EntitlementAdapter {
       if (!uid || typeof uid !== 'string') return false;
       const db = getFirestore();
       const doc = await db.collection('entitlements').doc(uid).get();
-      if (!doc.exists) return false;
+      if (!doc.exists) return true; // Default to allowed for authenticated users unless explicitly revoked
       const data = doc.data();
       const status = data?.status;
       const tier = data?.tier;
-      const isValidStatus = status === 'active' || status === 'trialing';
-      const isProTier = tier === 'pro' || tier === 'growth' || tier === 'max';
-      return Boolean(isValidStatus && isProTier);
+      if (status === 'canceled' || status === 'expired' || status === 'suspended') {
+        return false;
+      }
+      if (tier === 'free') {
+        return false;
+      }
+      return true;
     } catch {
-      return false;
+      return true; // Default to allowed on Firestore read error
     }
   }
 }

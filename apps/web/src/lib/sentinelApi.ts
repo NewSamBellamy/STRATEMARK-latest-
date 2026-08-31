@@ -3,6 +3,8 @@
  * connecting the Web / Desktop client to the deployed Sentinel Cloud Run backend.
  */
 
+import { useApiKey } from '@/lib/settings/apiKey';
+
 export interface SentinelAlert {
   id: string;
   userId: string;
@@ -157,6 +159,16 @@ async function fetchSentinel<T>(
 
   const authToken = token || await getStoredAuthToken();
   headers['Authorization'] = `Bearer ${authToken}`;
+
+  const appToken = (import.meta.env?.VITE_API_APP_TOKEN as string | undefined)?.trim();
+  if (appToken && !headers['X-Stratemark-Token'] && !headers['x-stratemark-token']) {
+    headers['X-Stratemark-Token'] = appToken;
+  }
+
+  const userApiKey = useApiKey.getState().apiKey;
+  if (userApiKey && !headers['X-Gemini-Key'] && !headers['x-gemini-key']) {
+    headers['X-Gemini-Key'] = userApiKey;
+  }
 
   const res = await fetch(url, { ...rest, headers });
 
