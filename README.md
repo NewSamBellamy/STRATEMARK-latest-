@@ -13,8 +13,8 @@ Built for the **All Things Agentic** hackathon (Google Cloud, Aug 2026). See [`d
 | Who | Role | Owns |
 |---|---|---|
 | **Shannon** | CEO | Product direction, hackathon submission |
-| **Tobi** | CPO & Design | Final design pass, landing page, Lemon Squeezy store — [`docs/HANDOVER-TOBI.md`](docs/HANDOVER-TOBI.md) |
-| **Maruf** | CTO & Lead Engineer | Hosting, backend, auth, this repository — [`docs/HANDOVER-MARUF.md`](docs/HANDOVER-MARUF.md) |
+| **Tobi** | CPO & Design | Final design pass, landing page, Lemon Squeezy store |
+| **Maruf** | CTO & Lead Engineer | Hosting, backend, auth, this repository |
 
 ## Quickstart
 
@@ -121,8 +121,6 @@ interface, the entire agent pipeline runs unchanged on either.
 
 ## Documents
 
-- [`docs/HANDOVER-MARUF.md`](docs/HANDOVER-MARUF.md) — CTO handover: hosting, auth, backend punch list
-- [`docs/HANDOVER-TOBI.md`](docs/HANDOVER-TOBI.md) — CPO/Design handover: design pass, landing page, Lemon Squeezy
 - [`docs/HACKATHON-CHECKLIST.md`](docs/HACKATHON-CHECKLIST.md) — submission requirements + disqualification traps
 - [`docs/BUSINESS-MODEL.md`](docs/BUSINESS-MODEL.md) — the two-door model, unit economics, launch sequence
 - [`docs/SUBSCRIPTION-MODEL.md`](docs/SUBSCRIPTION-MODEL.md) — tiers, entitlements, Lemon Squeezy wiring
