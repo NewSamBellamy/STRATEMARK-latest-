@@ -44,6 +44,38 @@ export function assertPayloadSize(payload: unknown, limit = FIRESTORE_MAX_DOCUME
   }
 }
 
+export interface StoredArtifactMetadata {
+  id: string;
+  deckId: string;
+  userId: string;
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+  storagePath: string;
+  revision: number;
+  createdAt: string;
+}
+
+export interface StoredShareRecord {
+  id: string;
+  tokenHash: string;
+  deckId: string;
+  userId: string;
+  deckRevision: number;
+  deckSnapshot: Record<string, unknown>;
+  createdAt: string;
+  expiresAt?: string | null;
+  revoked: boolean;
+}
+
+export interface EntitlementRecord {
+  userId: string;
+  status: 'active' | 'trialing' | 'canceled' | 'past_due' | 'expired';
+  tier: 'free' | 'pro' | 'growth' | 'max';
+  canceledAt?: string | null;
+  retentionUntil?: string | null;
+}
+
 export interface StratemarkDataStore extends WorklistStore {
   saveDeck(deckId: string, record: StoredDeckRecord, expectedRevision?: number): Promise<void>;
   getDeck(deckId: string): Promise<StoredDeckRecord | null>;
@@ -57,12 +89,39 @@ export interface StratemarkDataStore extends WorklistStore {
   saveCard(userId: string, cardId: string, options?: { deckId?: string; deckRevision?: number }): Promise<void>;
   unsaveCard(userId: string, cardId: string): Promise<void>;
   listSavedCards(userId: string): Promise<Array<Record<string, unknown>>>;
+
+  // Artifact methods (Issue #57)
+  saveArtifactMetadata(meta: StoredArtifactMetadata): Promise<void>;
+  getArtifactMetadata(artifactId: string): Promise<StoredArtifactMetadata | null>;
+  listArtifactsForDeck(deckId: string): Promise<StoredArtifactMetadata[]>;
+  deleteArtifactMetadata(artifactId: string): Promise<void>;
+  deleteArtifactsForDeck(deckId: string): Promise<void>;
+
+  // Share methods (Issue #57)
+  saveShare(share: StoredShareRecord): Promise<void>;
+  getShareByHash(tokenHash: string): Promise<StoredShareRecord | null>;
+  listSharesForDeck(deckId: string): Promise<StoredShareRecord[]>;
+  revokeShare(shareId: string, userId: string): Promise<boolean>;
+
+  // Entitlement & Purge methods (Issue #57)
+  getEntitlement(userId: string): Promise<EntitlementRecord | null>;
+  saveEntitlement(entitlement: EntitlementRecord): Promise<void>;
+  purgeUserData(userId: string): Promise<{
+    deletedDecks: number;
+    deletedMarkets: number;
+    deletedCards: number;
+    deletedShares: number;
+    deletedArtifacts: number;
+  }>;
 }
 
 export class MemoryDataStore implements StratemarkDataStore {
   private decks = new Map<string, StoredDeckRecord>();
   private markets = new Map<string, Record<string, unknown>>();
   private savedCards = new Map<string, { userId: string; cardId: string; data?: Record<string, unknown>; savedAt: string }>();
+  private artifacts = new Map<string, StoredArtifactMetadata>();
+  private shares = new Map<string, StoredShareRecord>();
+  private entitlements = new Map<string, EntitlementRecord>();
 
   async saveDeck(deckId: string, record: StoredDeckRecord, expectedRevision?: number): Promise<void> {
     assertPayloadSize(record);
@@ -129,6 +188,144 @@ export class MemoryDataStore implements StratemarkDataStore {
   async deleteDeck(deckId: string): Promise<void> {
     this.decks.delete(deckId);
     this.markets.delete(deckId);
+    await this.deleteArtifactsForDeck(deckId);
+    for (const [key, share] of this.shares.entries()) {
+      if (share.deckId === deckId) {
+        this.shares.delete(key);
+      }
+    }
+  }
+
+  // Artifact methods
+  async saveArtifactMetadata(meta: StoredArtifactMetadata): Promise<void> {
+    this.artifacts.set(meta.id, { ...meta });
+  }
+
+  async getArtifactMetadata(artifactId: string): Promise<StoredArtifactMetadata | null> {
+    const meta = this.artifacts.get(artifactId);
+    return meta ? { ...meta } : null;
+  }
+
+  async listArtifactsForDeck(deckId: string): Promise<StoredArtifactMetadata[]> {
+    const list: StoredArtifactMetadata[] = [];
+    for (const meta of this.artifacts.values()) {
+      if (meta.deckId === deckId) {
+        list.push({ ...meta });
+      }
+    }
+    return list;
+  }
+
+  async deleteArtifactMetadata(artifactId: string): Promise<void> {
+    this.artifacts.delete(artifactId);
+  }
+
+  async deleteArtifactsForDeck(deckId: string): Promise<void> {
+    for (const [id, meta] of this.artifacts.entries()) {
+      if (meta.deckId === deckId) {
+        this.artifacts.delete(id);
+      }
+    }
+  }
+
+  // Share methods
+  async saveShare(share: StoredShareRecord): Promise<void> {
+    this.shares.set(share.tokenHash, { ...share });
+  }
+
+  async getShareByHash(tokenHash: string): Promise<StoredShareRecord | null> {
+    const s = this.shares.get(tokenHash);
+    return s ? { ...s } : null;
+  }
+
+  async listSharesForDeck(deckId: string): Promise<StoredShareRecord[]> {
+    const list: StoredShareRecord[] = [];
+    for (const s of this.shares.values()) {
+      if (s.deckId === deckId) {
+        list.push({ ...s });
+      }
+    }
+    return list;
+  }
+
+  async revokeShare(shareId: string, userId: string): Promise<boolean> {
+    for (const [hash, s] of this.shares.entries()) {
+      if ((s.id === shareId || s.tokenHash === shareId) && s.userId === userId) {
+        s.revoked = true;
+        this.shares.set(hash, s);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Entitlement & Purge methods
+  async getEntitlement(userId: string): Promise<EntitlementRecord | null> {
+    const ent = this.entitlements.get(userId);
+    return ent ? { ...ent } : null;
+  }
+
+  async saveEntitlement(entitlement: EntitlementRecord): Promise<void> {
+    this.entitlements.set(entitlement.userId, { ...entitlement });
+  }
+
+  async purgeUserData(userId: string): Promise<{
+    deletedDecks: number;
+    deletedMarkets: number;
+    deletedCards: number;
+    deletedShares: number;
+    deletedArtifacts: number;
+  }> {
+    let deletedDecks = 0;
+    let deletedMarkets = 0;
+    let deletedCards = 0;
+    let deletedShares = 0;
+    let deletedArtifacts = 0;
+
+    for (const [id, d] of this.decks.entries()) {
+      if (d.userId === userId) {
+        this.decks.delete(id);
+        deletedDecks++;
+      }
+    }
+
+    for (const [id, m] of this.markets.entries()) {
+      if (m.userId === userId) {
+        this.markets.delete(id);
+        deletedMarkets++;
+      }
+    }
+
+    for (const [id, c] of this.savedCards.entries()) {
+      if (c.userId === userId) {
+        this.savedCards.delete(id);
+        deletedCards++;
+      }
+    }
+
+    for (const [id, s] of this.shares.entries()) {
+      if (s.userId === userId) {
+        this.shares.delete(id);
+        deletedShares++;
+      }
+    }
+
+    for (const [id, a] of this.artifacts.entries()) {
+      if (a.userId === userId) {
+        this.artifacts.delete(id);
+        deletedArtifacts++;
+      }
+    }
+
+    this.entitlements.delete(userId);
+
+    return {
+      deletedDecks,
+      deletedMarkets,
+      deletedCards,
+      deletedShares,
+      deletedArtifacts,
+    };
   }
 
   async saveMarket(marketId: string, market: Record<string, unknown>, userId?: string, expectedRevision?: number): Promise<void> {
@@ -240,6 +437,9 @@ export interface FirestoreStoreOptions {
   decksCollection?: string;
   marketsCollection?: string;
   savedCardsCollection?: string;
+  artifactsCollection?: string;
+  sharesCollection?: string;
+  entitlementsCollection?: string;
   firestore?: Firestore;
 }
 
@@ -248,6 +448,9 @@ export class FirestoreDataStore implements StratemarkDataStore {
   private decksCol: string;
   private marketsCol: string;
   private savedCardsCol: string;
+  private artifactsCol: string;
+  private sharesCol: string;
+  private entitlementsCol: string;
 
   constructor(options?: FirestoreStoreOptions) {
     this.firestore =
@@ -258,6 +461,9 @@ export class FirestoreDataStore implements StratemarkDataStore {
     this.decksCol = options?.decksCollection ?? 'decks';
     this.marketsCol = options?.marketsCollection ?? 'markets';
     this.savedCardsCol = options?.savedCardsCollection ?? 'saved_cards';
+    this.artifactsCol = options?.artifactsCollection ?? 'artifacts';
+    this.sharesCol = options?.sharesCollection ?? 'shares';
+    this.entitlementsCol = options?.entitlementsCollection ?? 'entitlements';
   }
 
   async saveDeck(deckId: string, record: StoredDeckRecord, expectedRevision?: number): Promise<void> {
@@ -585,6 +791,171 @@ export class FirestoreDataStore implements StratemarkDataStore {
         { merge: true },
       );
     });
+  }
+
+  // Artifact methods (Issue #57)
+  async saveArtifactMetadata(meta: StoredArtifactMetadata): Promise<void> {
+    const docRef = this.firestore.collection(this.artifactsCol).doc(meta.id);
+    await docRef.set({
+      ...meta,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  }
+
+  async getArtifactMetadata(artifactId: string): Promise<StoredArtifactMetadata | null> {
+    const snap = await this.firestore.collection(this.artifactsCol).doc(artifactId).get();
+    if (!snap.exists) return null;
+    return (snap.data() as StoredArtifactMetadata) ?? null;
+  }
+
+  async listArtifactsForDeck(deckId: string): Promise<StoredArtifactMetadata[]> {
+    const snap = await this.firestore
+      .collection(this.artifactsCol)
+      .where('deckId', '==', deckId)
+      .limit(100)
+      .get();
+    const list: StoredArtifactMetadata[] = [];
+    snap.forEach((doc) => {
+      const data = doc.data();
+      if (data) list.push(data as StoredArtifactMetadata);
+    });
+    return list;
+  }
+
+  async deleteArtifactMetadata(artifactId: string): Promise<void> {
+    await this.firestore.collection(this.artifactsCol).doc(artifactId).delete();
+  }
+
+  async deleteArtifactsForDeck(deckId: string): Promise<void> {
+    const snap = await this.firestore
+      .collection(this.artifactsCol)
+      .where('deckId', '==', deckId)
+      .get();
+    const batch = this.firestore.batch();
+    snap.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+  }
+
+  // Share methods (Issue #57)
+  async saveShare(share: StoredShareRecord): Promise<void> {
+    const docRef = this.firestore.collection(this.sharesCol).doc(share.tokenHash);
+    await docRef.set({
+      ...share,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  }
+
+  async getShareByHash(tokenHash: string): Promise<StoredShareRecord | null> {
+    const snap = await this.firestore.collection(this.sharesCol).doc(tokenHash).get();
+    if (!snap.exists) return null;
+    return (snap.data() as StoredShareRecord) ?? null;
+  }
+
+  async listSharesForDeck(deckId: string): Promise<StoredShareRecord[]> {
+    const snap = await this.firestore
+      .collection(this.sharesCol)
+      .where('deckId', '==', deckId)
+      .limit(50)
+      .get();
+    const list: StoredShareRecord[] = [];
+    snap.forEach((doc) => {
+      const data = doc.data();
+      if (data) list.push(data as StoredShareRecord);
+    });
+    return list;
+  }
+
+  async revokeShare(shareId: string, userId: string): Promise<boolean> {
+    // Search by document ID (hash) or id field
+    let docRef = this.firestore.collection(this.sharesCol).doc(shareId);
+    let docSnap = await docRef.get();
+    if (!docSnap.exists) {
+      const querySnap = await this.firestore
+        .collection(this.sharesCol)
+        .where('id', '==', shareId)
+        .where('userId', '==', userId)
+        .limit(1)
+        .get();
+      if (querySnap.empty || !querySnap.docs[0]) return false;
+      docRef = querySnap.docs[0].ref;
+      docSnap = querySnap.docs[0];
+    }
+    const data = docSnap.data();
+    if (!data || data.userId !== userId) return false;
+    await docRef.set({ revoked: true, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    return true;
+  }
+
+  // Entitlement & Purge methods (Issue #57)
+  async getEntitlement(userId: string): Promise<EntitlementRecord | null> {
+    const snap = await this.firestore.collection(this.entitlementsCol).doc(userId).get();
+    if (!snap.exists) return null;
+    return (snap.data() as EntitlementRecord) ?? null;
+  }
+
+  async saveEntitlement(entitlement: EntitlementRecord): Promise<void> {
+    const docRef = this.firestore.collection(this.entitlementsCol).doc(entitlement.userId);
+    await docRef.set({
+      ...entitlement,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  }
+
+  async purgeUserData(userId: string): Promise<{
+    deletedDecks: number;
+    deletedMarkets: number;
+    deletedCards: number;
+    deletedShares: number;
+    deletedArtifacts: number;
+  }> {
+    const batch = this.firestore.batch();
+    let deletedDecks = 0;
+    let deletedMarkets = 0;
+    let deletedCards = 0;
+    let deletedShares = 0;
+    let deletedArtifacts = 0;
+
+    const [decksSnap, marketsSnap, cardsSnap, sharesSnap, artifactsSnap] = await Promise.all([
+      this.firestore.collection(this.decksCol).where('userId', '==', userId).get(),
+      this.firestore.collection(this.marketsCol).where('userId', '==', userId).get(),
+      this.firestore.collection(this.savedCardsCol).where('userId', '==', userId).get(),
+      this.firestore.collection(this.sharesCol).where('userId', '==', userId).get(),
+      this.firestore.collection(this.artifactsCol).where('userId', '==', userId).get(),
+    ]);
+
+    decksSnap.forEach((doc) => {
+      batch.delete(doc.ref);
+      deletedDecks++;
+    });
+    marketsSnap.forEach((doc) => {
+      batch.delete(doc.ref);
+      deletedMarkets++;
+    });
+    cardsSnap.forEach((doc) => {
+      batch.delete(doc.ref);
+      deletedCards++;
+    });
+    sharesSnap.forEach((doc) => {
+      batch.delete(doc.ref);
+      deletedShares++;
+    });
+    artifactsSnap.forEach((doc) => {
+      batch.delete(doc.ref);
+      deletedArtifacts++;
+    });
+
+    const entRef = this.firestore.collection(this.entitlementsCol).doc(userId);
+    batch.delete(entRef);
+
+    await batch.commit();
+
+    return {
+      deletedDecks,
+      deletedMarkets,
+      deletedCards,
+      deletedShares,
+      deletedArtifacts,
+    };
   }
 }
 

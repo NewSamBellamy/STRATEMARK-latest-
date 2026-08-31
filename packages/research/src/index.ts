@@ -20,3 +20,6 @@ export * from './adk/discovery-agent';
 export * from './adk/enrichment-pool';
 export * from './adk/delta-agent';
 export * from './adk/engine';
+
+// Semantic Memory Distillation (Issue #56)
+export * from './semantic-memory';

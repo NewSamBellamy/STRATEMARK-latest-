@@ -72,6 +72,11 @@ import { hydrateCompanyCard } from './company-agent';
 import { researchMarketSignals } from './signal-agents';
 import { mapWithConcurrency, throwIfAborted } from './util';
 import { expandDeckWithDeltaAgent } from './delta-agent';
+import {
+  shouldDistillThread,
+  distillThreadMemory,
+  buildPromptContext,
+} from './semantic-memory';
 import { CHAT_SYSTEM, GROUNDED_SYSTEM, STRUCTURE_SYSTEM } from './prompts';
 import { briefingOutSchema, factCheckOutSchema, huntMetricsOutSchema, redTeamOutSchema, siteAuditOutSchema, verifyMetricOutSchema } from './schemas';
 import type { LlmClient, ResearchCoverage, RunResearchOptions } from './types';
@@ -2170,10 +2175,21 @@ export class GeminiRepository implements MarketIntelRepository {
     });
     this.persist();
 
-    // Short conversational memory: the last few turns, so follow-ups read
-    // naturally. The full record stays on the thread either way.
-    const history = thread.messages
-      .slice(-7, -1)
+    // Semantic Memory Distillation (Issue #56):
+    // After 20 conversation turns, distill durable semantic facts to bound context
+    if (shouldDistillThread(thread)) {
+      try {
+        thread.semanticMemory = await distillThreadMemory(thread, {
+          llm: this.client,
+        });
+      } catch {
+        /* fallback to bounded window without blocking research */
+      }
+    }
+
+    const context = buildPromptContext(thread);
+    const history = context.messages
+      .slice(0, -1)
       .map((m) => `${m.role === 'user' ? 'ANALYST' : 'RESEARCHER'}: ${m.text.slice(0, 700)}`)
       .join('\n');
 
@@ -2203,6 +2219,7 @@ export class GeminiRepository implements MarketIntelRepository {
         `DECK DATA (this deck's prior grounded research — confidence tags and publishers are part of the record):`,
         this.scopeDigest(thread.scope),
         thread.scope.subject ? `\nTHE ANALYST IS FOCUSED ON: ${thread.scope.subject}` : '',
+        context.distilledFactsSummary ? `\n${context.distilledFactsSummary}` : '',
         references
           ? `\nATTACHED REFERENCES — the analyst pinned these; treat their findings as the main focus and build on them (re-verify anything surprising):\n${references}`
           : '',

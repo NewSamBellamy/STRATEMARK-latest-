@@ -282,6 +282,108 @@ export function createApp(
     return c.json({ success: true });
   });
 
+  // Explicit Deck Sharing (Issue #57)
+  const shareCreationHandler = async (c: Context) => {
+    const userId = await getUserId(c);
+    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+    const deckId = c.req.param('deckId');
+    if (!deckId) return c.json({ error: 'deckId is required' }, 400);
+    const body = await c.req.json().catch(() => ({}));
+    try {
+      const share = await cloudDeckService.createShare(userId, deckId, {
+        expiresInDays: body.expiresInDays,
+      });
+      return c.json(share, 201);
+    } catch (err: unknown) {
+      const e = err as Error;
+      if (e.message.includes('not found') || e.message.includes('Not found')) {
+        return c.json({ error: 'Not found' }, 404);
+      }
+      return c.json({ error: e.message }, 500);
+    }
+  };
+  app.post('/api/decks/:deckId/share', shareCreationHandler);
+  app.post('/v1/decks/:deckId/share', shareCreationHandler);
+
+  const getSharedHandler = async (c: Context) => {
+    const token = c.req.param('token');
+    if (!token) return c.json({ error: 'token is required' }, 400);
+    const sharedDeck = await cloudDeckService.getSharedDeck(token);
+    if (!sharedDeck) return c.json({ error: 'Not found' }, 404);
+    return c.json(sharedDeck);
+  };
+  app.get('/api/shares/:token', getSharedHandler);
+  app.get('/v1/shares/:token', getSharedHandler);
+
+  const revokeShareHandler = async (c: Context) => {
+    const userId = await getUserId(c);
+    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+    const shareId = c.req.param('shareId');
+    if (!shareId) return c.json({ error: 'shareId is required' }, 400);
+    const revoked = await cloudDeckService.revokeShare(userId, shareId);
+    if (!revoked) return c.json({ error: 'Not found' }, 404);
+    return c.json({ success: true });
+  };
+  app.delete('/api/shares/:shareId', revokeShareHandler);
+  app.delete('/v1/shares/:shareId', revokeShareHandler);
+
+  // Cloud Artifacts Storage (Issue #57)
+  const uploadArtifactHandler = async (c: Context) => {
+    const userId = await getUserId(c);
+    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+    const deckId = c.req.param('deckId');
+    if (!deckId) return c.json({ error: 'deckId is required' }, 400);
+    const body = await c.req.json().catch(() => ({}));
+    if (!body.filename || !body.data) {
+      return c.json({ error: 'filename and base64 data are required' }, 400);
+    }
+    try {
+      const buffer = Buffer.from(body.data, 'base64');
+      const meta = await cloudDeckService.saveArtifact(userId, deckId, {
+        filename: body.filename,
+        mimeType: body.mimeType || 'application/octet-stream',
+        buffer,
+      });
+      return c.json(meta, 201);
+    } catch (err: unknown) {
+      const e = err as Error;
+      if (e.message.includes('not found') || e.message.includes('Not found')) {
+        return c.json({ error: 'Not found' }, 404);
+      }
+      return c.json({ error: e.message }, 500);
+    }
+  };
+  app.post('/api/decks/:deckId/artifacts', uploadArtifactHandler);
+  app.post('/v1/decks/:deckId/artifacts', uploadArtifactHandler);
+
+  const getArtifactHandler = async (c: Context) => {
+    const userId = await getUserId(c);
+    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+    const artifactId = c.req.param('artifactId');
+    if (!artifactId) return c.json({ error: 'artifactId is required' }, 400);
+    const artifact = await cloudDeckService.getArtifact(userId, artifactId);
+    if (!artifact) return c.json({ error: 'Not found' }, 404);
+    return new Response(artifact.buffer, {
+      status: 200,
+      headers: {
+        'Content-Type': artifact.metadata.mimeType,
+        'Content-Disposition': `inline; filename="${artifact.metadata.filename}"`,
+      },
+    });
+  };
+  app.get('/api/artifacts/:artifactId', getArtifactHandler);
+  app.get('/v1/artifacts/:artifactId', getArtifactHandler);
+
+  // Account Purge (Issue #57)
+  const accountPurgeHandler = async (c: Context) => {
+    const userId = await getUserId(c);
+    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+    const purgeResult = await cloudDeckService.purgeAccount(userId);
+    return c.json(purgeResult);
+  };
+  app.delete('/api/account', accountPurgeHandler);
+  app.delete('/v1/account', accountPurgeHandler);
+
   /** Run the living-deck agent graph. */
   const researchHandler = async (c: Context) => {
     const json = await c.req.json().catch(() => ({}));

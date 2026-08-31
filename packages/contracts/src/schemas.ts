@@ -121,6 +121,15 @@ export const companySchema = z.object({
   brandTheme: brandThemeSchema.nullable(),
 });
 
+// Citation schema ----------------------------------------------------------
+export const citationSchema = z.object({
+  title: z.string(),
+  url: z.string(),
+  credibility: z
+    .enum(['primary', 'reputable_secondary', 'industry', 'user_generated', 'unknown'])
+    .optional(),
+});
+
 export const companyMetricSchema = z.object({
   id: z.string(),
   companyId: z.string(),
@@ -136,17 +145,7 @@ export const companyMetricSchema = z.object({
    * expire, so the publisher name is the durable half of the provenance.
    * Defaulted to [] so snapshots written before this field still parse.
    */
-  citations: z
-    .array(
-      z.object({
-        title: z.string(),
-        url: z.string(),
-        credibility: z
-          .enum(['primary', 'reputable_secondary', 'industry', 'user_generated', 'unknown'])
-          .optional(),
-      }),
-    )
-    .default([]),
+  citations: z.array(citationSchema).default([]),
   methodNote: z.string().nullable(), // "how we got this number" for estimated figures
   capturedAt: isoTimestamp,
   /**
@@ -419,3 +418,67 @@ export const dashboardDataSchema = z.object({
   contentJson: z.unknown(),
   lastRefreshedAt: isoTimestamp.nullable(),
 });
+
+// Semantic Memory & Research Thread Schemas (spec #56) -----------------------
+export const distilledSemanticFactSchema = z.object({
+  id: z.string(),
+  fact: z.string().min(1),
+  category: z
+    .enum(['metric', 'finding', 'competitor', 'trend', 'risk', 'general'])
+    .default('general'),
+  companyId: z.string().nullable().optional(),
+  subject: z.string().nullable().optional(),
+  citations: z.array(citationSchema).default([]),
+  extractedAt: isoTimestamp,
+  userVerified: z.boolean().optional(),
+});
+
+export const semanticMemorySchema = z.object({
+  threadId: z.string(),
+  distilledFacts: z.array(distilledSemanticFactSchema).default([]),
+  lastDistilledTurnIndex: z.number().int().nonnegative(),
+  totalTurnsDistilled: z.number().int().nonnegative(),
+  distilledAt: isoTimestamp,
+});
+
+export const distillationExtractionSchema = z.object({
+  facts: z.array(
+    z.object({
+      fact: z.string().min(1),
+      category: z
+        .enum(['metric', 'finding', 'competitor', 'trend', 'risk', 'general'])
+        .default('general'),
+      companyId: z.string().nullable().optional(),
+      subject: z.string().nullable().optional(),
+      citations: z.array(citationSchema).default([]),
+    }),
+  ),
+});
+
+export const researchScopeSchema = z.object({
+  kind: z.enum(['deck', 'company', 'cards', 'datapoint']),
+  deckId: z.string().nullable(),
+  companyId: z.string().nullable().optional(),
+  cardIds: z.array(z.string()).optional(),
+  subject: z.string().nullable().optional(),
+});
+
+export const threadMessageSchema = z.object({
+  id: z.string(),
+  role: z.enum(['user', 'assistant']),
+  text: z.string(),
+  citations: z.array(citationSchema).default([]),
+  at: isoTimestamp,
+});
+
+export const researchThreadSchema = z.object({
+  id: z.string(),
+  scope: researchScopeSchema,
+  title: z.string(),
+  messages: z.array(threadMessageSchema),
+  reportId: z.string().nullable().default(null),
+  semanticMemory: semanticMemorySchema.nullable().optional(),
+  createdAt: isoTimestamp,
+  updatedAt: isoTimestamp,
+});
+
