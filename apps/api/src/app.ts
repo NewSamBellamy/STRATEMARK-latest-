@@ -40,6 +40,7 @@ import { createDataStore, type StratemarkDataStore } from './lib/firestoreStore'
 import { CloudDeckService, FirebaseAdapter } from './lib/CloudDeckService';
 import { CloudDeckWorker } from './lib/CloudDeckWorker';
 import { CloudTasksAdapter, MockTasksAdapter, type TasksAdapter } from './lib/CloudTasksAdapter';
+import { AgentObservabilityLogger, parseTraceContext } from './lib/observability';
 
 const planSchema = z.object({
   marketName: z.string().min(1),
@@ -363,17 +364,31 @@ export function createApp(
 
     const plan = body.data.plan ?? (await planFromQuery(resolved.client, body.data.query ?? ''));
     const deckId = body.data.deckId ?? `deck_${Date.now().toString(36)}`;
+    const traceHeader = c.req.header('x-cloud-trace-context') || c.req.header('traceparent');
+    const traceContext = parseTraceContext(traceHeader);
+    const logger = new AgentObservabilityLogger({
+      projectId: env.vertex?.project || process.env.GOOGLE_CLOUD_PROJECT || 'stratemark-agentic',
+      traceContext,
+      deckId,
+      userId: userId ?? undefined,
+    });
 
     // If it's a cloud generation request, enqueue it asynchronously
     if (!callerKey && userId) {
+      const marketQuery = body.data.query ?? plan.marketName;
+      logger.logInfo(`Enqueuing Cloud Deck creation for "${plan.marketName}" (${deckId})`, {
+        query: marketQuery,
+        maxCandidates: body.data.maxCandidates ?? CLOUD_DEFAULT_MAX_CANDIDATES,
+      });
       await cloudDeckService.enqueueCreation({
         deckId,
         userId,
-         plan,
-         query: body.data.query ?? '',
-         maxCandidates: body.data.maxCandidates ?? CLOUD_DEFAULT_MAX_CANDIDATES,
-         watch: body.data.watch,
-       });
+        plan,
+        query: marketQuery,
+        maxCandidates: body.data.maxCandidates ?? CLOUD_DEFAULT_MAX_CANDIDATES,
+        watch: body.data.watch,
+        traceContext,
+      });
 
       return c.json({
         ok: true,
@@ -384,6 +399,7 @@ export function createApp(
     }
 
     // BYOK users execute synchronously without cloud persistence
+    logger.logInfo(`Starting synchronous BYOK research for "${plan.marketName}" (${deckId})`);
     const run = await runLivingDeckEngine({
       client: resolved.client,
       plan,
@@ -391,6 +407,13 @@ export function createApp(
       watch: body.data.watch ?? false,
       ...(body.data.maxCandidates === undefined ? {} : { maxCandidates: body.data.maxCandidates }),
       signal: AbortSignal.timeout(540_000),
+      onTrace: (traceEvent) => {
+        logger.logAdkTrace(traceEvent);
+      },
+    });
+    logger.logNotice(`Synchronous BYOK research completed for "${plan.marketName}" (${deckId}) in ${run.totalMs}ms`, {
+      totalCards: run.hydrated.reduce((acc, h) => acc + h.cards.length, 0),
+      totalMs: run.totalMs,
     });
 
     const marketObj = {
@@ -587,8 +610,12 @@ export function createApp(
       return c.json({ error: 'Invalid task payload' }, 400);
     }
     
+    const traceHeader = c.req.header('x-cloud-trace-context') || c.req.header('traceparent');
+    const headerTraceContext = parseTraceContext(traceHeader);
+    const traceContext = payload.traceContext || headerTraceContext;
+
     // Process deck creation
-    await cloudDeckWorker.processDeckCreation(payload);
+    await cloudDeckWorker.processDeckCreation({ ...payload, traceContext });
     
     return c.json({ ok: true });
   });
@@ -608,7 +635,11 @@ export function createApp(
       return c.json({ error: 'Invalid task payload for refresh' }, 400);
     }
     
-    await cloudDeckWorker.processDeckRefresh(payload);
+    const traceHeader = c.req.header('x-cloud-trace-context') || c.req.header('traceparent');
+    const headerTraceContext = parseTraceContext(traceHeader);
+    const traceContext = payload.traceContext || headerTraceContext;
+
+    await cloudDeckWorker.processDeckRefresh({ ...payload, traceContext });
     
     return c.json({ ok: true });
   });

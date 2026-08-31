@@ -6,6 +6,7 @@ import type { CloudDeckService } from './CloudDeckService';
 import type { CardWithCompany } from '@mi/contracts';
 import type { HydrateCompanyCardResult } from '@mi/research';
 import type { StoredDeckRecord } from './firestoreStore';
+import { AgentObservabilityLogger } from './observability';
 
 export interface DeckIdentity {
   userId: string;
@@ -33,30 +34,42 @@ export class CloudDeckWorker {
   }
 
   async processDeckCreation(payload: TaskPayload): Promise<void> {
-    const { deckId, userId, plan, watch, maxCandidates } = payload;
+    const { deckId, userId, plan, watch, maxCandidates, traceContext } = payload;
     const id: DeckIdentity = { userId, deckId };
+    const logger = new AgentObservabilityLogger({
+      projectId: this.env.vertex?.project || process.env.GOOGLE_CLOUD_PROJECT || 'stratemark-agentic',
+      traceContext,
+      deckId,
+      userId,
+    });
     
     // Check if deck exists
     const existing = await this.service.getDeck(userId, deckId);
     if (!existing) {
-      console.warn(`Deck ${deckId} not found for processing`);
+      logger.logWarn(`Deck ${deckId} not found for processing`);
       return;
     }
 
     // Idempotent no-op if deck is already ready
     if (existing.state?.status === 'ready') {
+      logger.logInfo(`Deck ${deckId} is already ready, skipping`);
       return;
     }
 
     // Check entitlement again
     const isEntitled = await this.service.checkEntitlement(userId);
     if (!isEntitled) {
-      console.warn(`User ${userId} lost entitlement during processing`);
+      logger.logWarn(`User ${userId} lost entitlement during processing`);
       await this.updateDeckState(id, () => ({
         state: { status: 'failed', error: 'Entitlement lost' }
       }));
       return;
     }
+
+    logger.logInfo(`Starting Cloud Deck research for "${plan.marketName}" (${deckId})`, {
+      query: payload.query,
+      maxCandidates,
+    });
 
     let currentCards = existing.cards ?? [];
     let savePromise = Promise.resolve();
@@ -76,8 +89,16 @@ export class CloudDeckWorker {
         watch: watch ?? false,
         ...(maxCandidates === undefined ? {} : { maxCandidates }),
         signal: abortController.signal,
+        onTrace: (traceEvent) => {
+          logger.logAdkTrace(traceEvent);
+        },
         onEvent: (event) => {
-          if (event.type === 'card' || event.type === 'growth') {
+          if (event.type === 'boot') {
+            logger.logNotice(
+              `Market topology discovered: ${event.topology.candidates.length} candidates in ${event.elapsedMs}ms`,
+              { candidateCount: event.topology.candidates.length, elapsedMs: event.elapsedMs }
+            );
+          } else if (event.type === 'card' || event.type === 'growth') {
             const result = event.type === 'card' ? event.result : event.card;
 
             // event.result is HydrateCompanyCardResult, which has multiple cards in result.cards
@@ -113,7 +134,7 @@ export class CloudDeckWorker {
                   state: { status: 'partial' }
                 }));
               }).catch(err => {
-                console.error('Checkpoint failed:', err);
+                logger.logError('Checkpoint failed', err);
                 if (err instanceof Error && (err.message.includes('Entitlement lost') || err.message.includes('Deck deleted'))) {
                   abortController.abort(err);
                   throw err;
@@ -133,13 +154,7 @@ export class CloudDeckWorker {
         cards: currentCards,
         state: { status: 'failed', error: message.slice(0, 500) }
       }));
-      // A terminal model/configuration failure should not be retried forever.
-      console.error(JSON.stringify({
-        severity: 'ERROR',
-        message: 'Cloud deck creation failed',
-        deckId,
-        error: message,
-      }));
+      logger.logError('Cloud deck creation failed', err, { deckId });
       return;
     }
 
@@ -172,27 +187,46 @@ export class CloudDeckWorker {
       cards: finalCards,
       state: { status: finalStatus, ...(isFailed ? { error: failedReason } : {}) }
     }));
+
+    if (isFailed) {
+      logger.logWarn(`Cloud Deck research ended in failed status: ${failedReason}`, {
+        deckId,
+        totalMs: run.totalMs,
+      });
+    } else {
+      logger.logNotice(
+        `Cloud Deck research completed successfully: ${finalCards.length} cards saved in ${run.totalMs}ms`,
+        { totalCards: finalCards.length, totalMs: run.totalMs }
+      );
+    }
   }
 
   async processDeckRefresh(payload: RefreshTaskPayload): Promise<void> {
-    const { deckId, userId, query } = payload;
+    const { deckId, userId, query, traceContext } = payload;
     const id: DeckIdentity = { userId, deckId };
+    const logger = new AgentObservabilityLogger({
+      projectId: this.env.vertex?.project || process.env.GOOGLE_CLOUD_PROJECT || 'stratemark-agentic',
+      traceContext,
+      deckId,
+      userId,
+    });
     
     const existing = await this.service.getDeck(userId, deckId);
     if (!existing) {
-      console.warn(`Deck ${deckId} not found for refresh`);
+      logger.logWarn(`Deck ${deckId} not found for refresh`);
       return;
     }
 
     const isEntitled = await this.service.checkEntitlement(userId);
     if (!isEntitled) {
-      console.warn(`User ${userId} lost entitlement before refresh`);
+      logger.logWarn(`User ${userId} lost entitlement before refresh`);
       await this.updateDeckState(id, () => ({
         state: { status: 'ready', error: 'Entitlement lost' }
       }));
       return;
     }
 
+    logger.logInfo(`Starting Cloud Deck delta refresh for "${query}" (${deckId})`);
     const resolved = resolveClient({ env: this.env });
     
     try {
@@ -211,10 +245,17 @@ export class CloudDeckWorker {
         refreshedAt: new Date().toISOString(),
         state: { status: 'ready' }
       }));
+
+      logger.logNotice(
+        `Cloud Deck refresh completed: ${updatedCards.length} cards now present`,
+        { totalCards: updatedCards.length }
+      );
     } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
       await this.updateDeckState(id, () => ({
-        state: { status: 'ready', error: err instanceof Error ? err.message : String(err) }
+        state: { status: 'ready', error: errMsg }
       }));
+      logger.logError(`Cloud Deck refresh failed: ${errMsg}`, err, { deckId });
     }
   }
 }

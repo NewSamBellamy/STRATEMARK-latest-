@@ -1,6 +1,7 @@
 import { CloudTasksClient } from '@google-cloud/tasks';
 import type { MarketPlan } from '@mi/research';
 import type { ServiceEnv } from '../env';
+import type { TraceContext } from './observability';
 
 export interface TaskPayload {
   deckId: string;
@@ -9,12 +10,14 @@ export interface TaskPayload {
   query: string;
   maxCandidates?: number;
   watch?: boolean;
+  traceContext?: TraceContext | null;
 }
 
 export interface RefreshTaskPayload {
   deckId: string;
   userId: string;
   query: string;
+  traceContext?: TraceContext | null;
 }
 
 export interface TasksAdapter {
