@@ -3,6 +3,7 @@
  * connecting the Web / Desktop client to the deployed Sentinel Cloud Run backend.
  */
 
+import type { VerifyMetricInput, VerifyMetricResult, HuntMetricsResult } from '@mi/contracts';
 import { useApiKey } from '@/lib/settings/apiKey';
 
 export interface SentinelAlert {
@@ -352,7 +353,30 @@ export async function askCloudResearch(
 }
 
 /** Submit targeted micro-research expansion request to Sentinel Cloud Run backend */
+export async function verifyCloudMetric(
+  input: VerifyMetricInput,
+  token?: string | null,
+): Promise<VerifyMetricResult> {
+  return fetchSentinel<VerifyMetricResult>('/api/research/verify', {
+    method: 'POST',
+    body: JSON.stringify(input),
+    token,
+  });
+}
+
+export async function huntCloudMetrics(
+  companyId: string,
+  token?: string | null,
+): Promise<HuntMetricsResult> {
+  return fetchSentinel<HuntMetricsResult>('/api/research/hunt-metrics', {
+    method: 'POST',
+    body: JSON.stringify({ companyId }),
+    token,
+  });
+}
+
 export async function expandCloudDeck(
+
   marketId: string,
   focus: { tier?: number | null; cardType?: string | null },
   token?: string | null,

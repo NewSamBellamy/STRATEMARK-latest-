@@ -6,6 +6,9 @@
  * and vice claims when Cloud Engine is selected or when authenticated as a Pro user.
  */
 import type {
+  HuntMetricsResult,
+  VerifyMetricInput,
+  VerifyMetricResult,
   AskResearchInput,
   Card,
   CardFilter,
@@ -37,7 +40,8 @@ import type {
   Unsubscribe,
   ViceClaim,
 } from '@mi/contracts';
-import { MockRepository, type SeedSnapshot } from '@mi/mocks';
+import {
+  MockRepository, type SeedSnapshot } from '@mi/mocks';
 import sampleSnapshot from '@/sample/frontier-snapshot.json';
 
 /** A Market/Deck object that optionally carries a runtime `engine` tag. */
@@ -107,6 +111,8 @@ import {
   getCloudMarkets,
   runCloudResearchDeck,
   askCloudResearch,
+  verifyCloudMetric,
+  huntCloudMetrics,
   expandCloudDeck,
   saveCloudCard,
   unsaveCloudCard,
@@ -660,17 +666,35 @@ export class SentinelRepository implements MarketIntelRepository {
     return this.fallbackRepo.factCheck(input);
   }
 
+
   async expandDeck(marketId: string, focus: ExpandFocus): Promise<{ added: number }> {
-    try {
-      const res = await expandCloudDeck(marketId, focus);
-      if (res && typeof res.added === 'number') return res;
-    } catch {
-      /* fallback to local mock repository */
-    }
+    const res = await expandCloudDeck(marketId, focus);
+    if (res && typeof res.added === 'number') return res;
     return this.fallbackRepo.expandDeck(marketId, focus);
   }
 
+  async verifyMetric(input: VerifyMetricInput): Promise<VerifyMetricResult> {
+    try {
+      const res = await verifyCloudMetric(input);
+      if (res) return res;
+    } catch {
+      /* fallback to local mock repository */
+    }
+    return (this.fallbackRepo as unknown as MarketIntelRepository).verifyMetric!(input);
+  }
+
+  async huntCompanyMetrics(companyId: string): Promise<HuntMetricsResult> {
+    try {
+      const res = await huntCloudMetrics(companyId);
+      if (res) return res;
+    } catch {
+      /* fallback to local mock repository */
+    }
+    return (this.fallbackRepo as unknown as MarketIntelRepository).huntCompanyMetrics!(companyId);
+  }
+
   async overrideMetric(input: OverrideMetricInput): Promise<CompanyMetric> {
+
     return this.fallbackRepo.overrideMetric(input);
   }
 

@@ -17,7 +17,23 @@
 import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { z } from 'zod';
-import { describeAgentGraph, runLivingDeckEngine } from '@mi/research';
+import { 
+  describeAgentGraph, 
+  runLivingDeckEngine, 
+  expandDeckWithDeltaAgent,
+  verifyMetricOutSchema, 
+  huntMetricsOutSchema,
+  GROUNDED_SYSTEM, 
+  STRUCTURE_SYSTEM
+} from '@mi/research';
+import { 
+  usableCitations, 
+  hasVerificationGradeCitation, 
+  markVerified,
+  METRIC_TYPE_LABELS,
+  METRIC_TYPES
+} from '@mi/contracts';
+import type { CompanyMetric } from '@mi/contracts';
 import type { MarketPlan } from '@mi/research';
 import { hasServerCredentials, type ServiceEnv } from './env';
 import { BYOK_HEADER, NoCredentialsError, resolveClient } from './lib/client';
@@ -560,6 +576,341 @@ export function createApp(
 
   app.post('/v1/research', researchHandler);
   app.post('/api/research/deck', researchHandler);
+
+  app.post('/api/research/expand', async (c) => {
+    const json = await c.req.json().catch(() => ({}));
+    const marketId = json.marketId;
+    const focus = json.focus;
+
+    if (!marketId || !focus) {
+      return c.json({ error: 'Missing marketId or focus' }, 400);
+    }
+
+    const callerKey = c.req.header(BYOK_HEADER);
+    const rawAppToken = c.req.header(APP_TOKEN_HEADER);
+    const authHeader = c.req.header('authorization')?.replace(/^Bearer\s+/i, '').trim();
+    const appToken = rawAppToken
+      ? rawAppToken
+      : authHeader && env.appToken && authHeader === env.appToken
+        ? authHeader
+        : undefined;
+
+    const userId = await getUserId(c);
+
+    try {
+      authorizeSpend({ env, callerKey, appToken });
+      if (!userId) {
+        throw new UnauthorizedSpendError('Authenticated user required for cloud research');
+      }
+    } catch (err) {
+      const mapped = guardError(err);
+      if (mapped) return c.json(mapped.body, mapped.status);
+      throw err;
+    }
+
+    const isEntitled = await cloudDeckService.checkEntitlement(userId!);
+    if (!isEntitled) {
+      return c.json({ error: 'Active subscription required for cloud agent.' }, 402);
+    }
+
+    let resolved;
+    try {
+      resolved = resolveClient({ env, callerKey });
+    } catch (err) {
+      if (err instanceof NoCredentialsError) return c.json({ error: err.message }, 503);
+      throw err;
+    }
+
+    const deckId = marketId;
+    const existingDeck = await cloudDeckService.getDeck(userId!, deckId);
+    if (!existingDeck) {
+      return c.json({ error: 'Deck not found' }, 404);
+    }
+
+    const plan = existingDeck.plan;
+    const vertical = ((plan as Record<string, unknown>)?.vertical ?? 'market-intel') as string;
+    const marketName = ((plan as Record<string, unknown>)?.marketName ?? 'Market') as string;
+
+    const currentCardsLength = existingDeck.cards?.length ?? 0;
+
+    try {
+      const updatedCards = await expandDeckWithDeltaAgent({
+        client: resolved.client,
+        marketName,
+        vertical,
+        existingCards: existingDeck.cards ?? [],
+        focus: focus as string | Record<string, unknown>,
+      });
+
+      const addedCount = updatedCards.length - currentCardsLength;
+      
+      await cloudDeckService.saveDeck(userId!, deckId, {
+        ...existingDeck,
+        cards: updatedCards,
+        refreshedAt: new Date().toISOString(),
+        state: { ...existingDeck.state, status: 'ready' }
+      }, existingDeck.revision);
+
+      return c.json({ added: Math.max(0, addedCount) });
+    } catch (err) {
+      return c.json({ error: err instanceof Error ? err.message : 'Internal server error' }, 500);
+    }
+  });
+
+  app.post('/api/research/verify', async (c) => {
+    const json = await c.req.json().catch(() => ({}));
+    const { deckId, companyId, metricType, correction } = json;
+
+    if (!deckId || !companyId || !metricType) {
+      return c.json({ error: 'Missing parameters' }, 400);
+    }
+
+    const callerKey = c.req.header(BYOK_HEADER);
+    const userId = await getUserId(c);
+
+    if (!userId) return c.json({ error: 'Authenticated user required' }, 401);
+
+    const isEntitled = await cloudDeckService.checkEntitlement(userId);
+    if (!isEntitled) return c.json({ error: 'Active subscription required' }, 402);
+
+    const existingDeck = await cloudDeckService.getDeck(userId, deckId);
+    if (!existingDeck) return c.json({ error: 'Deck not found' }, 404);
+
+    const cards = existingDeck.cards || [];
+    const cardIdx = cards.findIndex(c => c.company?.id === companyId);
+    if (cardIdx === -1) return c.json({ error: 'Company not found in deck' }, 404);
+    
+    const companyCard = cards[cardIdx]!;
+    const company = companyCard.company!;
+    const metricIdx = companyCard.metrics.findIndex(m => m.metricType === metricType);
+    if (metricIdx === -1) return c.json({ error: 'Metric not found' }, 404);
+    const metric = companyCard.metrics[metricIdx]!;
+
+    const label = METRIC_TYPE_LABELS[metricType as keyof typeof METRIC_TYPE_LABELS];
+    const nowIso = new Date().toISOString();
+
+    if (correction && correction.value != null) {
+      const hintCited = usableCitations(correction.citations);
+      if (hasVerificationGradeCitation(hintCited) && metric.confidence !== 'user_verified') {
+        const prior = metric.value;
+        const differs = prior == null || prior === 0 || Math.abs(correction.value - prior) / Math.max(Math.abs(prior), 1) > 0.02;
+        if (differs) {
+          metric.value = correction.value;
+          metric.confidence = 'verified';
+          metric.citations = hintCited;
+          metric.source = hintCited[0]?.url ?? metric.source;
+          metric.methodNote = correction.rationale ?? `Corrected from a grounded fact-check${correction.asOf ? ` (as of ${correction.asOf})` : ''}.`;
+          metric.capturedAt = nowIso;
+        }
+        Object.assign(metric, markVerified(metric as CompanyMetric, nowIso));
+        
+        await cloudDeckService.saveDeck(userId, deckId, existingDeck, existingDeck.revision);
+        
+        return c.json({
+          verdict: 'supported',
+          rationale: metric.methodNote,
+          citations: metric.citations,
+          correctedValue: metric.value,
+          correctedAsOf: null,
+        });
+      }
+    }
+
+    let resolved;
+    try {
+      resolved = resolveClient({ env, callerKey });
+    } catch (err) {
+      return c.json({ error: err instanceof Error ? err.message : String(err) }, 503);
+    }
+    const client = resolved.client;
+
+    const stored = metric.value != null ? `${metric.value} (confidence: ${metric.confidence})` : 'unknown';
+    const g = await client.ground(
+      [
+        `What is the most current, reliable figure for ${company.name}'s ${label}?`,
+        `Company: ${company.name} — ${company.oneLiner}`,
+        `Our stored figure: ${stored}.`,
+        `Use Google Search. Prefer primary sources and recent reputable coverage; name the figure, its as-of date, and the source. If coverage disagrees, say which figure is best supported. If no reliable current figure exists, say so plainly. Never guess.`,
+        `MEASUREMENT BASIS: the figure must describe the WHOLE legal company — for a conglomerate, total company revenue/valuation/headcount, never a division's figure presented as the company's.`,
+      ].join('\n'),
+      { system: GROUNDED_SYSTEM },
+    );
+
+    const out = await client.structure(
+      [
+        `Based ONLY on these verification notes about ${company.name}'s ${label}, output JSON {`,
+        `  "verdict": "supported" (stored figure holds) | "contradicted" (evidence names a different figure) | "unverified" (no reliable current figure),`,
+        `  "currentValue": number|null — the best-supported current figure in ${label === 'Market Share' ? 'percent (0-100)' : label === 'Users' || label === 'Employees' ? 'plain count' : 'US dollars'}; null when the notes name none. NEVER invent one.`,
+        `  "rationale": string (1-2 sentences),`,
+        `  "methodNote": string|null — one line naming where the figure comes from`,
+        `}`,
+        ``,
+        `Stored figure for comparison: ${stored}`,
+        ``,
+        `NOTES:`,
+        g.text,
+      ].join('\n'),
+      verifyMetricOutSchema,
+      { system: STRUCTURE_SYSTEM },
+    );
+
+    const cited = usableCitations(g.citations);
+    let changed = false;
+
+    if (out.currentValue != null && hasVerificationGradeCitation(cited)) {
+      const prior = metric.value;
+      const differs = prior == null || prior === 0 || Math.abs(out.currentValue - prior) / Math.max(Math.abs(prior), 1) > 0.02;
+      
+      if (differs && metric.confidence !== 'user_verified') {
+        metric.value = out.currentValue;
+        metric.confidence = 'verified';
+        metric.citations = cited;
+        metric.source = cited[0]?.url ?? metric.source;
+        metric.methodNote = out.methodNote ?? `Live verification: ${out.rationale}`;
+        metric.capturedAt = nowIso;
+        changed = true;
+      }
+    }
+    
+    if (!changed && out.verdict === 'unverified' && metric.confidence === 'verified') {
+      metric.confidence = 'estimated';
+      metric.methodNote = `Could not re-corroborate from live sources on ${nowIso.slice(0, 10)}; badge downgraded pending fresh evidence.`;
+      metric.capturedAt = nowIso;
+      changed = true;
+    }
+
+    if (changed || out.verdict !== 'unverified') {
+      if (!changed) {
+        Object.assign(metric, markVerified(metric as CompanyMetric, nowIso));
+      }
+      await cloudDeckService.saveDeck(userId, deckId, existingDeck, existingDeck.revision);
+    }
+
+    return c.json({
+      verdict: out.verdict,
+      rationale: out.rationale,
+      citations: g.citations,
+      correctedValue: out.currentValue,
+      correctedAsOf: null,
+    });
+  });
+
+  app.post('/api/research/hunt-metrics', async (c) => {
+    const json = await c.req.json().catch(() => ({}));
+    const { deckId, companyId } = json;
+
+    if (!deckId || !companyId) {
+      return c.json({ error: 'Missing parameters' }, 400);
+    }
+
+    const callerKey = c.req.header(BYOK_HEADER);
+    const userId = await getUserId(c);
+
+    if (!userId) return c.json({ error: 'Authenticated user required' }, 401);
+    const isEntitled = await cloudDeckService.checkEntitlement(userId);
+    if (!isEntitled) return c.json({ error: 'Active subscription required' }, 402);
+
+    const existingDeck = await cloudDeckService.getDeck(userId, deckId);
+    if (!existingDeck) return c.json({ error: 'Deck not found' }, 404);
+
+    const cards = existingDeck.cards || [];
+    const cardIdx = cards.findIndex(c => c.company?.id === companyId);
+    if (cardIdx === -1) return c.json({ error: 'Company not found in deck' }, 404);
+    
+    const companyCard = cards[cardIdx]!;
+    const company = companyCard.company!;
+    const metrics = companyCard.metrics;
+
+    const softTypes = METRIC_TYPES.filter(t => {
+      const m = metrics.find(x => x.metricType === t);
+      if (!m) return true;
+      if (m.confidence === 'user_verified' || m.confidence === 'verified') return false;
+      return m.value == null || m.confidence === 'unknown' || m.confidence === 'estimated';
+    });
+
+    if (softTypes.length === 0) {
+      return c.json({ filledTypes: [], metrics, retieredCardIds: [] });
+    }
+
+    let resolved;
+    try {
+      resolved = resolveClient({ env, callerKey });
+    } catch (err) {
+      return c.json({ error: err instanceof Error ? err.message : String(err) }, 503);
+    }
+    const client = resolved.client;
+    
+    const wanted = softTypes.map(t => `- ${METRIC_TYPE_LABELS[t]}`).join('\n');
+    const g = await client.ground(
+      [
+        `Find the most current, reliable figures for these metrics of ${company.name}:`,
+        wanted,
+        `Company: ${company.name} — ${company.oneLiner}`,
+        `Use Google Search. For each figure name the value, its as-of date, and the source. Prefer primary sources and recent reputable coverage. If no reliable current figure exists for a metric, say so plainly for that metric. Never guess.`,
+        `MEASUREMENT BASIS: every figure must describe the WHOLE legal company — for a conglomerate, total company revenue/valuation/headcount, never a division's figure presented as the company's.`,
+        `UNITS: Market Share in percent of its primary market (0-100); Users and Employees as plain counts; Valuation, Market Cap, and ARR in US dollars.`,
+      ].join('\n'),
+      { system: GROUNDED_SYSTEM }
+    );
+
+    const out = await client.structure(
+      [
+        `Based ONLY on these research notes about ${company.name}, output JSON { "figures": [ { "metricType": "market_cap"|"valuation"|"market_share"|"arr"|"users"|"employees", "value": number|null, "methodNote": string|null (one line naming the source and as-of date) } ] }.`,
+        `Include ONLY the metrics the notes actually support with a concrete figure — omit the rest entirely. NEVER invent a value.`,
+        ``,
+        `NOTES:`,
+        g.text,
+      ].join('\n'),
+      huntMetricsOutSchema,
+      { system: STRUCTURE_SYSTEM }
+    );
+
+    const nowIso = new Date().toISOString();
+    const cited = usableCitations(g.citations);
+    const filledTypes: string[] = [];
+
+    let changed = false;
+    if (hasVerificationGradeCitation(cited)) {
+      for (const fig of out.figures) {
+        if (fig.value == null) continue;
+        if (!softTypes.includes(fig.metricType)) continue;
+        let metric = metrics.find(m => m.metricType === fig.metricType);
+        if (!metric) {
+          metric = {
+            id: `met_hunt_${Date.now().toString(36)}_${fig.metricType}`,
+            companyId,
+            metricType: fig.metricType as CompanyMetric['metricType'],
+            value: null,
+            confidence: 'unknown',
+            source: null,
+            citations: [],
+            methodNote: null,
+            capturedAt: nowIso,
+          };
+          metrics.push(metric);
+        }
+        metric.value = fig.value;
+        metric.confidence = 'verified';
+        metric.citations = cited;
+        metric.source = cited[0]?.url ?? null;
+        metric.methodNote = fig.methodNote ?? null;
+        metric.capturedAt = nowIso;
+        filledTypes.push(fig.metricType);
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      await cloudDeckService.saveDeck(userId, deckId, existingDeck, existingDeck.revision);
+    }
+
+    return c.json({
+      filledTypes,
+      metrics,
+      retieredCardIds: changed ? [companyCard.card.id] : [],
+    });
+  });
+
 
   /**
    * Capture a page, verify the capture is genuine, and never return a
