@@ -130,6 +130,7 @@ export function createApp(
   const getUserId = async (c: Context): Promise<string | null> => {
     const auth = c.req.header('authorization')?.replace(/^Bearer\s+/i, '').trim();
     if (auth) {
+      if (env.appToken && auth === env.appToken) return null;
       return await cloudDeckService.authenticate(auth);
     }
     return null;
@@ -308,9 +309,7 @@ export function createApp(
       ? rawAppToken
       : authHeader && env.appToken && authHeader === env.appToken
         ? authHeader
-        : authHeader && env.appToken
-          ? env.appToken
-          : undefined;
+        : undefined;
 
     const userId = await getUserId(c);
 
@@ -318,10 +317,21 @@ export function createApp(
     try {
       const authz = authorizeSpend({ env, callerKey, appToken });
       
-      // If no callerKey (BYOK), it's a cloud operation and requires entitlement
-      if (!callerKey && userId) {
-         const isEntitled = await cloudDeckService.checkEntitlement(userId);
-         if (!isEntitled) throw new UnauthorizedSpendError('Active Pro entitlement required for cloud research');
+      // Cloud Deck creation (/api/research/deck or cloud persistence) requires verified user with entitlement
+      const isCloudDeckEndpoint = c.req.path.startsWith('/api/research/deck');
+      if (isCloudDeckEndpoint) {
+        if (!userId) {
+          throw new UnauthorizedSpendError('Authenticated user required for cloud research');
+        }
+        const isEntitled = await cloudDeckService.checkEntitlement(userId);
+        if (!isEntitled) {
+          throw new UnauthorizedSpendError('Active Pro entitlement required for cloud research');
+        }
+      } else if (!callerKey && userId) {
+        const isEntitled = await cloudDeckService.checkEntitlement(userId);
+        if (!isEntitled) {
+          throw new UnauthorizedSpendError('Active Pro entitlement required for cloud research');
+        }
       }
 
       metered = authz.metered;
@@ -627,7 +637,10 @@ export function createApp(
     if (status === 429) {
       return c.json({ error: 'Cloud model quota is exhausted. Try again later or provide your own Gemini key.' }, 429);
     }
-    if (status === 404) {
+    if (status === 404 || err.message === 'Not found') {
+      return c.json({ error: 'Not found' }, 404);
+    }
+    if (err.message?.includes('model') && err.message?.includes('unavailable')) {
       return c.json({ error: 'The configured cloud model is unavailable in this region.' }, 503);
     }
     return c.json({ error: 'Internal error' }, 500);

@@ -323,4 +323,115 @@ describe('REST Persistence API Endpoints', () => {
     const decksRes = await a.request('/api/decks', { headers: { Authorization: 'Bearer valid_token' } });
     expect(decksRes.status).toBe(200);
   });
+
+  it('rejects raw bearer strings, emails, demo tokens, expired tokens, and service app tokens as user identity', async () => {
+    const a = app({ APP_TOKEN: 'service_secret_token_123' });
+
+    // Missing auth header
+    expect((await a.request('/api/me')).status).toBe(401);
+
+    // Raw string
+    expect((await a.request('/api/me', { headers: { Authorization: 'Bearer raw_bearer' } })).status).toBe(401);
+
+    // Demo token
+    expect((await a.request('/api/me', { headers: { Authorization: 'Bearer demo-user-token' } })).status).toBe(401);
+
+    // Email address
+    expect((await a.request('/api/me', { headers: { Authorization: 'Bearer user@stratemark.com' } })).status).toBe(401);
+
+    // Expired token
+    expect((await a.request('/api/me', { headers: { Authorization: 'Bearer expired_token' } })).status).toBe(401);
+
+    // Service app token in Authorization header cannot act as a user
+    expect((await a.request('/api/me', { headers: { Authorization: 'Bearer service_secret_token_123' } })).status).toBe(401);
+  });
+
+  it('returns indistinguishable 404 for cross-owner and non-existent deck access', async () => {
+    const tasks = new MockTasksAdapter();
+    const a = app({ GEMINI_API_KEY: 'k', APP_TOKEN: 't' }, tasks);
+
+    // User Pro creates deck_tenant_a
+    const createRes = await post(
+      a,
+      '/api/research/deck',
+      {
+        deckId: 'deck_tenant_a',
+        plan: { marketName: 'Fintech', vertical: 'Finance', geography: null, notes: null, searchThemes: [] },
+      },
+      { Authorization: 'Bearer valid_pro_token', 'X-Stratemark-Token': 't' },
+    );
+    expect(createRes.status).toBe(202);
+
+    // Owner (user_pro) can fetch it
+    const ownerRes = await a.request('/api/decks/deck_tenant_a', {
+      headers: { Authorization: 'Bearer valid_pro_token' },
+    });
+    expect(ownerRes.status).toBe(200);
+
+    // Other user (valid_other_user) gets 404 Not found
+    const crossRes = await a.request('/api/decks/deck_tenant_a', {
+      headers: { Authorization: 'Bearer valid_other_user' },
+    });
+    expect(crossRes.status).toBe(404);
+    const crossBody = await asJson<{ error: string }>(crossRes);
+    expect(crossBody.error).toBe('Not found');
+
+    // Missing deck gets identical 404 Not found
+    const missingRes = await a.request('/api/decks/deck_missing_xyz', {
+      headers: { Authorization: 'Bearer valid_other_user' },
+    });
+    expect(missingRes.status).toBe(404);
+    const missingBody = await asJson<{ error: string }>(missingRes);
+    expect(missingBody.error).toBe('Not found');
+
+    // Cross-owner delete returns 404 Not found
+    const crossDeleteRes = await a.request('/api/decks/deck_tenant_a', {
+      method: 'DELETE',
+      headers: { Authorization: 'Bearer valid_other_user' },
+    });
+    expect(crossDeleteRes.status).toBe(404);
+  });
+
+  it('refuses cloud research creation for users without active pro entitlement', async () => {
+    const tasks = new MockTasksAdapter();
+    const a = app({ GEMINI_API_KEY: 'k', APP_TOKEN: 't' }, tasks);
+
+    // Free user attempting cloud research
+    const res = await post(
+      a,
+      '/api/research/deck',
+      {
+        deckId: 'deck_free_attempt',
+        plan: { marketName: 'Health', vertical: 'Bio', geography: null, notes: null, searchThemes: [] },
+      },
+      { Authorization: 'Bearer valid_free_token', 'X-Stratemark-Token': 't' },
+    );
+    expect(res.status).toBe(401);
+    expect((await asJson<{ error: string }>(res)).error).toMatch(/entitlement/i);
+  });
+
+  it('BYOK compute operates synchronously and does not persist cloud deck records', async () => {
+    const a = app({ APP_TOKEN: 't' });
+
+    // BYOK request with Gemini Key
+    const res = await post(
+      a,
+      '/v1/research',
+      {
+        deckId: 'deck_byok_ephemeral',
+        plan: { marketName: 'Test Market', vertical: 'Tech', geography: null, notes: null, searchThemes: [] },
+      },
+      { 'X-Gemini-Key': 'AIza-custom-key' },
+    );
+
+    expect(res.status).toBe(200);
+    const body = await asJson<{ ok: boolean; deckId: string }>(res);
+    expect(body.ok).toBe(true);
+
+    // Ephemeral BYOK deck was NOT saved in cloud store
+    const fetchRes = await a.request('/api/decks/deck_byok_ephemeral', {
+      headers: { Authorization: 'Bearer valid_pro_token' },
+    });
+    expect(fetchRes.status).toBe(404);
+  });
 });

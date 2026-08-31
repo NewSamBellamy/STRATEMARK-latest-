@@ -51,6 +51,12 @@ export class MemoryDataStore implements StratemarkDataStore {
     const existing = this.decks.get(deckId);
     const currentRev = existing?.revision ?? 0;
     
+    if (existing && existing.userId && record.userId && existing.userId !== record.userId) {
+      const err = new Error('Not found') as Error & { status?: number };
+      err.status = 404;
+      throw err;
+    }
+
     if (expectedRevision !== undefined && expectedRevision !== currentRev) {
       const err = new Error(`Revision mismatch: expected ${expectedRevision}, got ${currentRev}`) as Error & { status?: number };
       err.status = 409;
@@ -62,6 +68,7 @@ export class MemoryDataStore implements StratemarkDataStore {
 
     const newRecord = { 
       ...record, 
+      userId: existing?.userId ?? record.userId,
       revision: nextRev,
       createdAt: existing?.createdAt ?? record.createdAt ?? now,
       updatedAt: now,
@@ -99,6 +106,12 @@ export class MemoryDataStore implements StratemarkDataStore {
     const existing = this.markets.get(marketId);
     const currentRev = (existing?.revision as number) ?? 0;
 
+    if (existing && existing.userId && userId && existing.userId !== userId) {
+      const err = new Error('Not found') as Error & { status?: number };
+      err.status = 404;
+      throw err;
+    }
+
     if (expectedRevision !== undefined && expectedRevision !== currentRev) {
       const err = new Error(`Revision mismatch: expected ${expectedRevision}, got ${currentRev}`) as Error & { status?: number };
       err.status = 409;
@@ -108,7 +121,7 @@ export class MemoryDataStore implements StratemarkDataStore {
     const nextRev = currentRev + 1;
     this.markets.set(marketId, { 
       ...market, 
-      ...(userId ? { userId } : {}),
+      userId: (existing?.userId as string) ?? userId,
       revision: nextRev,
       updatedAt: new Date().toISOString()
     });
@@ -222,8 +235,10 @@ export class FirestoreDataStore implements StratemarkDataStore {
         
         const currentRev = deckDoc.exists ? ((deckDoc.data()?.revision as number) ?? 0) : 0;
         
-        if (deckDoc.exists && deckDoc.data()?.userId && deckDoc.data()?.userId !== record.userId) {
-          throw new Error('Not found'); // 404 anti-enumeration
+        if (deckDoc.exists && deckDoc.data()?.userId && record.userId && deckDoc.data()?.userId !== record.userId) {
+          const err = new Error('Not found') as Error & { status?: number };
+          err.status = 404;
+          throw err;
         }
         
         if (expectedRevision !== undefined && currentRev !== expectedRevision) {
@@ -232,6 +247,7 @@ export class FirestoreDataStore implements StratemarkDataStore {
         
         const nextRev = currentRev + 1;
         const now = FieldValue.serverTimestamp();
+        const resolvedUserId = deckDoc.exists ? deckDoc.data()?.userId : record.userId;
         
         const payload = {
           id: deckId,
@@ -245,7 +261,7 @@ export class FirestoreDataStore implements StratemarkDataStore {
             record.query ??
             (typeof record.plan?.marketName === 'string' ? record.plan.marketName : '') ??
             (typeof record.market?.name === 'string' ? record.market.name : ''),
-          ...(record.userId ? { userId: record.userId } : {}),
+          ...(resolvedUserId ? { userId: resolvedUserId } : {}),
           createdAt: deckDoc.exists ? deckDoc.data()?.createdAt : now,
           updatedAt: now,
           refreshedAt: record.refreshedAt ?? now,
@@ -262,7 +278,7 @@ export class FirestoreDataStore implements StratemarkDataStore {
             ...record.market,
             id: marketId,
             marketId,
-            ...(record.userId ? { userId: record.userId } : {}),
+            ...(resolvedUserId ? { userId: resolvedUserId } : {}),
             updatedAt: now,
             revision: nextRev,
           }, { merge: true });
@@ -270,6 +286,10 @@ export class FirestoreDataStore implements StratemarkDataStore {
       });
     } catch (e: unknown) {
       const err = e as Error & { status?: number };
+      if (err.status === 404 || err.message === 'Not found') {
+        err.status = 404;
+        throw err;
+      }
       if (err.message?.includes('Revision mismatch')) {
         err.status = 409;
         throw err;
@@ -360,8 +380,10 @@ export class FirestoreDataStore implements StratemarkDataStore {
         const docSnap = await t.get(docRef);
         const currentRev = docSnap.exists ? ((docSnap.data()?.revision as number) ?? 0) : 0;
         
-        if (docSnap.exists && docSnap.data()?.userId && docSnap.data()?.userId !== userId) {
-          throw new Error('Not found'); // 404 anti-enumeration
+        if (docSnap.exists && docSnap.data()?.userId && userId && docSnap.data()?.userId !== userId) {
+          const err = new Error('Not found') as Error & { status?: number };
+          err.status = 404;
+          throw err;
         }
 
         if (expectedRevision !== undefined && currentRev !== expectedRevision) {
@@ -369,13 +391,14 @@ export class FirestoreDataStore implements StratemarkDataStore {
         }
         
         const nextRev = currentRev + 1;
+        const resolvedUserId = docSnap.exists ? docSnap.data()?.userId : userId;
         t.set(
           docRef,
           {
             ...market,
             id: marketId,
             marketId,
-            ...(userId ? { userId } : {}),
+            ...(resolvedUserId ? { userId: resolvedUserId } : {}),
             updatedAt: FieldValue.serverTimestamp(),
             revision: nextRev,
           },
@@ -384,6 +407,10 @@ export class FirestoreDataStore implements StratemarkDataStore {
       });
     } catch (e: unknown) {
       const err = e as Error & { status?: number };
+      if (err.status === 404 || err.message === 'Not found') {
+        err.status = 404;
+        throw err;
+      }
       if (err.message?.includes('Revision mismatch')) {
         err.status = 409;
         throw err;
