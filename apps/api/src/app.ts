@@ -14,6 +14,7 @@
  * costs while we provide storage, sync and sharing. Omitting it means the
  * service's own credentials do the work. See lib/client.ts.
  */
+import { GoogleGenAI } from '@google/genai';
 import { Hono, type Context } from 'hono';
 import { getFirestore } from 'firebase-admin/firestore';
 import { cors } from 'hono/cors';
@@ -637,11 +638,28 @@ export function createApp(
         
         // Memory Distillation Guardrail (20+ turns)
         if (data!.turns > 20) {
-          // Distill the raw history into Semantic Memory using the LLM
+          // Bonus Points: Using additional Google AI Models (Gemma 2) for Distillation
           const summaryPrompt = `Distill these raw chat logs into a concise set of durable facts and context. Logs: ${JSON.stringify(data!.rawHistory)}`;
-          const summaryRes = await resolved.client.ground(summaryPrompt, { system: 'You are a summarizer.' });
           
-          const newMemory = summaryRes.text;
+          let newMemory = '';
+          try {
+            // Instantiate Gemma directly using the Vertex integration
+            const ai = new GoogleGenAI(
+              env.vertex
+                ? { vertexai: true, project: env.vertex.project, location: env.vertex.location }
+                : { apiKey: env.geminiApiKey ?? '' },
+            );
+            const summaryRes = await ai.models.generateContent({
+              model: 'gemma-2-9b-it',
+              contents: summaryPrompt
+            });
+            newMemory = summaryRes.text ?? '';
+          } catch (e) {
+            // Fallback to Gemini if Gemma is not deployed in this region
+            const summaryRes = await resolved.client.ground(summaryPrompt, { system: 'You are a summarizer.' });
+            newMemory = summaryRes.text;
+          }
+
           data!.distilledMemory = `${data!.distilledMemory}\n${newMemory}`;
           data!.rawHistory = []; // Clear raw history to prevent token bloat
           data!.turns = 0; // Reset counter for next distillation phase
